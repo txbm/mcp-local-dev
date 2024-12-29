@@ -6,16 +6,16 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-from .types import (
+from mcp_runtime_server.types import (
     TestConfig,
     TestResult,
     TestRunResult,
     CapturedOutput,
     RuntimeEnv
 )
-from .sandbox import create_sandbox, cleanup_sandbox
-from .binaries import ensure_binary
-from .frameworks import (
+from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.binaries import ensure_binary
+from mcp_runtime_server.frameworks import (
     detect_frameworks,
     get_framework_command,
     parse_test_results,
