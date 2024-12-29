@@ -1,10 +1,11 @@
 """Runtime manager utilities."""
 from typing import List, Dict, Tuple
 import shutil
+import os
 from pathlib import Path
 
-from .types import RuntimeManager
-from .logging import logger
+from mcp_runtime_server.types import RuntimeManager
+from mcp_runtime_server.logging import logger
 
 
 def get_manager_binary(manager: RuntimeManager) -> str:
