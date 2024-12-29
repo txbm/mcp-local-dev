@@ -28,10 +28,16 @@ dev = [
     "ruff"
 ]
 
-# Extra security features for Linux
+# Platform-specific security features
 linux = [
     "python-seccomp",  # For syscall filtering
     "python-unshare",  # For namespace isolation
+]
+macos = [
+    "macOS-sandbox"  # For macOS sandbox integration
+]
+windows = [
+    "win32security"  # For Windows security features
 ]
 
 [project.scripts]
