@@ -33,12 +33,6 @@ linux = [
     "python-seccomp",  # For syscall filtering
     "python-unshare",  # For namespace isolation
 ]
-macos = [
-    "macOS-sandbox"  # For macOS sandbox integration
-]
-windows = [
-    "win32security"  # For Windows security features
-]
 
 [project.scripts]
 mcp-runtime-server = "mcp_runtime_server.server:main"
