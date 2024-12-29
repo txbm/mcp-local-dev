@@ -6,10 +6,17 @@ from typing import Any, Dict, List
 import signal
 import sys
 
-from mcp.server.lowlevel import Server, NotificationOptions
-from mcp.server.models import InitializationOptions
-import mcp.types as types
-from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
+from mcp.protocol import (
+    Server,
+    NotificationOptions,
+    InitializationOptions,
+    Tool,
+    CallToolResult,
+    TextContent,
+    ErrorData,
+    INTERNAL_ERROR,
+    INVALID_PARAMS
+)
 
 from .types import (
     RuntimeManager,
@@ -64,10 +71,10 @@ class RuntimeServer:
         """Set up MCP message handlers."""
         
         @self.server.list_tools()
-        async def list_tools() -> List[types.Tool]:
+        async def list_tools() -> List[Tool]:
             """List available runtime management tools."""
             return [
-                types.Tool(
+                Tool(
                     name="create_environment",
                     description="Create a new runtime environment with sandbox isolation",
                     inputSchema={
@@ -112,7 +119,7 @@ class RuntimeServer:
                         "required": ["manager", "package_name"]
                     }
                 ),
-                types.Tool(
+                Tool(
                     name="run_command",
                     description="Run a command in an isolated sandbox environment",
                     inputSchema={
@@ -142,7 +149,7 @@ class RuntimeServer:
                         "required": ["env_id", "command"]
                     }
                 ),
-                types.Tool(
+                Tool(
                     name="auto_run_tests",
                     description="Auto-detect and run tests in a sandboxed environment",
                     inputSchema={
@@ -164,7 +171,7 @@ class RuntimeServer:
                         "required": ["env_id"]
                     }
                 ),
-                types.Tool(
+                Tool(
                     name="cleanup_environment",
                     description="Clean up a sandboxed environment",
                     inputSchema={
@@ -185,7 +192,7 @@ class RuntimeServer:
             ]
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
+        async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
             """Handle tool invocations."""
             try:
                 if name == "create_environment":
@@ -200,8 +207,8 @@ class RuntimeServer:
                         if "resource_limits" in arguments else None
                     )
                     env = await create_environment(config)
-                    return types.CallToolResult(
-                        content=[types.TextContent(
+                    return CallToolResult(
+                        content=[TextContent(
                             type="text",
                             text=json.dumps({
                                 "id": env.id,
@@ -225,8 +232,8 @@ class RuntimeServer:
                     )
                     stdout, stderr = await process.communicate()
                     
-                    return types.CallToolResult(
-                        content=[types.TextContent(
+                    return CallToolResult(
+                        content=[TextContent(
                             type="text",
                             text=json.dumps({
                                 "stdout": stdout.decode() if stdout else "",
@@ -251,8 +258,8 @@ class RuntimeServer:
                         include_coverage=arguments.get("include_coverage", True),
                         parallel=arguments.get("parallel", False)
                     )
-                    return types.CallToolResult(
-                        content=[types.TextContent(
+                    return CallToolResult(
+                        content=[TextContent(
                             type="text",
                             text=json.dumps(results)
                         )]
@@ -266,8 +273,8 @@ class RuntimeServer:
                         arguments["env_id"],
                         force=arguments.get("force", False)
                     )
-                    return types.CallToolResult(
-                        content=[types.TextContent(
+                    return CallToolResult(
+                        content=[TextContent(
                             type="text",
                             text=json.dumps({"status": "success"})
                         )]
@@ -277,22 +284,21 @@ class RuntimeServer:
                 
             except RuntimeServerError as e:
                 logger.error(f"Tool execution error: {str(e)}", exc_info=True)
-                raise types.ErrorData(
+                raise ErrorData(
                     code=e.code,
                     message=str(e),
                     data=e.details if hasattr(e, 'details') else None
                 )
             except Exception as e:
                 logger.error(f"Unexpected error in tool execution: {str(e)}", exc_info=True)
-                raise types.ErrorData(
+                raise ErrorData(
                     code=INTERNAL_ERROR,
                     message=str(e)
                 )
 
     async def serve(self) -> None:
         """Start the MCP server."""
-        await mcp.server.stdio.serve(
-            self.server,
+        await self.server.serve(
             InitializationOptions(
                 server_name="mcp-runtime-server",
                 server_version=self.VERSION,
