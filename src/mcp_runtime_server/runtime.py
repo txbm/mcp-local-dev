@@ -7,10 +7,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from .types import RuntimeConfig, RuntimeEnv, CaptureConfig
-from .sandbox import create_sandbox, cleanup_sandbox
-from .binaries import ensure_binary, RUNTIME_BINARIES
-from .binaries.platforms import get_platform_info
+from mcp_runtime_server.types import RuntimeConfig, RuntimeEnv, CaptureConfig
+from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.binaries import ensure_binary
+from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
 
 
 # Active environments
