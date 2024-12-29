@@ -1,13 +1,7 @@
-"""Binary management package."""
-from pathlib import Path
-from typing import Dict
-
+"""Binary management and caching."""
 from .fetcher import ensure_binary
-from .cache import get_cache_dir
+from .cache import cleanup_cache
 from .platforms import get_platform_info
-
-# Export main functions
-__all__ = ['ensure_binary', 'get_cache_dir', 'get_platform_info']
 
 # Runtime binary specifications
 RUNTIME_BINARIES = {
@@ -31,3 +25,10 @@ RUNTIME_BINARIES = {
         "binary_path": "uv"
     }
 }
+
+__all__ = [
+    "ensure_binary",
+    "cleanup_cache",
+    "get_platform_info",
+    "RUNTIME_BINARIES"
+]
