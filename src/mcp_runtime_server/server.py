@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import signal
 import sys
 
-from mcp.server.lowlevel import Server
+from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 import mcp.server.stdio
@@ -25,6 +25,7 @@ from .sandbox import create_sandbox, cleanup_sandbox
 
 class RuntimeServer:
     """MCP runtime server implementation."""
+    VERSION = "0.1.0"
 
     def __init__(self) -> None:
         """Initialize the server."""
@@ -187,11 +188,14 @@ class RuntimeServer:
                         if "resource_limits" in arguments else None
                     )
                     env = await create_environment(config)
-                    return {
-                        "id": env.id,
-                        "working_dir": env.working_dir,
-                        "created_at": env.created_at.isoformat()
-                    }
+                    return types.TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "id": env.id,
+                            "working_dir": env.working_dir,
+                            "created_at": env.created_at.isoformat()
+                        })
+                    )
 
                 elif name == "run_command":
                     capture_config = CaptureConfig(
@@ -204,14 +208,17 @@ class RuntimeServer:
                     )
                     stdout, stderr = await process.communicate()
                     
-                    return {
-                        "stdout": stdout.decode() if stdout else "",
-                        "stderr": stderr.decode() if stderr else "",
-                        "exit_code": process.returncode,
-                        "start_time": process.start_time.isoformat(),
-                        "end_time": process.end_time.isoformat(),
-                        "stats": process.stats if hasattr(process, "stats") else None
-                    }
+                    return types.TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "stdout": stdout.decode() if stdout else "",
+                            "stderr": stderr.decode() if stderr else "",
+                            "exit_code": process.returncode,
+                            "start_time": process.start_time.isoformat(),
+                            "end_time": process.end_time.isoformat(),
+                            "stats": process.stats if hasattr(process, "stats") else None
+                        })
+                    )
 
                 elif name == "auto_run_tests":
                     results = await auto_detect_and_run_tests(
@@ -219,27 +226,39 @@ class RuntimeServer:
                         include_coverage=arguments.get("include_coverage", True),
                         parallel=arguments.get("parallel", False)
                     )
-                    return results
+                    return types.TextContent(
+                        type="text",
+                        text=json.dumps(results)
+                    )
 
                 elif name == "cleanup_environment":
                     await cleanup_environment(
                         arguments["env_id"],
                         force=arguments.get("force", False)
                     )
-                    return {}
+                    return types.TextContent(
+                        type="text",
+                        text=json.dumps({"status": "success"})
+                    )
 
                 raise ValueError(f"Unknown tool: {name}")
                 
             except Exception as e:
-                # Log error and re-raise with context
                 print(f"Error executing {name}: {e}")
-                raise
+                raise types.ToolError(str(e))
 
     async def serve(self) -> None:
         """Start the MCP server."""
         await mcp.server.stdio.serve(
             self.server,
-            InitializationOptions(capabilities=["tools"])
+            InitializationOptions(
+                server_name="mcp-runtime-server",
+                server_version=self.VERSION,
+                capabilities=self.server.get_capabilities(
+                    notification_options=NotificationOptions(),
+                    experimental_capabilities={}
+                )
+            )
         )
 
 
