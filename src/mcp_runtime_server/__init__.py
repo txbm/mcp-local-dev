@@ -1,6 +1,6 @@
 """MCP Runtime Server package."""
-from .server import RuntimeServer
-from .types import (
+from mcp_runtime_server.server import RuntimeServer
+from mcp_runtime_server.types import (
     RuntimeManager,
     RuntimeConfig,
     TestConfig,
@@ -10,8 +10,8 @@ from .types import (
     CaptureMode,
     ResourceLimits
 )
-from .sandbox import create_sandbox, cleanup_sandbox
-from .binaries import ensure_binary
+from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.binaries import ensure_binary
 
 __version__ = "0.1.0"
 
