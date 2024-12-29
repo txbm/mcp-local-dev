@@ -15,7 +15,9 @@ dependencies = [
     "aiohttp>=3.9.0",
     "psutil>=5.9.0",
     "appdirs>=1.4.4",
-    "structlog>=23.0.0"
+    "structlog>=23.0.0",
+    "python-seccomp>=3.0.0; sys_platform == 'linux'",
+    "python-unshare>=0.1.0; sys_platform == 'linux'"
 ]
 
 [project.optional-dependencies]
@@ -26,12 +28,6 @@ dev = [
     "black",
     "mypy",
     "ruff"
-]
-
-# Platform-specific security features
-linux = [
-    "python-seccomp",  # For syscall filtering
-    "python-unshare",  # For namespace isolation
 ]
 
 [project.scripts]
