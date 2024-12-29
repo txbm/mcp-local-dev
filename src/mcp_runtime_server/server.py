@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import signal
 import sys
 
-from mcp.server import Server
+from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 import mcp.server.stdio
@@ -51,13 +51,13 @@ class RuntimeServer:
         """Set up MCP message handlers."""
         
         @self.server.list_tools()
-        async def handle_list_tools() -> List[types.Tool]:
+        async def list_tools() -> List[types.Tool]:
             """List available runtime management tools."""
             return [
                 types.Tool(
                     name="create_environment",
                     description="Create a new runtime environment with sandbox isolation",
-                    parameters={
+                    inputSchema={
                         "type": "object",
                         "properties": {
                             "manager": {
@@ -97,20 +97,12 @@ class RuntimeServer:
                             }
                         },
                         "required": ["manager", "package_name"]
-                    },
-                    returns={
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "working_dir": {"type": "string"},
-                            "created_at": {"type": "string", "format": "date-time"}
-                        }
                     }
                 ),
                 types.Tool(
                     name="run_command",
                     description="Run a command in an isolated sandbox environment",
-                    parameters={
+                    inputSchema={
                         "type": "object",
                         "properties": {
                             "env_id": {
@@ -135,31 +127,12 @@ class RuntimeServer:
                             }
                         },
                         "required": ["env_id", "command"]
-                    },
-                    returns={
-                        "type": "object",
-                        "properties": {
-                            "stdout": {"type": "string"},
-                            "stderr": {"type": "string"},
-                            "exit_code": {"type": "integer"},
-                            "start_time": {"type": "string", "format": "date-time"},
-                            "end_time": {"type": "string", "format": "date-time"},
-                            "stats": {
-                                "type": "object",
-                                "properties": {
-                                    "peak_memory_mb": {"type": "number"},
-                                    "avg_cpu_percent": {"type": "number"},
-                                    "duration_seconds": {"type": "number"},
-                                    "peak_cpu_percent": {"type": "number"}
-                                }
-                            }
-                        }
                     }
                 ),
                 types.Tool(
                     name="auto_run_tests",
                     description="Auto-detect and run tests in a sandboxed environment",
-                    parameters={
+                    inputSchema={
                         "type": "object",
                         "properties": {
                             "env_id": {
@@ -176,48 +149,12 @@ class RuntimeServer:
                             }
                         },
                         "required": ["env_id"]
-                    },
-                    returns={
-                        "type": "object",
-                        "properties": {
-                            "results": {
-                                "type": "object",
-                                "additionalProperties": {
-                                    "type": "object",
-                                    "properties": {
-                                        "framework": {"type": "string"},
-                                        "command": {"type": "string"},
-                                        "passed": {"type": "integer"},
-                                        "failed": {"type": "integer"},
-                                        "total": {"type": "integer"},
-                                        "execution_time": {"type": "number"},
-                                        "coverage": {"type": ["number", "null"]},
-                                        "failures": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        }
-                                    }
-                                }
-                            },
-                            "summary": {
-                                "type": "object",
-                                "properties": {
-                                    "frameworks_detected": {"type": "integer"},
-                                    "frameworks_run": {"type": "integer"},
-                                    "all_passed": {"type": "boolean"},
-                                    "total_tests": {"type": "integer"},
-                                    "total_passed": {"type": "integer"},
-                                    "total_failed": {"type": "integer"},
-                                    "total_time": {"type": "number"}
-                                }
-                            }
-                        }
                     }
                 ),
                 types.Tool(
                     name="cleanup_environment",
                     description="Clean up a sandboxed environment",
-                    parameters={
+                    inputSchema={
                         "type": "object",
                         "properties": {
                             "env_id": {
@@ -230,13 +167,12 @@ class RuntimeServer:
                             }
                         },
                         "required": ["env_id"]
-                    },
-                    returns={"type": "object"}
+                    }
                 )
             ]
 
-        @self.server.tool_handler()
-        async def handle_tool(name: str, arguments: Dict[str, Any]) -> Any:
+        @self.server.call_tool()
+        async def call_tool(name: str, arguments: Dict[str, Any]) -> Any:
             """Handle tool invocations."""
             try:
                 if name == "create_environment":
