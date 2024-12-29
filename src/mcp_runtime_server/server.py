@@ -235,8 +235,8 @@ class RuntimeServer:
                 )
             ]
 
-        @self.server.invoke_tool()
-        async def handle_invoke_tool(name: str, arguments: Dict[str, Any]) -> Any:
+        @self.server.tool_handler()
+        async def handle_tool(name: str, arguments: Dict[str, Any]) -> Any:
             """Handle tool invocations."""
             try:
                 if name == "create_environment":
