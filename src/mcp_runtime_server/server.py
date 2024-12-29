@@ -14,10 +14,12 @@ from .types import (
     TestConfig,
     CaptureConfig,
     CaptureMode,
-    ResourceLimits
+    ResourceLimits,
+    RuntimeEnv,
+    ACTIVE_ENVS
 )
 from .runtime import create_environment, cleanup_environment, run_in_env
-from .testing import run_tests
+from .testing import run_tests, auto_detect_and_run_tests
 
 
 def create_mcp_server() -> Server:
@@ -131,8 +133,8 @@ def create_mcp_server() -> Server:
                 }
             ),
             types.Tool(
-                name="run_tests",
-                description="Run tests in an environment",
+                name="auto_run_tests",
+                description="Auto-detect and run tests in an environment",
                 parameters={
                     "type": "object",
                     "properties": {
@@ -140,50 +142,50 @@ def create_mcp_server() -> Server:
                             "type": "string",
                             "description": "Environment identifier"
                         },
-                        "tests": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "name": {"type": "string"},
-                                    "command": {"type": "string"},
-                                    "expected_output": {"type": "string"},
-                                    "expected_exit_code": {"type": "integer"},
-                                    "timeout_seconds": {"type": "integer"},
-                                    "env": {
-                                        "type": "object",
-                                        "additionalProperties": {"type": "string"}
-                                    }
-                                },
-                                "required": ["name", "command"]
-                            }
+                        "include_coverage": {
+                            "type": "boolean",
+                            "description": "Include coverage reporting"
                         },
-                        "parallel": {"type": "boolean"},
-                        "max_concurrent": {"type": "integer"}
+                        "parallel": {
+                            "type": "boolean",
+                            "description": "Run tests in parallel"
+                        }
                     },
-                    "required": ["env_id", "tests"]
+                    "required": ["env_id"]
                 },
                 returns={
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "result": {
-                                "type": "string",
-                                "enum": ["pass", "fail", "error", "timeout"]
-                            },
-                            "error_message": {"type": "string"},
-                            "failure_details": {
-                                "type": "object",
-                                "additionalProperties": {"type": "string"}
-                            },
-                            "captured": {
+                    "properties": {
+                        "results": {
+                            "type": "object",
+                            "additionalProperties": {
                                 "type": "object",
                                 "properties": {
-                                    "stdout": {"type": "string"},
-                                    "stderr": {"type": "string"},
-                                    "exit_code": {"type": "integer"}
+                                    "framework": {"type": "string"},
+                                    "command": {"type": "string"},
+                                    "passed": {"type": "integer"},
+                                    "failed": {"type": "integer"},
+                                    "total": {"type": "integer"},
+                                    "execution_time": {"type": "number"},
+                                    "coverage": {"type": ["number", "null"]},
+                                    "exit_code": {"type": "integer"},
+                                    "failures": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
                                 }
+                            }
+                        },
+                        "summary": {
+                            "type": "object",
+                            "properties": {
+                                "frameworks_detected": {"type": "integer"},
+                                "frameworks_run": {"type": "integer"},
+                                "all_passed": {"type": "boolean"},
+                                "total_tests": {"type": "integer"},
+                                "total_passed": {"type": "integer"},
+                                "total_failed": {"type": "integer"},
+                                "total_time": {"type": "number"}
                             }
                         }
                     }
@@ -254,30 +256,16 @@ def create_mcp_server() -> Server:
                 } if output.stats else None
             }
 
-        elif name == "run_tests":
-            tests = [
-                TestConfig(**test_config)
-                for test_config in arguments["tests"]
-            ]
-            results = await run_tests(
-                arguments["env_id"],
-                tests,
-                parallel=arguments.get("parallel", False),
-                max_concurrent=arguments.get("max_concurrent")
+        elif name == "auto_run_tests":
+            env_id = arguments["env_id"]
+            if env_id not in ACTIVE_ENVS:
+                raise ValueError(f"Environment {env_id} not found")
+                
+            return await auto_detect_and_run_tests(
+                ACTIVE_ENVS[env_id],
+                include_coverage=arguments.get("include_coverage", True),
+                parallel=arguments.get("parallel", False)
             )
-            return {
-                name: {
-                    "result": result.result.value,
-                    "error_message": result.error_message,
-                    "failure_details": result.failure_details,
-                    "captured": {
-                        "stdout": result.captured.stdout,
-                        "stderr": result.captured.stderr,
-                        "exit_code": result.captured.exit_code
-                    }
-                }
-                for name, result in results.items()
-            }
 
         elif name == "cleanup_environment":
             await cleanup_environment(
