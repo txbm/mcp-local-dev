@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional, NamedTuple
 import appdirs
 
-from .security import apply_restrictions, remove_restrictions
+from mcp_runtime_server.sandbox.security import apply_restrictions, remove_restrictions
 
 
 class SandboxInfo(NamedTuple):
