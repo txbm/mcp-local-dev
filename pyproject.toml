@@ -6,6 +6,9 @@ build-backend = "hatchling.build"
 name = "mcp-runtime-server"
 version = "0.1.0"
 description = "Model Context Protocol Runtime Server - A secure sandbox for managing runtime environments"
+authors = [
+    {name = "MCP Contributors", email = "info@modelcontextprotocol.io"}
+]
 requires-python = ">=3.9"
 dependencies = [
     "mcp>=0.7.0",
@@ -31,12 +34,52 @@ linux = [
     "python-unshare",  # For namespace isolation
 ]
 
+[project.scripts]
+mcp-runtime-server = "mcp_runtime_server.server:main"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=mcp_runtime_server --cov-report=term-missing"
 
 [tool.mypy]
 strict = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
+include = '\.pyi?$'
 
 [tool.ruff]
 select = ["E", "F", "B"]
 ignore = []
+line-length = 88
+target-version = "py39"
+
+[tool.coverage.run]
+branch = true
+source = ["mcp_runtime_server"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_runtime_server"]
