@@ -11,7 +11,7 @@ from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 
-from .types import (
+from mcp_runtime_server.types import (
     RuntimeManager,
     RuntimeConfig,
     TestConfig,
@@ -19,10 +19,10 @@ from .types import (
     CaptureMode,
     ResourceLimits
 )
-from .runtime import create_environment, cleanup_environment, run_in_env
-from .testing import auto_detect_and_run_tests
-from .sandbox import create_sandbox, cleanup_sandbox
-from .errors import (
+from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_in_env
+from mcp_runtime_server.testing import auto_detect_and_run_tests
+from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.errors import (
     RuntimeServerError,
     InvalidEnvironmentError,
     ResourceLimitError,
