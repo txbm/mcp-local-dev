@@ -1,6 +1,6 @@
 """Sandbox environment management."""
-from .environment import create_sandbox, cleanup_sandbox
-from .security import apply_restrictions, remove_restrictions
+from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.sandbox.security import apply_restrictions, remove_restrictions
 
 __all__ = [
     "create_sandbox",
