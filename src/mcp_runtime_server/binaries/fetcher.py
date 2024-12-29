@@ -7,9 +7,9 @@ import tarfile
 from pathlib import Path
 from typing import Optional, Tuple
 
-from . import RUNTIME_BINARIES
-from .platforms import get_platform_info
-from .cache import (
+from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
+from mcp_runtime_server.binaries.platforms import get_platform_info
+from mcp_runtime_server.binaries.cache import (
     get_binary_path,
     cache_binary,
     cleanup_cache,
