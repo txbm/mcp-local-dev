@@ -1,6 +1,7 @@
 """MCP server implementation."""
 import asyncio
 import json
+import logging
 from typing import Any, Dict, List
 import signal
 import sys
@@ -8,7 +9,7 @@ import sys
 from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
-import mcp.server.stdio
+from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 
 from .types import (
     RuntimeManager,
@@ -21,6 +22,17 @@ from .types import (
 from .runtime import create_environment, cleanup_environment, run_in_env
 from .testing import auto_detect_and_run_tests
 from .sandbox import create_sandbox, cleanup_sandbox
+from .errors import (
+    RuntimeServerError,
+    InvalidEnvironmentError,
+    ResourceLimitError,
+    BinaryNotFoundError,
+    SandboxError
+)
+
+
+logger = logging.getLogger(__name__)
+ACTIVE_ENVS: Dict[str, Any] = {}
 
 
 class RuntimeServer:
@@ -36,13 +48,13 @@ class RuntimeServer:
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
         def handle_shutdown(signum, frame):
-            print("\nShutting down runtime server...")
+            logger.info("\nShutting down runtime server...")
             # Cleanup all active environments
             for env_id in list(ACTIVE_ENVS.keys()):
                 try:
                     asyncio.create_task(cleanup_environment(env_id, force=True))
                 except Exception as e:
-                    print(f"Error cleaning up environment {env_id}: {e}")
+                    logger.error(f"Error cleaning up environment {env_id}: {e}")
             sys.exit(0)
 
         signal.signal(signal.SIGINT, handle_shutdown)
@@ -173,7 +185,7 @@ class RuntimeServer:
             ]
 
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> Any:
+        async def call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
             """Handle tool invocations."""
             try:
                 if name == "create_environment":
@@ -188,16 +200,21 @@ class RuntimeServer:
                         if "resource_limits" in arguments else None
                     )
                     env = await create_environment(config)
-                    return types.TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "id": env.id,
-                            "working_dir": env.working_dir,
-                            "created_at": env.created_at.isoformat()
-                        })
+                    return types.CallToolResult(
+                        content=[types.TextContent(
+                            type="text",
+                            text=json.dumps({
+                                "id": env.id,
+                                "working_dir": env.working_dir,
+                                "created_at": env.created_at.isoformat()
+                            })
+                        )]
                     )
 
                 elif name == "run_command":
+                    if "env_id" not in arguments:
+                        raise InvalidEnvironmentError("Missing env_id parameter")
+                        
                     capture_config = CaptureConfig(
                         **arguments.get("capture_config", {})
                     )
@@ -208,44 +225,69 @@ class RuntimeServer:
                     )
                     stdout, stderr = await process.communicate()
                     
-                    return types.TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "stdout": stdout.decode() if stdout else "",
-                            "stderr": stderr.decode() if stderr else "",
-                            "exit_code": process.returncode,
-                            "start_time": process.start_time.isoformat(),
-                            "end_time": process.end_time.isoformat(),
-                            "stats": process.stats if hasattr(process, "stats") else None
-                        })
+                    return types.CallToolResult(
+                        content=[types.TextContent(
+                            type="text",
+                            text=json.dumps({
+                                "stdout": stdout.decode() if stdout else "",
+                                "stderr": stderr.decode() if stderr else "",
+                                "exit_code": process.returncode,
+                                "start_time": process.start_time.isoformat(),
+                                "end_time": process.end_time.isoformat(),
+                                "stats": process.stats if hasattr(process, "stats") else None
+                            })
+                        )]
                     )
 
                 elif name == "auto_run_tests":
+                    if "env_id" not in arguments:
+                        raise InvalidEnvironmentError("Missing env_id parameter")
+                        
+                    if arguments["env_id"] not in ACTIVE_ENVS:
+                        raise InvalidEnvironmentError(arguments["env_id"])
+                        
                     results = await auto_detect_and_run_tests(
                         ACTIVE_ENVS[arguments["env_id"]],
                         include_coverage=arguments.get("include_coverage", True),
                         parallel=arguments.get("parallel", False)
                     )
-                    return types.TextContent(
-                        type="text",
-                        text=json.dumps(results)
+                    return types.CallToolResult(
+                        content=[types.TextContent(
+                            type="text",
+                            text=json.dumps(results)
+                        )]
                     )
 
                 elif name == "cleanup_environment":
+                    if "env_id" not in arguments:
+                        raise InvalidEnvironmentError("Missing env_id parameter")
+                        
                     await cleanup_environment(
                         arguments["env_id"],
                         force=arguments.get("force", False)
                     )
-                    return types.TextContent(
-                        type="text",
-                        text=json.dumps({"status": "success"})
+                    return types.CallToolResult(
+                        content=[types.TextContent(
+                            type="text",
+                            text=json.dumps({"status": "success"})
+                        )]
                     )
 
-                raise ValueError(f"Unknown tool: {name}")
+                raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
                 
+            except RuntimeServerError as e:
+                logger.error(f"Tool execution error: {str(e)}", exc_info=True)
+                raise types.ErrorData(
+                    code=e.code,
+                    message=str(e),
+                    data=e.details if hasattr(e, 'details') else None
+                )
             except Exception as e:
-                print(f"Error executing {name}: {e}")
-                raise types.ToolError(str(e))
+                logger.error(f"Unexpected error in tool execution: {str(e)}", exc_info=True)
+                raise types.ErrorData(
+                    code=INTERNAL_ERROR,
+                    message=str(e)
+                )
 
     async def serve(self) -> None:
         """Start the MCP server."""
@@ -264,13 +306,18 @@ class RuntimeServer:
 
 def main() -> None:
     """Main entry point."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
     server = RuntimeServer()
     try:
         asyncio.run(server.serve())
     except KeyboardInterrupt:
-        print("\nServer stopped")
+        logger.info("\nServer stopped")
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}", exc_info=True)
         sys.exit(1)
 
 
