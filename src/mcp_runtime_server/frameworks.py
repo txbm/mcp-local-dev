@@ -1,7 +1,7 @@
 """Test framework detection and configuration."""
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 @dataclass(frozen=True)
 class TestFramework:
