@@ -6,6 +6,7 @@ from pathlib import Path
 
 from mcp_runtime_server.types import RuntimeManager
 from mcp_runtime_server.logging import logger
+from mcp_runtime_server.errors import RuntimeServerError
 
 
 def get_manager_binary(manager: RuntimeManager) -> str:
@@ -18,12 +19,12 @@ def get_manager_binary(manager: RuntimeManager) -> str:
         Path to binary or command name
         
     Raises:
-        RuntimeError: If manager binary not found
+        RuntimeServerError: If manager binary not found
     """
     # Check if command exists in PATH
     binary = shutil.which(manager.value)
     if not binary:
-        raise RuntimeError(f"Runtime manager {manager.value} not found in PATH")
+        raise RuntimeServerError(f"Runtime manager {manager.value} not found in PATH")
     return binary
 
 
@@ -43,6 +44,9 @@ def build_install_command(
         
     Returns:
         Tuple of (command, arguments list)
+        
+    Raises:
+        RuntimeServerError: If manager is not supported
     """
     if args is None:
         args = []
@@ -76,7 +80,7 @@ def build_install_command(
         return cmd, ["run", "--no-cache", pkg_spec, *args]
         
     else:
-        raise ValueError(f"Unsupported runtime manager: {manager}")
+        raise RuntimeServerError(f"Unsupported runtime manager: {manager}")
 
 
 def validate_package_name(manager: RuntimeManager, package: str) -> bool:
