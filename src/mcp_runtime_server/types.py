@@ -1,11 +1,11 @@
 """Runtime server type definitions."""
-from typing import TypeAlias, Optional, Dict, Any, NamedTuple
+from typing import TypeAlias, Optional, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
 
-RTManager = Enum('RTManager', [
+RuntimeManager = Enum('RuntimeManager', [
     ('NODE', 'node'),
     ('BUN', 'bun'),
     ('UV', 'uv')
@@ -37,9 +37,9 @@ class CaptureConfig:
 
 
 @dataclass(frozen=True)
-class RTConfig:
+class RuntimeConfig:
     """Configuration for runtime environments."""
-    manager: RTManager
+    manager: RuntimeManager
     package_name: str
     version: Optional[str] = None
     args: list[str] = None
@@ -53,10 +53,10 @@ class RTConfig:
 
 
 @dataclass(frozen=True)
-class RTEnv:
+class Environment:
     """Runtime environment state."""
     id: str
-    config: RTConfig
+    config: RuntimeConfig
     created_at: datetime
     working_dir: str
     env_vars: Dict[str, str]
@@ -81,7 +81,7 @@ TestResult = Enum('TestResult', [
 
 
 @dataclass(frozen=True)
-class Output:
+class CapturedOutput:
     """Output captured from test execution."""
     stdout: str
     stderr: str
@@ -91,20 +91,21 @@ class Output:
 
 
 @dataclass(frozen=True)
-class TestRun:
+class TestResult:
     """Results from a test run."""
     config: TestConfig
     result: TestResult
-    captured: Output
+    captured: CapturedOutput
     error_message: Optional[str] = None
     failure_details: Optional[Dict[str, str]] = None
 
 
-ExitCode: TypeAlias = int
-OutText: TypeAlias = str
+ExitCode: TypeAlias = int 
+Stdout: TypeAlias = str
+Stderr: TypeAlias = str
 EnvVars: TypeAlias = Dict[str, str]
 
-def make_error(message: str, details: Optional[Dict[str, Any]] = None) -> Exception:
+def error(message: str, details: Optional[Dict[str, Any]] = None) -> Exception:
     """Create an error with optional details."""
     err = Exception(message)
     if details:
