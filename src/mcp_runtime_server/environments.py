@@ -15,6 +15,31 @@ logger = logging.getLogger(__name__)
 
 ENVIRONMENTS: Dict[str, Environment] = {}
 
+async def clone_repository(url: str, target_dir: str, env_vars: Dict[str, str]) -> None:
+    """Clone a GitHub repository using HTTPS.
+    
+    Args:
+        url: Repository URL
+        target_dir: Clone target directory
+        env_vars: Environment variables for git
+    """
+    if "github.com" in url:
+        # Extract owner/repo path
+        parts = url.split("github.com", 1)
+        if len(parts) == 2:
+            repo_path = parts[1].strip("/.git")
+            url = f"https://github.com/{repo_path}.git"
+            
+    process = await run_command(
+        f"git clone {url} {target_dir}",
+        str(Path(target_dir).parent),
+        env_vars
+    )
+    stdout, stderr = await process.communicate()
+    
+    if process.returncode != 0:
+        raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
+
 async def create_environment(config: RuntimeConfig) -> Environment:
     """Create a new runtime environment."""
     try:
@@ -49,27 +74,8 @@ async def create_environment(config: RuntimeConfig) -> Environment:
             env_vars=env_vars
         )
         
-        # Convert any GitHub URL to simple HTTPS
-        if "github.com" in config.github_url:
-            parts = config.github_url.split("github.com", 1)
-            if len(parts) == 2:
-                repo_path = parts[1].strip("/")
-                clone_url = f"https://github.com/{repo_path}.git"
-            else:
-                clone_url = config.github_url
-        else:
-            clone_url = config.github_url
+        await clone_repository(config.github_url, str(work_dir), env_vars)
         
-        process = await run_command(
-            f"git clone {clone_url} {work_dir}",
-            str(work_dir.parent),
-            env_vars
-        )
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
-            
         ENVIRONMENTS[env.id] = env
         return env
         
