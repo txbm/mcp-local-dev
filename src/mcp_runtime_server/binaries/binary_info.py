@@ -70,11 +70,21 @@ def get_binary_download_info(name: str, version: Optional[str] = None) -> Tuple[
         "uv": platform_info.uv_platform
     }
     platform_str = platform_map[name]
-    if "-" in platform_str:
-        platform, arch = platform_str.split("-")
+    
+    if name == "uv":
+        # UV platform identifiers contain hyphens, so we handle them separately
+        if "-" in platform_str:
+            platform, arch = platform_str.split("-")
+        else:
+            platform = platform_str
+            arch = "x64"  # Default to 64-bit architecture
     else:
-        platform = platform_str
-        arch = "x64"  # Default to 64-bit architecture
+        # For other runtimes, split the platform string on hyphens
+        if "-" in platform_str:
+            platform, arch = platform_str.split("-")
+        else:
+            platform = platform_str
+            arch = "x64"  # Default to 64-bit architecture
     
     download_url = spec["url_template"].format(
         version=version,
