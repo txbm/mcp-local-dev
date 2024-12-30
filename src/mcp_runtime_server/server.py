@@ -2,9 +2,9 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List
 import signal
 import sys
+from typing import Any, Dict, List
 
 from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
@@ -12,36 +12,36 @@ import mcp.types as types
 from mcp.server import stdio
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 
-from mcp_runtime_server.types import (
-    RuntimeManager,
-    RuntimeConfig,
-    TestConfig,
-    CaptureConfig,
-    CaptureMode,
-    ResourceLimits
-)
-from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_in_env
-from mcp_runtime_server.testing import auto_detect_and_run_tests
-from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.errors import (
     RuntimeServerError,
-    InvalidEnvironmentError,
+    InvalidEnvError,
     ResourceLimitError,
-    BinaryNotFoundError,
+    BinNotFoundError,
     SandboxError,
     log_error
 )
+from mcp_runtime_server.runtime import create_env, cleanup_env, run_in_env
+from mcp_runtime_server.testing import auto_detect_tests
+from mcp_runtime_server.types import (
+    RTManager,
+    RTConfig,
+    CaptureConfig,
+    CaptureMode, 
+    ResourceLimits
+)
+from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.logging import configure_logging
 
 logger = logging.getLogger(__name__)
+
+# Active environments
 ACTIVE_ENVS: Dict[str, Any] = {}
 
-
-def init_runtime_server() -> Server:
+def init_server() -> Server:
     """Initialize the MCP runtime server."""
     server = Server("mcp-runtime-server")
 
-    @server.list_tools()
+    @server.list_tools() 
     async def list_tools() -> List[types.Tool]:
         """List available runtime management tools."""
         return [
@@ -53,11 +53,11 @@ def init_runtime_server() -> Server:
                     "properties": {
                         "manager": {
                             "type": "string",
-                            "enum": [m.value for m in RuntimeManager],
+                            "enum": [m.value for m in RTManager],
                             "description": "Runtime manager to use"
                         },
                         "package_name": {
-                            "type": "string",
+                            "type": "string", 
                             "description": "Package to install"
                         },
                         "version": {
@@ -94,7 +94,7 @@ def init_runtime_server() -> Server:
                 name="run_command",
                 description="Run a command in an isolated sandbox environment",
                 inputSchema={
-                    "type": "object",
+                    "type": "object", 
                     "properties": {
                         "env_id": {
                             "type": "string",
@@ -121,7 +121,7 @@ def init_runtime_server() -> Server:
                 }
             ),
             types.Tool(
-                name="auto_run_tests",
+                name="run_tests",
                 description="Auto-detect and run tests in a sandboxed environment",
                 inputSchema={
                     "type": "object",
@@ -143,7 +143,7 @@ def init_runtime_server() -> Server:
                 }
             ),
             types.Tool(
-                name="cleanup_environment",
+                name="cleanup",
                 description="Clean up a sandboxed environment",
                 inputSchema={
                     "type": "object",
@@ -167,8 +167,8 @@ def init_runtime_server() -> Server:
         """Handle tool invocations."""
         try:
             if name == "create_environment":
-                config = RuntimeConfig(
-                    manager=RuntimeManager(arguments["manager"]),
+                config = RTConfig(
+                    manager=RTManager(arguments["manager"]),
                     package_name=arguments["package_name"],
                     version=arguments.get("version"),
                     args=arguments.get("args", []),
@@ -177,7 +177,7 @@ def init_runtime_server() -> Server:
                     resource_limits=ResourceLimits(**arguments["resource_limits"])
                     if "resource_limits" in arguments else None
                 )
-                env = await create_environment(config)
+                env = await create_env(config)
                 return types.CallToolResult(
                     content=[types.TextContent(
                         type="text",
@@ -191,7 +191,7 @@ def init_runtime_server() -> Server:
 
             elif name == "run_command":
                 if "env_id" not in arguments:
-                    raise InvalidEnvironmentError("Missing env_id parameter")
+                    raise InvalidEnvError("Missing env_id parameter")
                     
                 capture_config = CaptureConfig(
                     **arguments.get("capture_config", {})
@@ -217,14 +217,14 @@ def init_runtime_server() -> Server:
                     )]
                 )
 
-            elif name == "auto_run_tests":
+            elif name == "run_tests":
                 if "env_id" not in arguments:
-                    raise InvalidEnvironmentError("Missing env_id parameter")
+                    raise InvalidEnvError("Missing env_id parameter")
                     
                 if arguments["env_id"] not in ACTIVE_ENVS:
-                    raise InvalidEnvironmentError(arguments["env_id"])
+                    raise InvalidEnvError(arguments["env_id"])
                     
-                results = await auto_detect_and_run_tests(
+                results = await auto_detect_tests(
                     ACTIVE_ENVS[arguments["env_id"]],
                     include_coverage=arguments.get("include_coverage", True),
                     parallel=arguments.get("parallel", False)
@@ -236,11 +236,11 @@ def init_runtime_server() -> Server:
                     )]
                 )
 
-            elif name == "cleanup_environment":
+            elif name == "cleanup":
                 if "env_id" not in arguments:
-                    raise InvalidEnvironmentError("Missing env_id parameter")
+                    raise InvalidEnvError("Missing env_id parameter")
                     
-                await cleanup_environment(
+                await cleanup_env(
                     arguments["env_id"],
                     force=arguments.get("force", False)
                 )
@@ -259,13 +259,13 @@ def init_runtime_server() -> Server:
                 raise types.ErrorData(
                     code=e.code,
                     message=str(e),
-                    data=e.details if hasattr(e, 'details') else None
+                    data=e.details if hasattr(e, "details") else None
                 )
             log_error(e, {"tool": name, "arguments": arguments}, logger)
             raise RuntimeError(str(e)) from None
 
 
-def setup_signal_handlers() -> None:
+def setup_signals() -> None:
     """Set up signal handlers for graceful shutdown."""
     def handle_shutdown(signum, frame):
         logger.info("Shutting down runtime server...", extra={
@@ -274,7 +274,7 @@ def setup_signal_handlers() -> None:
         # Cleanup all active environments
         for env_id in list(ACTIVE_ENVS.keys()):
             try:
-                asyncio.create_task(cleanup_environment(env_id, force=True))
+                asyncio.create_task(cleanup_env(env_id, force=True))
             except Exception as e:
                 log_error(e, {"env_id": env_id}, logger)
         sys.exit(0)
@@ -285,14 +285,14 @@ def setup_signal_handlers() -> None:
 
 async def serve_runtime() -> None:
     """Start the MCP runtime server."""
-    configure_logging()  # Configure logging with structured JSON and colors
+    configure_logging()  # Configure logging with JSON
     
     logger.info("Starting runtime server", extra={
         "data": {"version": "0.1.0"}
     })
     
-    server = init_runtime_server()
-    setup_signal_handlers()
+    server = init_server()
+    setup_signals()
     
     async with stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
@@ -310,5 +310,5 @@ async def serve_runtime() -> None:
 
 
 def main() -> None:
-    """Main entry point using asyncio directly."""
+    """Main entry point."""
     asyncio.run(serve_runtime())
