@@ -49,8 +49,16 @@ async def create_environment(config: RuntimeConfig) -> Environment:
             env_vars=env_vars
         )
         
-        # Use explicit protocol override for public repos
-        clone_url = f"//:https://github.com{config.github_url.split('github.com')[1].strip('/')}".replace(".git", "")
+        # Convert any GitHub URL to simple HTTPS
+        if "github.com" in config.github_url:
+            parts = config.github_url.split("github.com", 1)
+            if len(parts) == 2:
+                repo_path = parts[1].strip("/")
+                clone_url = f"https://github.com/{repo_path}.git"
+            else:
+                clone_url = config.github_url
+        else:
+            clone_url = config.github_url
         
         process = await run_command(
             f"git clone {clone_url} {work_dir}",
