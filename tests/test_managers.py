@@ -11,18 +11,14 @@ from mcp_runtime_server.managers import (
     cleanup_manager_artifacts
 )
 
-def test_get_manager_binary(mocker):
+def test_get_manager_binary(test_get_manager_binary):
     """Test manager binary resolution."""
-    # Mock shutil.which to return predictable paths
-    mocker.patch('shutil.which', side_effect=lambda x: f"/usr/bin/{x}")
-    
     # Test each manager binary
     for manager in RuntimeManager:
         binary = get_manager_binary(manager)
         assert binary == f"/usr/bin/{manager.value}"
     
     # Test nonexistent binary
-    mocker.patch('shutil.which', return_value=None)
     with pytest.raises(RuntimeError, match="Runtime nonexistent not found"):
         get_manager_binary("nonexistent")
 
