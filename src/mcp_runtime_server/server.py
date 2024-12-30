@@ -10,32 +10,17 @@ from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import stdio
-from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 
-from mcp_runtime_server.errors import (
-    RuntimeServerError,
-    EnvironmentError,
-    ResourceLimitError,
-    BinaryNotFoundError,
-    SandboxError,
-    log_error
-)
+from mcp_runtime_server.errors import log_error
 from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command
-from mcp_runtime_server.testing import auto_run_tests
-from mcp_runtime_server.types import (
-    RuntimeManager,
-    RuntimeConfig,
-    CaptureConfig,
-    CaptureMode, 
-    ResourceLimits
-)
-from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
-from mcp_runtime_server.logging import configure_logging, log_with_data
+from mcp_runtime_server.types import RuntimeManager, RuntimeConfig
+from mcp_runtime_server.logging import configure_logging
 
 logger = logging.getLogger(__name__)
 
 # Active environments
 ENVIRONMENTS: Dict[str, Any] = {}
+
 
 def init_server() -> Server:
     """Initialize the MCP runtime server."""
@@ -56,38 +41,12 @@ def init_server() -> Server:
                             "enum": [m.value for m in RuntimeManager],
                             "description": "Runtime manager to use"
                         },
-                        "package_name": {
+                        "github_url": {
                             "type": "string", 
-                            "description": "Package to install"
-                        },
-                        "version": {
-                            "type": "string",
-                            "description": "Package version"
-                        },
-                        "args": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Additional arguments"
-                        },
-                        "env": {
-                            "type": "object",
-                            "additionalProperties": {"type": "string"},
-                            "description": "Environment variables"
-                        },
-                        "working_dir": {
-                            "type": "string",
-                            "description": "Working directory path"
-                        },
-                        "resource_limits": {
-                            "type": "object",
-                            "properties": {
-                                "max_memory_mb": {"type": "integer"},
-                                "max_cpu_percent": {"type": "number"},
-                                "timeout_seconds": {"type": "integer"}
-                            }
+                            "description": "GitHub repository URL"
                         }
                     },
-                    "required": ["manager", "package_name"]
+                    "required": ["manager", "github_url"]
                 }
             ),
             types.Tool(
@@ -103,18 +62,6 @@ def init_server() -> Server:
                         "command": {
                             "type": "string",
                             "description": "Command to run"
-                        },
-                        "capture_config": {
-                            "type": "object",
-                            "properties": {
-                                "mode": {
-                                    "type": "string",
-                                    "enum": [m.value for m in CaptureMode]
-                                },
-                                "max_output_size": {"type": "integer"},
-                                "include_timestamps": {"type": "boolean"},
-                                "include_stats": {"type": "boolean"}
-                            }
                         }
                     },
                     "required": ["env_id", "command"]
@@ -129,14 +76,6 @@ def init_server() -> Server:
                         "env_id": {
                             "type": "string",
                             "description": "Environment identifier"
-                        },
-                        "include_coverage": {
-                            "type": "boolean",
-                            "description": "Include coverage reporting"
-                        },
-                        "parallel": {
-                            "type": "boolean",
-                            "description": "Run tests in parallel"
                         }
                     },
                     "required": ["env_id"]
@@ -151,10 +90,6 @@ def init_server() -> Server:
                         "env_id": {
                             "type": "string",
                             "description": "Environment identifier"
-                        },
-                        "force": {
-                            "type": "boolean",
-                            "description": "Force cleanup of running processes"
                         }
                     },
                     "required": ["env_id"]
@@ -169,13 +104,7 @@ def init_server() -> Server:
             if name == "create_environment":
                 config = RuntimeConfig(
                     manager=RuntimeManager(arguments["manager"]),
-                    package_name=arguments["package_name"],
-                    version=arguments.get("version"),
-                    args=arguments.get("args", []),
-                    env=arguments.get("env", {}),
-                    working_dir=arguments.get("working_dir"),
-                    resource_limits=ResourceLimits(**arguments["resource_limits"])
-                    if "resource_limits" in arguments else None
+                    github_url=arguments["github_url"]
                 )
                 env = await create_environment(config)
                 content = types.TextContent(
@@ -190,15 +119,14 @@ def init_server() -> Server:
 
             elif name == "run_command":
                 if "env_id" not in arguments:
-                    raise EnvironmentError("Missing env_id parameter")
+                    raise ValueError("Missing env_id parameter")
                     
-                capture_config = CaptureConfig(
-                    **arguments.get("capture_config", {})
-                )
+                if arguments["env_id"] not in ENVIRONMENTS:
+                    raise ValueError(f"Unknown environment: {arguments['env_id']}")
+
                 process = await run_command(
                     arguments["env_id"],
-                    arguments["command"],
-                    capture_config
+                    arguments["command"]
                 )
                 stdout, stderr = await process.communicate()
                 
@@ -207,26 +135,19 @@ def init_server() -> Server:
                     text=json.dumps({
                         "stdout": stdout.decode() if stdout else "",
                         "stderr": stderr.decode() if stderr else "",
-                        "exit_code": process.returncode,
-                        "start_time": process.start_time.isoformat(),
-                        "end_time": process.end_time.isoformat(),
-                        "stats": process.stats if hasattr(process, "stats") else None
+                        "exit_code": process.returncode
                     })
                 )
                 return types.CallToolResult(content=[content])
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
-                    raise EnvironmentError("Missing env_id parameter")
+                    raise ValueError("Missing env_id parameter")
                     
                 if arguments["env_id"] not in ENVIRONMENTS:
-                    raise EnvironmentError(arguments["env_id"])
-                    
-                results = await auto_run_tests(
-                    ENVIRONMENTS[arguments["env_id"]],
-                    include_coverage=arguments.get("include_coverage", True),
-                    parallel=arguments.get("parallel", False)
-                )
+                    raise ValueError(f"Unknown environment: {arguments['env_id']}")
+
+                results = await auto_run_tests(ENVIRONMENTS[arguments["env_id"]])
                 content = types.TextContent(
                     type="text", 
                     text=json.dumps(results)
@@ -235,28 +156,18 @@ def init_server() -> Server:
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
-                    raise EnvironmentError("Missing env_id parameter")
+                    raise ValueError("Missing env_id parameter")
                     
-                await cleanup_environment(
-                    arguments["env_id"],
-                    force=arguments.get("force", False)
-                )
+                await cleanup_environment(arguments["env_id"])
                 content = types.TextContent(
                     type="text",
                     text=json.dumps({"status": "success"})
                 )
                 return types.CallToolResult(content=[content])
 
-            raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
+            raise ValueError(f"Unknown tool: {name}")
             
         except Exception as e:
-            if isinstance(e, RuntimeServerError):
-                log_error(e, {"tool": name, "arguments": arguments}, logger)
-                content = types.TextContent(
-                    type="text",
-                    text=str(e)
-                )
-                return types.CallToolResult(content=[content], isError=True)
             log_error(e, {"tool": name, "arguments": arguments}, logger)
             content = types.TextContent(
                 type="text",
@@ -276,7 +187,7 @@ def setup_handlers() -> None:
         # Cleanup all active environments
         for env_id in list(ENVIRONMENTS.keys()):
             try:
-                asyncio.create_task(cleanup_environment(env_id, force=True))
+                asyncio.create_task(cleanup_environment(env_id))
             except Exception as e:
                 log_error(e, {"env_id": env_id}, logger)
         sys.exit(0)
