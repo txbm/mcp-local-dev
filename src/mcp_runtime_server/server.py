@@ -11,7 +11,8 @@ from mcp.types import Tool, TextContent
 from mcp.server import stdio
 
 from mcp_runtime_server.errors import log_error
-from mcp_runtime_server.runtime import create_environment, cleanup_environment, auto_run_tests
+from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command, ENVIRONMENTS
+from mcp_runtime_server.testing import auto_run_tests
 from mcp_runtime_server.types import RuntimeConfig
 from mcp_runtime_server.logging import configure_logging, log_with_data
 
@@ -34,12 +35,17 @@ def init_server() -> Server:
                 inputSchema={
                     "type": "object",
                     "properties": {
+                        "manager": {
+                            "type": "string", 
+                            "enum": ["node", "bun", "uv"],
+                            "description": "Runtime manager to use"
+                        },
                         "github_url": {
                             "type": "string", 
                             "description": "GitHub repository URL"
                         }
                     },
-                    "required": ["github_url"]
+                    "required": ["manager", "github_url"]
                 }
             ),
             Tool(
@@ -87,7 +93,10 @@ def init_server() -> Server:
             })
 
             if name == "create_environment":
-                config = RuntimeConfig(github_url=arguments["github_url"])
+                config = RuntimeConfig(
+                    manager=arguments["manager"],
+                    github_url=arguments["github_url"]
+                )
                 env = await create_environment(config)
                 result = {
                     "id": env.id,
