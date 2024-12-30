@@ -2,35 +2,14 @@
 from typing import TypeAlias, Optional, Dict, Any, NamedTuple
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
 
 
-class ManagerType(Enum):
-    """Type of runtime manager."""
-    BINARY = auto()  # Standalone binary managers like Node, Bun
-    PYTHON = auto()  # Python-specific managers like UV
-
-
-@dataclass(frozen=True)
-class RuntimeManagerConfig:
-    """Configuration for a runtime manager."""
-    name: str
-    type: ManagerType
-
-
-class RuntimeManager(Enum):
-    """Available runtime managers."""
-    NODE = RuntimeManagerConfig(name='node', type=ManagerType.BINARY)
-    BUN = RuntimeManagerConfig(name='bun', type=ManagerType.BINARY)
-    UV = RuntimeManagerConfig(name='uv', type=ManagerType.PYTHON)
-
-    @property
-    def value(self) -> str:
-        return self._value_.name
-
-    @property
-    def config(self) -> RuntimeManagerConfig:
-        return self._value_
+RuntimeManager = Enum('RuntimeManager', [
+    ('NODE', 'node'),
+    ('BUN', 'bun'),
+    ('UV', 'uv')
+])
 
 
 @dataclass(frozen=True)
@@ -124,7 +103,6 @@ class TestRunResult:
 RuntimeExitCode: TypeAlias = int
 RuntimeOutput: TypeAlias = str
 RuntimeEnvVars: TypeAlias = Dict[str, str]
-
 
 def runtime_error(message: str, details: Optional[Dict[str, Any]] = None) -> Exception:
     """Create a runtime error with optional details."""
