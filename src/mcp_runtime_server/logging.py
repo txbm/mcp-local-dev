@@ -6,6 +6,15 @@ import sys
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
 
+# ANSI color codes
+COLORS = {
+    'DEBUG': '\033[36m',     # Cyan
+    'INFO': '\033[32m',      # Green
+    'WARNING': '\033[33m',   # Yellow
+    'ERROR': '\033[31m',     # Red
+    'CRITICAL': '\033[35m',  # Magenta
+    'RESET': '\033[0m'       # Reset
+}
 
 class JsonFormatter(logging.Formatter):
     """JSON formatter for structured logging to stderr."""
@@ -28,24 +37,25 @@ class JsonFormatter(logging.Formatter):
         
         # Add exception info if present
         if record.exc_info:
+            exception_type, exception_value = record.exc_info[:2]
             log_object['exception'] = {
-                'type': record.exc_info[0].__name__,
-                'message': str(record.exc_info[1]),
+                'type': exception_type.__name__,
+                'message': str(exception_value),
                 'traceback': self.formatException(record.exc_info)
             }
 
         # Add any extra fields
         if hasattr(record, 'data'):
-            # Ensure data is JSON serializable
             try:
                 json.dumps(record.data)
                 log_object['data'] = record.data
             except (TypeError, ValueError):
-                # If data contains non-serializable objects, convert them to strings
                 log_object['data'] = self._sanitize_data(record.data)
-            
-        # Format as JSON with proper indentation for readability in debug logs
-        return json.dumps(log_object, indent=2)
+        
+        # Format as compact JSON and add color
+        color = COLORS.get(record.levelname, '')
+        reset = COLORS['RESET'] if color else ''
+        return f"{color}{json.dumps(log_object)}{reset}"
     
     def _sanitize_data(self, data: Any) -> Any:
         """Recursively sanitize data to ensure JSON serialization is possible."""
