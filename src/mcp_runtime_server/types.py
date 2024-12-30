@@ -15,19 +15,19 @@ class RuntimeManagerMeta(EnumMeta):
             raise RuntimeError(f"Unsupported runtime manager: {value}")
 
 
-@dataclass(frozen=True) 
-class RuntimeConfig:
-    """Configuration for runtime environments."""
-    github_url: str
-    manager: RuntimeManager
-
-
 class RuntimeManager(str, Enum, metaclass=RuntimeManagerMeta):
     """Runtime manager types."""
     NPX = "npx"
     BUN = "bun"
     UVX = "uvx"
     PIPX = "pipx"
+
+
+@dataclass(frozen=True)
+class RuntimeConfig:
+    """Configuration for runtime environments."""
+    github_url: str
+    manager: RuntimeManager
 
 
 @dataclass
