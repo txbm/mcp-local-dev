@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 async def download_file(url: str, dest: Path, headers: Optional[Dict[str, str]] = None) -> None:
     """Download a file."""
+    logger.debug(f"Downloading file from: {url}")
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as response:
             if response.status != 200:
@@ -39,10 +40,12 @@ async def download_file(url: str, dest: Path, headers: Optional[Dict[str, str]] 
                     if not chunk:
                         break
                     f.write(chunk)
+    logger.debug(f"File downloaded to: {dest}")
 
 async def get_uv_release_assets() -> dict:
     """Get UV release assets using GitHub API."""
     url = f"{UV_API_BASE}/{RELEASES_PATH}/{LATEST_PATH}"
+    logger.debug(f"Fetching UV release assets from: {url}")
     
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -50,24 +53,30 @@ async def get_uv_release_assets() -> dict:
                 raise RuntimeError(f"Failed to fetch UV release info: {response.status}")
             
             release = await response.json()
-            return {
+            assets = {
                 asset["name"]: asset["id"] 
                 for asset in release["assets"]
             }
+            logger.debug(f"Found assets: {list(assets.keys())}")
+            return assets
 
 async def get_asset_content(asset_id: int) -> str:
     """Get raw content of a release asset using GitHub API."""
     url = f"{UV_API_BASE}/{RELEASES_PATH}/{ASSETS_PATH}/{asset_id}"
     headers = {"Accept": "application/octet-stream"}
     
+    logger.debug(f"Fetching asset content from: {url}")
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as response:
             if response.status != 200:
                 raise RuntimeError(f"Failed to fetch asset content: {response.status}")
-            return await response.text()
+            content = await response.text()
+            logger.debug(f"Asset content received: {content[:500]}...")
+            return content
 
 def extract_binary(archive_path: Path, binary_path: str, dest_dir: Path) -> Path:
     """Extract binary from archive."""
+    logger.debug(f"Extracting binary from {archive_path} to {dest_dir}")
     if archive_path.suffix == '.zip':
         with zipfile.ZipFile(archive_path) as zf:
             binary_name = Path(binary_path).name
@@ -92,27 +101,33 @@ def extract_binary(archive_path: Path, binary_path: str, dest_dir: Path) -> Path
 
 async def verify_uv_binary(binary_path: Path, platform_binary_name: str) -> None:
     """Verify UV binary checksum using GitHub API."""
+    logger.debug(f"Starting verification for binary: {platform_binary_name}")
+    
     # Get mapping of asset names to IDs
     assets = await get_uv_release_assets()
+    logger.debug(f"Found assets: {list(assets.keys())}")
     
     # Get sha256.sum file content
     if "sha256.sum" not in assets:
         raise RuntimeError("Checksum file not found in release assets")
-        
+    
     content = await get_asset_content(assets["sha256.sum"])
     
     # Find and verify checksum
     for line in content.splitlines():
         try:
-            checksum, name = line.strip().split(maxsplit=1)  
-            name = name.strip()
+            logger.debug(f"Processing checksum line: {line}")
+            checksum, name = line.strip().split(maxsplit=1)
+            name = name.strip().lstrip('*')  # Remove any leading asterisk
+            logger.debug(f"Checking line - name: '{name}', expected: '{platform_binary_name}'")
             if name == platform_binary_name:
                 if not verify_checksum(binary_path, checksum):
                     raise RuntimeError("Binary checksum verification failed")
+                logger.debug("Checksum verification successful")
                 return
         except ValueError:
             continue
-            
+    
     raise RuntimeError(f"Checksum not found for {platform_binary_name}")
 
 async def fetch_binary(name: str) -> Path:
@@ -156,13 +171,16 @@ async def fetch_uv_binary() -> Path:
     """Fetch UV binary using GitHub API."""
     spec = RUNTIME_BINARIES["uv"]
     version = await get_latest_uv_release()
+    logger.debug(f"Fetching UV version: {version}")
     
     cached = get_binary_path("uv", version)
     if cached:
+        logger.debug(f"Using cached UV binary: {cached}")
         return cached
         
     platform_info = get_platform_info()
     binary_name = f"uv-{platform_info.uv_platform}.tar.gz"
+    logger.debug(f"UV binary name for platform: {binary_name}")
     
     # Get release assets
     assets = await get_uv_release_assets()
