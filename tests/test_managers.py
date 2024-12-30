@@ -24,15 +24,18 @@ async def test_get_manager_binary(environment_per_manager):
         assert binary.endswith(env.config.manager.value)
     
     # Invalid manager
-    with pytest.raises(RuntimeError):
+    try:
         get_manager_binary(RuntimeManager("nonexistent"))
+        pytest.fail("Expected RuntimeError")
+    except RuntimeError as e:
+        assert "Unsupported runtime manager" in str(e)
 
 @pytest.mark.asyncio
 async def test_build_install_command(environment_per_manager):
     """Test installation command building."""
     envs = await environment_per_manager
     npx_env = next(e for e in envs if e.config.manager == RuntimeManager.NPX)
-    uvx_env = next(e for e in envs if e.config.manager == RuntimeManager.UVX)
+    uvx_env = next(e for e in envs if e.config.manager == RuntimeManager.UVX) 
     pipx_env = next(e for e in envs if e.config.manager == RuntimeManager.PIPX)
     
     # NPX command
