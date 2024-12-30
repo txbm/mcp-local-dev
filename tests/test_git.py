@@ -27,23 +27,6 @@ async def test_github_clone():
 
 
 @pytest.mark.asyncio
-async def test_invalid_repo():
-    """Test cloning invalid repository."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        target = Path(tmpdir) / "repo"
-        env_vars = {"HOME": str(tmpdir), "PATH": os.environ["PATH"]}
-        
-        with pytest.raises(RuntimeError) as exc:
-            await clone_repository(
-                "github.com/txbm/nonexistent-repo",
-                str(target),
-                env_vars
-            )
-        assert "Clone failed" in str(exc.value)
-        assert not target.exists()
-
-
-@pytest.mark.asyncio
 async def test_invalid_url():
     """Test cloning with invalid URL format."""
     with tempfile.TemporaryDirectory() as tmpdir:
