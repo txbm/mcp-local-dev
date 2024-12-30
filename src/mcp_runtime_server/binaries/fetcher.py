@@ -64,7 +64,7 @@ async def download_file(
             'error': str(e),
             'status': getattr(e, 'status', None)
         })
-        raise RuntimeError(f"Failed to download from {url}") from e
+        raise ValueError(f"Failed to download from {url}") from e
 
 def get_archive_files(archive: Union[zipfile.ZipFile, tarfile.TarFile], format: str) -> List[str]:
     """Get list of files from archive handling different archive types."""
@@ -78,7 +78,7 @@ def get_archive_files(archive: Union[zipfile.ZipFile, tarfile.TarFile], format: 
             'format': format,
             'error': str(e)
         })
-        raise RuntimeError(f"Failed to read {format} archive") from e
+        raise ValueError(f"Failed to read {format} archive") from e
 
 def extract_binary(
     archive_path: Path, 
@@ -110,7 +110,7 @@ def extract_binary(
                     'binary_name': binary_name,
                     'available_files': all_files
                 })
-                raise RuntimeError(f"Binary {binary_name} not found in archive")
+                raise ValueError(f"Binary {binary_name} not found in archive")
 
             target = matching_files[0]
             archive.extract(target, dest_dir)
@@ -121,7 +121,7 @@ def extract_binary(
                     'archive': str(archive_path),
                     'expected_path': str(extracted_path)
                 })
-                raise RuntimeError("Failed to extract binary - file missing after extraction")
+                raise ValueError("Failed to extract binary - file missing after extraction")
             
             log_with_data(logger, logging.INFO, "Binary extracted successfully", {
                 'archive': str(archive_path),
@@ -132,13 +132,13 @@ def extract_binary(
             return extracted_path
             
     except Exception as e:
-        if not isinstance(e, RuntimeError):  # Don't wrap our own exceptions
+        if not isinstance(e, ValueError):  # Don't wrap our own exceptions
             log_with_data(logger, logging.ERROR, "Failed to extract binary", {
                 'archive': str(archive_path),
                 'format': format,
                 'error': str(e)
             })
-            raise RuntimeError(f"Failed to extract from {archive_path.name}") from e
+            raise ValueError(f"Failed to extract from {archive_path.name}") from e
         raise
 
 async def fetch_binary(
@@ -178,7 +178,7 @@ async def fetch_binary(
                     'exists': archive_path.exists(),
                     'size': archive_path.stat().st_size if archive_path.exists() else 0
                 })
-                raise RuntimeError("Download failed - archive is missing or empty")
+                raise ValueError("Download failed - archive is missing or empty")
             
             # Extract
             binary = extract_binary(archive_path, binary_path, tmp_path)
@@ -201,7 +201,7 @@ async def fetch_binary(
             'version': version,
             'error': str(e)
         })
-        raise RuntimeError(f"Failed to fetch {name}") from e
+        raise ValueError(f"Failed to fetch {name}") from e
 
 def create_binary_fetcher(name: str):
     """Create a specialized fetcher for a specific runtime."""
@@ -218,4 +218,4 @@ async def ensure_binary(name: str) -> Path:
         return await fetch_binary(name)
     except Exception as e:
         # No need to re-log here since fetch_binary already logs errors
-        raise RuntimeError(f"Failed to ensure binary {name}") from None  # Suppress traceback
+        raise ValueError(f"Failed to ensure binary {name}") from None  # Suppress traceback
