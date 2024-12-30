@@ -30,6 +30,7 @@ from mcp_runtime_server.errors import (
     BinaryNotFoundError,
     SandboxError
 )
+from mcp_runtime_server.logging import setup_logging
 
 
 logger = logging.getLogger(__name__)
@@ -287,6 +288,7 @@ def setup_signal_handlers() -> None:
 
 async def serve_runtime() -> None:
     """Start the MCP runtime server."""
+    setup_logging()  # Configure logging with filters
     server = init_runtime_server()
     setup_signal_handlers()
     
@@ -307,11 +309,6 @@ async def serve_runtime() -> None:
 
 def main() -> None:
     """Main entry point."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
     try:
         asyncio.run(serve_runtime())
     except KeyboardInterrupt:
