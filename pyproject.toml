@@ -4,9 +4,15 @@ version = "0.1.0"
 description = "MCP Runtime Server for executing code in isolated environments"
 requires-python = ">=3.8"
 dependencies = [
-    "mcp",
-    "appdirs"
+    "mcp>=0.1.0",
+    "uv>=0.1.0",
+    "pytest>=7.0.0",
+    "appdirs>=1.4.4"
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
 
 [build-system]
 requires = ["hatchling"]
