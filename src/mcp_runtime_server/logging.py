@@ -2,23 +2,16 @@
 import json
 import logging
 import logging.config
+import sys
 from datetime import datetime
 from typing import Any, Dict
 
-class ColorFormatter(logging.Formatter):
-    """Custom formatter with color support."""
-    
-    COLORS = {
-        'DEBUG': '\033[36m',    # Cyan
-        'INFO': '\033[32m',     # Green
-        'WARNING': '\033[33m',  # Yellow
-        'ERROR': '\033[31m',    # Red
-        'CRITICAL': '\033[35m'  # Magenta
-    }
-    RESET = '\033[0m'
 
+class JsonFormatter(logging.Formatter):
+    """JSON formatter for structured logging to stderr."""
+    
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record with color and as JSON."""
+        """Format log record as JSON."""
         # Add source file info
         record.source_info = f"{record.filename}:{record.lineno}"
         
@@ -39,42 +32,60 @@ class ColorFormatter(logging.Formatter):
         if hasattr(record, 'data'):
             log_object['data'] = record.data
 
-        # Format as colored JSON
-        color = self.COLORS.get(record.levelname, '')
-        formatted = json.dumps(log_object, indent=None)
-        return f"{color}{formatted}{self.RESET}"
+        # Format as JSON
+        return json.dumps(log_object)
 
-def configure_logging(level: str = 'INFO') -> None:
-    """Configure logging with color and JSON formatting."""
+
+class StderrFilter(logging.Filter):
+    """Filter to only allow DEBUG level messages."""
+    
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return True only for DEBUG level messages."""
+        return record.levelno == logging.DEBUG
+
+
+def configure_logging() -> None:
+    """Configure logging to send only debug messages to stderr as JSON."""
     config = {
         'version': 1,
-        'disable_existing_loggers': False,
+        'disable_existing_loggers': True,  # Disable existing loggers to prevent stdout usage
         'formatters': {
-            'colored_json': {
-                '()': ColorFormatter
+            'json': {
+                '()': JsonFormatter
+            }
+        },
+        'filters': {
+            'debug_only': {
+                '()': StderrFilter
             }
         },
         'handlers': {
-            'console': {
+            'stderr': {
                 'class': 'logging.StreamHandler',
-                'formatter': 'colored_json',
-                'stream': 'ext://sys.stdout'
+                'formatter': 'json',
+                'stream': 'ext://sys.stderr',
+                'filters': ['debug_only']
             }
         },
         'loggers': {
             'mcp_runtime_server': {
-                'handlers': ['console'],
-                'level': level,
+                'handlers': ['stderr'],
+                'level': 'DEBUG',
                 'propagate': False
             }
         },
         'root': {
-            'handlers': ['console'],
-            'level': level
+            'handlers': ['stderr'],
+            'level': 'DEBUG'
         }
     }
     
+    # Clear any existing handlers to ensure clean configuration
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+        
     logging.config.dictConfig(config)
+
 
 def log_with_data(logger: logging.Logger, level: int, msg: str, data: Dict[str, Any] = None) -> None:
     """Helper to log messages with structured data."""
