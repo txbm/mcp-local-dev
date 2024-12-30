@@ -9,8 +9,8 @@ from mcp_runtime_server.types import (
     TestConfig, 
     TestResult,
     TestRun,
-    Output,
-    RTEnv
+    CapturedOutput,
+    Environment
 )
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
@@ -19,10 +19,11 @@ from mcp_runtime_server.frameworks import (
     get_framework_command,
     parse_test_results
 )
+from mcp_runtime_server.errors import EnvironmentError
 
 
-async def auto_detect_tests(
-    env: RTEnv,
+async def auto_run_tests(
+    env: Environment,
     include_coverage: bool = True,
     parallel: bool = False
 ) -> Dict[str, Any]:
@@ -159,10 +160,7 @@ async def auto_detect_tests(
         cleanup_sandbox(sandbox)
 
 
-async def run_test(
-    env_id: str,
-    config: TestConfig
-) -> TestRun:
+async def run_test(env_id: str, config: TestConfig) -> TestRun:
     """Run a single test in a sandbox.
     
     Args:
@@ -172,10 +170,11 @@ async def run_test(
     Returns:
         TestRun with test execution results
     """
-    # Create sandbox for test execution
+    # Create sandbox
     sandbox = create_sandbox()
     
     try:
+        # Execute test
         process = await asyncio.create_subprocess_shell(
             config.command,
             env=sandbox.env_vars,
@@ -190,7 +189,7 @@ async def run_test(
                 timeout=config.timeout_seconds
             )
             
-            captured = Output(
+            captured = CapturedOutput(
                 stdout=stdout.decode() if stdout else "",
                 stderr=stderr.decode() if stderr else "",
                 exit_code=process.returncode,
@@ -240,7 +239,7 @@ async def run_test(
             return TestRun(
                 config=config,
                 result=TestResult.TIMEOUT,
-                captured=Output(
+                captured=CapturedOutput(
                     stdout="",
                     stderr="Test timed out",
                     exit_code=-1,
@@ -256,7 +255,7 @@ async def run_test(
         return TestRun(
             config=config,
             result=TestResult.ERROR,
-            captured=Output(
+            captured=CapturedOutput(
                 stdout="",
                 stderr=str(e),
                 exit_code=-1,
@@ -276,7 +275,7 @@ async def run_tests(
     parallel: bool = False,
     max_concurrent: Optional[int] = None
 ) -> Dict[str, TestRun]:
-    """Run multiple tests in sandboxed environments.
+    """Run multiple tests.
     
     Args:
         env_id: Environment identifier
