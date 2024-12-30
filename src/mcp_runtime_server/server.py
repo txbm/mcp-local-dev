@@ -4,22 +4,18 @@ import json
 import logging
 import signal
 import sys
-from typing import Any, Dict, List, Union
+from typing import Dict, Any, List, Union
 
-from mcp.server.lowlevel import Server, NotificationOptions
-from mcp.server.models import InitializationOptions
-from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
+from mcp.server.lowlevel import Server
+from mcp.types import Tool, TextContent
 from mcp.server import stdio
 
 from mcp_runtime_server.errors import log_error
-from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command
-from mcp_runtime_server.types import RuntimeManager, RuntimeConfig
+from mcp_runtime_server.runtime import create_environment, cleanup_environment, auto_run_tests
+from mcp_runtime_server.types import RuntimeConfig
 from mcp_runtime_server.logging import configure_logging, log_with_data
 
 logger = logging.getLogger(__name__)
-
-# Active environments
-ENVIRONMENTS: Dict[str, Any] = {}
 
 
 def init_server() -> Server:
@@ -38,35 +34,12 @@ def init_server() -> Server:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "manager": {
-                            "type": "string",
-                            "enum": [m.value for m in RuntimeManager],
-                            "description": "Runtime manager to use"
-                        },
                         "github_url": {
                             "type": "string", 
                             "description": "GitHub repository URL"
                         }
                     },
-                    "required": ["manager", "github_url"]
-                }
-            ),
-            Tool(
-                name="run_command",
-                description="Run a command in an isolated sandbox environment",
-                inputSchema={
-                    "type": "object", 
-                    "properties": {
-                        "env_id": {
-                            "type": "string",
-                            "description": "Environment identifier"
-                        },
-                        "command": {
-                            "type": "string",
-                            "description": "Command to run"
-                        }
-                    },
-                    "required": ["env_id", "command"]
+                    "required": ["github_url"]
                 }
             ),
             Tool(
@@ -105,7 +78,7 @@ def init_server() -> Server:
     async def call_tool(
         name: str, 
         arguments: Dict[str, Any]
-    ) -> List[Union[TextContent, ImageContent, EmbeddedResource]]:
+    ) -> List[Union[TextContent]]:
         """Handle tool invocations."""
         try:
             log_with_data(logger, logging.DEBUG, f"Tool invocation started: {name}", {
@@ -114,78 +87,30 @@ def init_server() -> Server:
             })
 
             if name == "create_environment":
-                log_with_data(logger, logging.DEBUG, "Creating new environment", {
-                    "manager": arguments["manager"],
-                    "github_url": arguments["github_url"]
-                })
-                
-                config = RuntimeConfig(
-                    manager=RuntimeManager(arguments["manager"]),
-                    github_url=arguments["github_url"]
-                )
+                config = RuntimeConfig(github_url=arguments["github_url"])
                 env = await create_environment(config)
                 result = {
                     "id": env.id,
-                    "working_dir": env.working_dir,
+                    "working_dir": str(env.work_dir),
                     "created_at": env.created_at.isoformat()
                 }
                 
                 log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
-                
-                return [TextContent(type="text", text=json.dumps(result))]
-
-            elif name == "run_command":
-                if "env_id" not in arguments:
-                    logger.error("Missing env_id parameter")
-                    raise ValueError("Missing env_id parameter")
-                    
-                if arguments["env_id"] not in ENVIRONMENTS:
-                    logger.error(f"Unknown environment: {arguments['env_id']}")
-                    raise ValueError(f"Unknown environment: {arguments['env_id']}")
-
-                log_with_data(logger, logging.DEBUG, "Running command in environment", {
-                    "env_id": arguments["env_id"],
-                    "command": arguments["command"]
-                })
-
-                process = await run_command(
-                    arguments["env_id"],
-                    arguments["command"]
-                )
-                stdout, stderr = await process.communicate()
-                
-                result = {
-                    "stdout": stdout.decode() if stdout else "",
-                    "stderr": stderr.decode() if stderr else "",
-                    "exit_code": process.returncode
-                }
-                
-                log_with_data(logger, logging.DEBUG, "Command execution completed", {
-                    "env_id": arguments["env_id"],
-                    "exit_code": process.returncode
-                })
-                
                 return [TextContent(type="text", text=json.dumps(result))]
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
                     logger.error("Missing env_id parameter")
                     raise ValueError("Missing env_id parameter")
-                    
+
                 if arguments["env_id"] not in ENVIRONMENTS:
                     logger.error(f"Unknown environment: {arguments['env_id']}")
                     raise ValueError(f"Unknown environment: {arguments['env_id']}")
 
-                log_with_data(logger, logging.DEBUG, "Running tests in environment", {
-                    "env_id": arguments["env_id"]
-                })
+                log_with_data(logger, logging.DEBUG, "Running tests", {"env_id": arguments["env_id"]})
 
                 results = await auto_run_tests(ENVIRONMENTS[arguments["env_id"]])
-                
-                log_with_data(logger, logging.DEBUG, "Test execution completed", {
-                    "env_id": arguments["env_id"],
-                    "results": results
-                })
+                log_with_data(logger, logging.DEBUG, "Test execution completed", results)
                 
                 return [TextContent(type="text", text=json.dumps(results))]
 
@@ -199,11 +124,6 @@ def init_server() -> Server:
                 })
                     
                 await cleanup_environment(arguments["env_id"])
-                
-                log_with_data(logger, logging.DEBUG, "Environment cleanup completed", {
-                    "env_id": arguments["env_id"]
-                })
-                
                 return [TextContent(type="text", text=json.dumps({"status": "success"}))]
 
             logger.error(f"Unknown tool requested: {name}")
@@ -211,14 +131,7 @@ def init_server() -> Server:
             
         except Exception as e:
             log_error(e, {"tool": name, "arguments": arguments}, logger)
-            logger.error("Tool invocation failed", exc_info=True, extra={
-                "data": {
-                    "tool": name,
-                    "arguments": arguments,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e)
-                }
-            })
+            logger.error("Tool invocation failed", exc_info=True)
             return [TextContent(type="text", text=str(e))]
 
     return server

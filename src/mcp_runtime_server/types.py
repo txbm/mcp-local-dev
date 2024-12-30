@@ -1,22 +1,13 @@
 """Runtime server type definitions."""
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
-
-
-RuntimeManager = Enum('RuntimeManager', [
-    ('NODE', 'node'),
-    ('BUN', 'bun'),
-    ('UV', 'uv')
-])
+from typing import Dict
 
 
 @dataclass(frozen=True)
 class RuntimeConfig:
     """Configuration for runtime environments."""
-    manager: RuntimeManager
     github_url: str
 
 
