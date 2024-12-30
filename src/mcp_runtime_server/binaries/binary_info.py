@@ -74,9 +74,16 @@ async def get_binary_download_info(name: str, version: Optional[str] = None) -> 
     platform_str = platform_map[name]
     
     if name == "uv":
-        # UV uses the full platform string directly
-        platform = platform_str
-        arch = ""  # Not needed for URL template
+        # Get extension based on the platform
+        if any(platform in platform_str for platform in ["windows"]):
+            extension = ".zip"
+        else:
+            extension = ".tar.gz"
+            
+        download_url = (
+            f"https://github.com/{UV_OWNER}/{UV_REPO}/releases/download/"
+            f"{version}/uv-{platform_str}{extension}"
+        )
     else:
         # For other runtimes, split into platform and arch
         if "-" in platform_str:
@@ -84,18 +91,12 @@ async def get_binary_download_info(name: str, version: Optional[str] = None) -> 
         else:
             platform = platform_str
             arch = "x64"  # Default to 64-bit architecture
-    
-    # Get the correct URL template
-    url_template = spec.get("url_template")
-    if not url_template:
-        # For UV, construct GitHub release URL
-        url_template = f"https://github.com/{UV_OWNER}/{UV_REPO}/releases/download/v{{version}}/uv-{{platform}}"
-    
-    # Format URL based on runtime
-    if name == "uv":
-        download_url = url_template.format(version=version, platform=platform)
-    else:
-        download_url = url_template.format(version=version, platform=platform, arch=arch)
+            
+        download_url = spec["url_template"].format(
+            version=version,
+            platform=platform,
+            arch=arch
+        )
     
     return download_url, version, spec["binary_path"]
 
