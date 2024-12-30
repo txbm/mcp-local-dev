@@ -9,7 +9,6 @@ from mcp_runtime_server.types import (
     TestRun,
     CaptureConfig,
     CaptureMode,
-    ResourceLimits,
     CapturedOutput
 )
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
@@ -18,7 +17,6 @@ from mcp_runtime_server.runtime import create_environment, cleanup_environment, 
 from mcp_runtime_server.errors import (
     RuntimeServerError, 
     EnvironmentError,
-    ResourceLimitError,
     BinaryNotFoundError,
     SandboxError
 )
@@ -40,7 +38,6 @@ __all__ = [
     # Configuration types
     "CaptureConfig", 
     "CaptureMode",
-    "ResourceLimits",
     
     # Runtime functions
     "create_environment",
@@ -55,7 +52,6 @@ __all__ = [
     # Error types
     "RuntimeServerError",
     "EnvironmentError",
-    "ResourceLimitError", 
     "BinaryNotFoundError",
     "SandboxError"
 ]
