@@ -1,4 +1,4 @@
-"""Simplified error handling for MCP runtime server."""
+"""Error handling for MCP runtime server."""
 import logging
 from typing import Any, Dict, Optional
 from mcp.types import (
@@ -32,9 +32,9 @@ def log_error(
         
     logger.error("Runtime error occurred", extra={"data": error_info})
 
-class RuntimeServerError(Exception):
-    """Base error class for runtime server with standardized error handling."""
 
+class RuntimeServerError(Exception):
+    """Base error class for runtime server."""
     def __init__(
         self, 
         message: str, 
@@ -46,7 +46,7 @@ class RuntimeServerError(Exception):
         self.details = details or {}
 
     def to_error_data(self) -> ErrorData:
-        """Convert error to standard ErrorData format."""
+        """Convert to ErrorData format."""
         return ErrorData(
             code=self.code,
             message=str(self),
@@ -54,8 +54,8 @@ class RuntimeServerError(Exception):
         )
 
 
-class InvalidEnvironmentError(RuntimeServerError):
-    """Error when an environment is invalid or not found."""
+class InvalidEnvError(RuntimeServerError):
+    """Error for invalid/missing environment."""
     def __init__(self, env_id: str):
         super().__init__(
             f"Environment {env_id} not found",
@@ -64,8 +64,8 @@ class InvalidEnvironmentError(RuntimeServerError):
         )
 
 
-class ResourceLimitError(RuntimeServerError):
-    """Error when a resource limit is exceeded."""
+class ResourceError(RuntimeServerError):
+    """Resource limit exceeded error."""
     def __init__(self, resource_type: str, limit: Any, current: Any):
         super().__init__(
             f"Resource limit exceeded for {resource_type}",
@@ -78,8 +78,8 @@ class ResourceLimitError(RuntimeServerError):
         )
 
 
-class BinaryNotFoundError(RuntimeServerError):
-    """Error when a required binary is not found."""
+class BinNotFoundError(RuntimeServerError):
+    """Binary not found error."""
     def __init__(self, binary_name: str):
         super().__init__(
             f"Binary {binary_name} not found",
@@ -89,6 +89,6 @@ class BinaryNotFoundError(RuntimeServerError):
 
 
 class SandboxError(RuntimeServerError):
-    """Error related to sandbox operations."""
+    """Sandbox operation error."""
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message, code=INTERNAL_ERROR, details=details)
