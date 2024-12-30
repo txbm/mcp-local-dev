@@ -12,6 +12,14 @@ RuntimeManager = Enum('RuntimeManager', [
 ])
 
 
+RunResult = Enum('RunResult', [
+    'PASS',
+    'FAIL',
+    'ERROR',
+    'TIMEOUT'
+])
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     """Configuration for runtime environments."""
