@@ -1,4 +1,4 @@
-"""Error handling for MCP runtime server."""
+"""Simplified error handling for MCP runtime server."""
 from typing import Any, Dict, Optional
 from mcp.types import (
     ErrorData,
@@ -10,19 +10,25 @@ from mcp.types import (
 )
 
 
-class RuntimeServerError(BaseException):
-    """Base class for runtime server errors."""
+class RuntimeServerError(Exception):
+    """Base error class for runtime server with standardized error handling."""
 
-    def __init__(self, message: str, code: int = INTERNAL_ERROR):
+    def __init__(
+        self, 
+        message: str, 
+        code: int = INTERNAL_ERROR, 
+        details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message)
         self.code = code
+        self.details = details or {}
 
-    def as_error_data(self) -> ErrorData:
-        """Convert to MCP error data."""
+    def to_error_data(self) -> ErrorData:
+        """Convert error to standard ErrorData format."""
         return ErrorData(
             code=self.code,
             message=str(self),
-            data=None
+            data=self.details
         )
 
 
@@ -31,28 +37,22 @@ class InvalidEnvironmentError(RuntimeServerError):
     def __init__(self, env_id: str):
         super().__init__(
             f"Environment {env_id} not found",
-            code=INVALID_PARAMS
+            code=INVALID_PARAMS,
+            details={"env_id": env_id}
         )
 
 
 class ResourceLimitError(RuntimeServerError):
     """Error when a resource limit is exceeded."""
-    def __init__(self, message: str, resource_type: str, limit: Any, current: Any):
+    def __init__(self, resource_type: str, limit: Any, current: Any):
         super().__init__(
-            message,
-            code=INTERNAL_ERROR
-        )
-        self.data = {
-            "resource_type": resource_type,
-            "limit": limit,
-            "current": current
-        }
-
-    def as_error_data(self) -> ErrorData:
-        return ErrorData(
-            code=self.code,
-            message=str(self),
-            data=self.data
+            f"Resource limit exceeded for {resource_type}",
+            code=INTERNAL_ERROR,
+            details={
+                "resource_type": resource_type,
+                "limit": limit,
+                "current": current
+            }
         )
 
 
@@ -61,19 +61,12 @@ class BinaryNotFoundError(RuntimeServerError):
     def __init__(self, binary_name: str):
         super().__init__(
             f"Binary {binary_name} not found",
-            code=INTERNAL_ERROR
+            code=INVALID_REQUEST,
+            details={"binary_name": binary_name}
         )
 
 
 class SandboxError(RuntimeServerError):
     """Error related to sandbox operations."""
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
-        super().__init__(message, code=INTERNAL_ERROR)
-        self.data = details
-
-    def as_error_data(self) -> ErrorData:
-        return ErrorData(
-            code=self.code,
-            message=str(self),
-            data=self.data
-        )
+        super().__init__(message, code=INTERNAL_ERROR, details=details)
