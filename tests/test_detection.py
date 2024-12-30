@@ -1,5 +1,5 @@
 """Tests for runtime detection."""
-import os
+import pytest
 import tempfile
 from pathlib import Path
 
@@ -10,7 +10,8 @@ from mcp_runtime_server.detection import detect_runtime
 def test_node_detection():
     """Test Node.js project detection."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        Path(tmpdir, "package.json").touch()
+        pkg_json = Path(tmpdir) / "package.json"
+        pkg_json.touch()
         
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
@@ -37,14 +38,17 @@ def test_python_detection():
     """Test Python project detection."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Test pyproject.toml
-        Path(tmpdir, "pyproject.toml").touch()
+        project_toml = Path(tmpdir) / "pyproject.toml"
+        project_toml.touch()
+        
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
         assert runtime.manager == RuntimeManager.UV
         
         # Test setup.py
-        Path(tmpdir).mkdir(exist_ok=True)
-        Path(tmpdir, "setup.py").touch()
+        setup_py = Path(tmpdir) / "setup.py"  
+        setup_py.touch()
+        
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
         assert runtime.manager == RuntimeManager.UV
@@ -60,17 +64,20 @@ def test_unknown_project():
 def test_nested_files():
     """Test detection with nested config files."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        nested = Path(tmpdir, "src", "project")
+        nested = Path(tmpdir) / "src" / "project"
         nested.mkdir(parents=True)
         
-        Path(nested, "package.json").touch()
+        pkg_json = nested / "package.json"
+        pkg_json.touch()
         
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
         assert runtime.manager == RuntimeManager.NODE
         
         # Add bun.lockb, should switch to Bun
-        Path(nested, "bun.lockb").touch()
+        bun_lock = nested / "bun.lockb" 
+        bun_lock.touch()
+        
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
         assert runtime.manager == RuntimeManager.BUN
