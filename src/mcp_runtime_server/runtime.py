@@ -11,6 +11,7 @@ from typing import Dict, Any
 from mcp_runtime_server.types import RuntimeConfig, Environment
 from mcp_runtime_server.logging import log_with_data
 from mcp_runtime_server.commands import run_command
+from mcp_runtime_server.testing.execution import auto_run_tests
 
 logger = logging.getLogger(__name__)
 
