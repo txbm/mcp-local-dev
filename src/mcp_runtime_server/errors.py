@@ -10,7 +10,7 @@ from mcp.types import (
 )
 
 
-class RuntimeServerError(Exception):
+class RuntimeServerError(BaseException):
     """Base class for runtime server errors."""
 
     def __init__(self, message: str, code: int = INTERNAL_ERROR):
