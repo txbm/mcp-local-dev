@@ -6,14 +6,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from mcp_runtime_server.types import (
-    RuntimeConfig, 
-    Environment,
-    CaptureConfig
-)
-from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.types import RuntimeConfig, Environment, CaptureConfig
+from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox, Sandbox
 from mcp_runtime_server.binaries import ensure_binary
-from mcp_runtime_server.errors import log_error, EnvironmentError
+from mcp_runtime_server.errors import RuntimeServerError, EnvironmentError, log_error
 
 logger = logging.getLogger(__name__)
 
@@ -75,16 +71,19 @@ async def cleanup_environment(env_id: str, force: bool = False) -> None:
     env = ENVIRONMENTS[env_id]
     
     try:
-        # Clean up sandbox
-        sandbox_info = create_sandbox.__new__(create_sandbox)
-        sandbox_info.id = env_id
-        sandbox_info.root = Path(env.working_dir)
+        # Clean up sandbox 
+        sandbox_info = Sandbox(
+            id=env_id,
+            root=Path(env.working_dir),
+            bin_dir=Path(env.working_dir) / "bin",
+            env_vars=env.env_vars
+        )
         cleanup_sandbox(sandbox_info)
         
     except Exception as e:
         context = {"env_id": env_id, "force": force}
         log_error(e, context, logger)
-        raise
+        raise RuntimeServerError(f"Failed to clean up environment: {e}")
         
     finally:
         del ENVIRONMENTS[env_id]
@@ -129,4 +128,4 @@ async def run_command(
     except Exception as e:
         context = {"env_id": env_id, "command": command}
         log_error(e, context, logger)
-        raise RuntimeError(f"Failed to run command: {e}") from e
+        raise RuntimeServerError(f"Failed to run command: {e}")
