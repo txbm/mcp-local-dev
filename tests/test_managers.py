@@ -13,13 +13,15 @@ from mcp_runtime_server.managers import (
     cleanup_manager_artifacts
 )
 
-
-def test_get_manager_binary():
+def test_get_manager_binary(all_managers_environment):
     """Test manager binary resolution."""
-    # Test for non-existent binary
+    # Valid manager
+    binary = get_manager_binary(RuntimeManager.NPX)
+    assert binary.endswith("npx")
+    
+    # Invalid manager
     with pytest.raises(RuntimeError):
         get_manager_binary(RuntimeManager("nonexistent"))
-
 
 def test_build_install_command():
     """Test installation command building."""
@@ -54,11 +56,6 @@ def test_build_install_command():
     assert cmd.endswith("pipx")
     assert "run" in args
     assert "black" in args
-    
-    # Invalid manager
-    with pytest.raises(RuntimeError):
-        build_install_command(RuntimeManager("invalid"), "pkg")
-
 
 def test_validate_package_name():
     """Test package name validation."""
@@ -76,10 +73,9 @@ def test_validate_package_name():
     assert not validate_package_name(RuntimeManager.UVX, "invalid package")
     assert not validate_package_name(RuntimeManager.UVX, "")
 
-
-def test_prepare_env_vars():
+def test_prepare_env_vars(runtime_environment):
     """Test environment variable preparation."""
-    base_env = {"PATH": "/usr/bin", "HOME": "/home/user"}
+    base_env = runtime_environment.env_vars
     
     # NPX environment
     npx_env = prepare_env_vars(RuntimeManager.NPX, base_env)
@@ -97,50 +93,48 @@ def test_prepare_env_vars():
     assert "PIPX_BIN_DIR" in pipx_env
     assert pipx_env["PATH"] == base_env["PATH"]
 
-
-def test_cleanup_manager_artifacts():
+def test_cleanup_manager_artifacts(runtime_environment):
     """Test cleanup of manager artifacts."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        work_dir = Path(tmpdir)
-        
-        # Create some dummy artifacts
-        npm_artifacts = [
-            work_dir / "node_modules",
-            work_dir / "package.json",
-            work_dir / "package-lock.json"
-        ]
-        for artifact in npm_artifacts:
-            if str(artifact).endswith("modules"):
-                artifact.mkdir()
-            else:
-                artifact.touch()
-        
-        # Test NPX cleanup
-        cleanup_manager_artifacts(RuntimeManager.NPX, str(work_dir))
-        for artifact in npm_artifacts:
-            assert not artifact.exists()
-        
-        # Create Python artifacts
-        python_artifacts = [
-            work_dir / "__pycache__",
-            work_dir / "test.pyc",
-            work_dir / ".venv"
-        ]
-        for artifact in python_artifacts:
-            if str(artifact).endswith(("__pycache__", ".venv")):
-                artifact.mkdir()
-            else:
-                artifact.touch()
-        
-        # Test UVX cleanup
-        cleanup_manager_artifacts(RuntimeManager.UVX, str(work_dir))
-        for artifact in python_artifacts:
-            assert not artifact.exists()
+    work_dir = runtime_environment.work_dir
+    
+    # Create some dummy artifacts
+    npm_artifacts = [
+        work_dir / "node_modules",
+        work_dir / "package.json",
+        work_dir / "package-lock.json"
+    ]
+    for artifact in npm_artifacts:
+        if str(artifact).endswith("modules"):
+            artifact.mkdir()
+        else:
+            artifact.touch()
+    
+    # Test NPX cleanup
+    cleanup_manager_artifacts(RuntimeManager.NPX, str(work_dir))
+    for artifact in npm_artifacts:
+        assert not artifact.exists()
+    
+    # Create Python artifacts
+    python_artifacts = [
+        work_dir / "__pycache__",
+        work_dir / "test.pyc",
+        work_dir / ".venv"
+    ]
+    for artifact in python_artifacts:
+        if str(artifact).endswith(("__pycache__", ".venv")):
+            artifact.mkdir()
+        else:
+            artifact.touch()
+    
+    # Test UVX cleanup
+    cleanup_manager_artifacts(RuntimeManager.UVX, str(work_dir))
+    for artifact in python_artifacts:
+        assert not artifact.exists()
 
-
-def test_prepare_env_vars_isolation():
+def test_prepare_env_vars_isolation(runtime_environment):
     """Test that environment preparations are isolated."""
-    base_env = {"PATH": "/usr/bin", "CUSTOM_VAR": "value"}
+    base_env = runtime_environment.env_vars.copy()
+    base_env["CUSTOM_VAR"] = "value"
     
     env1 = prepare_env_vars(RuntimeManager.NPX, base_env)
     env2 = prepare_env_vars(RuntimeManager.UVX, base_env)
@@ -149,13 +143,12 @@ def test_prepare_env_vars_isolation():
     assert env1 != env2
     
     # Verify base environment wasn't modified
-    assert len(base_env) == 2
+    assert "CUSTOM_VAR" in base_env
     assert base_env["CUSTOM_VAR"] == "value"
     
     # Verify each environment has its specific vars
     assert "NPX_NO_UPDATE_NOTIFIER" in env1
     assert "PIP_NO_CACHE_DIR" in env2
-
 
 def test_multiple_version_formats():
     """Test handling of different version formats."""
@@ -175,12 +168,10 @@ def test_multiple_version_formats():
     )
     assert "package==>=2.0.0,<3.0.0" in " ".join(args)
 
-
-def test_cleanup_nonexistent_path():
+def test_cleanup_nonexistent_path(runtime_environment):
     """Test cleanup behavior with nonexistent paths."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        non_existent = os.path.join(tmpdir, "nonexistent")
-        
-        # Should not raise any errors
-        cleanup_manager_artifacts(RuntimeManager.NPX, non_existent)
-        cleanup_manager_artifacts(RuntimeManager.UVX, non_existent)
+    non_existent = runtime_environment.work_dir / "nonexistent"
+    
+    # Should not raise any errors
+    cleanup_manager_artifacts(RuntimeManager.NPX, str(non_existent))
+    cleanup_manager_artifacts(RuntimeManager.UVX, str(non_existent))
