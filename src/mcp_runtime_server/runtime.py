@@ -66,7 +66,7 @@ async def create_environment(config: RuntimeConfig) -> Environment:
         stdout, stderr = await process.communicate()
         
         if process.returncode != 0:
-            raise ValueError(f"Failed to clone repository: {stderr.decode()}")
+            raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
 
         ENVIRONMENTS[env.id] = env
         return env
@@ -74,7 +74,7 @@ async def create_environment(config: RuntimeConfig) -> Environment:
     except Exception as e:
         if 'root_dir' in locals() and root_dir.exists():
             shutil.rmtree(str(root_dir))
-        raise ValueError(f"Failed to create environment: {e}") from e
+        raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
 async def cleanup_environment(env_id: str) -> None:
@@ -93,7 +93,7 @@ async def cleanup_environment(env_id: str) -> None:
 async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
     """Run a command in an environment."""
     if env_id not in ENVIRONMENTS:
-        raise ValueError(f"Unknown environment: {env_id}")
+        raise RuntimeError(f"Unknown environment: {env_id}")
         
     env = ENVIRONMENTS[env_id]
     
@@ -109,4 +109,4 @@ async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
         return process
         
     except Exception as e:
-        raise ValueError(f"Failed to run command: {e}")
+        raise RuntimeError(f"Failed to run command: {e}")
