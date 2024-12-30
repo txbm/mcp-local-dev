@@ -1,86 +1,130 @@
 """Runtime environment management."""
 import asyncio
 import logging
+import os
+import shutil
+import appdirs
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.sandbox.security import apply_restrictions, remove_restrictions
 from mcp_runtime_server.types import RuntimeConfig, Environment
 
 logger = logging.getLogger(__name__)
 
-# Active runtime state
-RUNTIME_STATE: Dict[str, Any] = {}
+# Active environments
+ENVIRONMENTS: Dict[str, Environment] = {}
+
+
+def _create_dir_structure(root: Path) -> Dict[str, Path]:
+    """Create environment directory structure."""
+    dirs = {
+        "bin": root / "bin",
+        "tmp": root / "tmp",
+        "work": root / "work"
+    }
+    
+    for path in dirs.values():
+        path.mkdir(parents=True, exist_ok=True)
+        
+    return dirs
+
+
+def _prepare_env_vars(dirs: Dict[str, Path]) -> Dict[str, str]:
+    """Prepare environment variables."""
+    env = os.environ.copy()
+    
+    # Set up basic environment
+    env.update({
+        "HOME": str(dirs["work"]),
+        "TMPDIR": str(dirs["tmp"]),
+        "PATH": f"{dirs['bin']}:{env.get('PATH', '')}"
+    })
+    
+    # Remove potentially dangerous variables
+    for var in ["PYTHONPATH", "NODE_PATH", "LD_PRELOAD", "LD_LIBRARY_PATH"]:
+        env.pop(var, None)
+        
+    return env
 
 
 async def create_environment(config: RuntimeConfig) -> Environment:
     """Create a new runtime environment."""
     try:
-        # Create sandbox and environment
-        sandbox = create_sandbox()
-        work_dir = sandbox.root / "work"
+        # Create unique environment ID and root directory
+        env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        root_dir = Path(appdirs.user_cache_dir("mcp-runtime-server")) / "envs" / env_id
+        
+        # Create directories
+        dirs = _create_dir_structure(root_dir)
+        env_vars = _prepare_env_vars(dirs)
+        
+        # Apply security restrictions
+        apply_restrictions(root_dir)
+        
+        # Create environment instance
+        env = Environment(
+            id=env_id,
+            config=config,
+            created_at=datetime.utcnow(),
+            root_dir=root_dir,
+            bin_dir=dirs["bin"],
+            work_dir=dirs["work"],
+            tmp_dir=dirs["tmp"],
+            env_vars=env_vars
+        )
         
         # Clone repository
         process = await asyncio.create_subprocess_exec(
-            "git", "clone", config.github_url, str(work_dir),
+            "git", "clone", config.github_url, str(env.work_dir),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=sandbox.env_vars
+            env=env.env_vars
         )
         stdout, stderr = await process.communicate()
         
         if process.returncode != 0:
             raise ValueError(f"Failed to clone repository: {stderr.decode()}")
 
-        # Create environment
-        env = Environment(
-            id=datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
-            config=config,
-            created_at=datetime.utcnow(),
-            working_dir=str(work_dir)
-        )
-        
-        # Store complete runtime state
-        RUNTIME_STATE[env.id] = {
-            "env": env,
-            "sandbox": sandbox
-        }
-        
+        ENVIRONMENTS[env.id] = env
         return env
         
     except Exception as e:
-        if 'sandbox' in locals():
-            cleanup_sandbox(sandbox)
+        if 'root_dir' in locals() and root_dir.exists():
+            remove_restrictions(root_dir)
+            shutil.rmtree(root_dir)
         raise ValueError(f"Failed to create environment: {e}") from e
 
 
 async def cleanup_environment(env_id: str) -> None:
     """Clean up a runtime environment."""
-    if env_id not in RUNTIME_STATE:
+    if env_id not in ENVIRONMENTS:
         return
         
-    state = RUNTIME_STATE[env_id]
+    env = ENVIRONMENTS[env_id]
     try:
-        cleanup_sandbox(state["sandbox"])
+        remove_restrictions(env.root_dir)
+        if env.root_dir.exists():
+            shutil.rmtree(env.root_dir)
     finally:
-        del RUNTIME_STATE[env_id]
+        del ENVIRONMENTS[env_id]
 
 
 async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
     """Run a command in an environment."""
-    if env_id not in RUNTIME_STATE:
+    if env_id not in ENVIRONMENTS:
         raise ValueError(f"Unknown environment: {env_id}")
         
-    state = RUNTIME_STATE[env_id]
+    env = ENVIRONMENTS[env_id]
     
     try:
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=state["env"].working_dir,
-            env=state["sandbox"].env_vars
+            cwd=env.work_dir,
+            env=env.env_vars
         )
         
         return process
@@ -91,10 +135,8 @@ async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
 
 async def auto_run_tests(env: Environment) -> Dict[str, any]:
     """Auto-detect and run tests."""
-    manager = env.config.manager.value
-    
     try:
-        if not Path(env.working_dir, "pyproject.toml").exists():
+        if not (env.work_dir / "pyproject.toml").exists():
             return {"error": "No pyproject.toml found"}
 
         # Create venv and install deps
