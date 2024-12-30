@@ -1,4 +1,5 @@
 """MCP server implementation."""
+
 import asyncio
 import json
 import logging
@@ -11,7 +12,11 @@ from mcp.server.lowlevel import Server
 from mcp.types import Tool, TextContent
 from mcp.server import stdio
 
-from mcp_runtime_server.environments import create_environment, cleanup_environment, ENVIRONMENTS
+from mcp_runtime_server.environments import (
+    create_environment,
+    cleanup_environment,
+    ENVIRONMENTS,
+)
 from mcp_runtime_server.testing.execution import auto_run_tests
 from mcp_runtime_server.types import EnvironmentConfig
 from mcp_runtime_server.logging import configure_logging, log_with_data
@@ -24,7 +29,7 @@ def init_server() -> Server:
     logger.debug("Initializing MCP runtime server")
     server = Server("mcp-runtime-server")
 
-    @server.list_tools() 
+    @server.list_tools()
     async def list_tools() -> List[Tool]:
         """List available runtime management tools."""
         logger.debug("Listing available tools")
@@ -36,12 +41,12 @@ def init_server() -> Server:
                     "type": "object",
                     "properties": {
                         "github_url": {
-                            "type": "string", 
-                            "description": "GitHub repository URL"
+                            "type": "string",
+                            "description": "GitHub repository URL",
                         }
                     },
-                    "required": ["github_url"]
-                }
+                    "required": ["github_url"],
+                },
             ),
             Tool(
                 name="run_tests",
@@ -51,11 +56,11 @@ def init_server() -> Server:
                     "properties": {
                         "env_id": {
                             "type": "string",
-                            "description": "Environment identifier"
+                            "description": "Environment identifier",
                         }
                     },
-                    "required": ["env_id"]
-                }
+                    "required": ["env_id"],
+                },
             ),
             Tool(
                 name="cleanup",
@@ -65,41 +70,43 @@ def init_server() -> Server:
                     "properties": {
                         "env_id": {
                             "type": "string",
-                            "description": "Environment identifier"
+                            "description": "Environment identifier",
                         }
                     },
-                    "required": ["env_id"]
-                }
-            )
+                    "required": ["env_id"],
+                },
+            ),
         ]
         logger.debug(f"Found {len(tools)} available tools")
+
         return tools
 
     @server.call_tool()
     async def call_tool(
-        name: str, 
-        arguments: Dict[str, Any]
+        name: str, arguments: Dict[str, Any]
     ) -> List[Union[TextContent]]:
         """Handle tool invocations."""
         try:
-            log_with_data(logger, logging.DEBUG, f"Tool invocation started: {name}", {
-                "tool": name,
-                "arguments": arguments
-            })
+            log_with_data(
+                logger,
+                logging.DEBUG,
+                f"Tool invocation started: {name}",
+                {"tool": name, "arguments": arguments},
+            )
 
             if name == "create_environment":
-                config = EnvironmentConfig(
-                    github_url=arguments["github_url"]
-                )
+                config = EnvironmentConfig(github_url=arguments["github_url"])
                 env = await create_environment(config)
                 result = {
                     "id": env.id,
                     "working_dir": str(env.work_dir),
                     "created_at": env.created_at.isoformat(),
-                    "runtime": env.manager.value if env.manager else None
+                    "runtime": env.manager.value if env.manager else None,
                 }
-                
-                log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
+
+                log_with_data(
+                    logger, logging.DEBUG, "Environment created successfully", result
+                )
                 return [TextContent(type="text", text=json.dumps(result))]
 
             elif name == "run_tests":
@@ -116,31 +123,40 @@ def init_server() -> Server:
                     logger.error("Runtime not detected for environment")
                     raise RuntimeError("Runtime not detected for environment")
 
-                log_with_data(logger, logging.DEBUG, "Running tests", {
-                    "env_id": arguments["env_id"],
-                    "runtime": env.manager.value
-                })
+                log_with_data(
+                    logger,
+                    logging.DEBUG,
+                    "Running tests",
+                    {"env_id": arguments["env_id"], "runtime": env.manager.value},
+                )
 
                 results = await auto_run_tests(env)
-                log_with_data(logger, logging.DEBUG, "Test execution completed", results)
-                
+                log_with_data(
+                    logger, logging.DEBUG, "Test execution completed", results
+                )
+
                 return [TextContent(type="text", text=json.dumps(results))]
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
                     logger.error("Missing env_id parameter")
                     raise RuntimeError("Missing env_id parameter")
-                
-                log_with_data(logger, logging.DEBUG, "Cleaning up environment", {
-                    "env_id": arguments["env_id"]
-                })
-                    
+
+                log_with_data(
+                    logger,
+                    logging.DEBUG,
+                    "Cleaning up environment",
+                    {"env_id": arguments["env_id"]},
+                )
+
                 await cleanup_environment(arguments["env_id"])
-                return [TextContent(type="text", text=json.dumps({"status": "success"}))]
+                return [
+                    TextContent(type="text", text=json.dumps({"status": "success"}))
+                ]
 
             logger.error(f"Unknown tool requested: {name}")
             raise RuntimeError(f"Unknown tool: {name}")
-            
+
         except Exception as e:
             logger.error(
                 "Error occurred",
@@ -149,25 +165,31 @@ def init_server() -> Server:
                     "error_message": str(e),
                     "traceback": traceback.format_exc(),
                     "tool": name,
-                    "arguments": arguments
-                }
+                    "arguments": arguments,
+                },
             )
             logger.error("Tool invocation failed", exc_info=True)
             return [TextContent(type="text", text=str(e))]
 
+    return server
+
 
 def setup_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
+
     def handle_shutdown(signum, frame):
-        log_with_data(logger, logging.DEBUG, "Shutting down runtime server...", {
-            "signal": signum
-        })
+        log_with_data(
+            logger, logging.DEBUG, "Shutting down runtime server...", {"signal": signum}
+        )
         # Cleanup all active environments
         for env_id in list(ENVIRONMENTS.keys()):
             try:
-                log_with_data(logger, logging.DEBUG, "Cleaning up environment during shutdown", {
-                    "env_id": env_id
-                })
+                log_with_data(
+                    logger,
+                    logging.DEBUG,
+                    "Cleaning up environment during shutdown",
+                    {"env_id": env_id},
+                )
                 asyncio.create_task(cleanup_environment(env_id))
             except Exception as e:
                 logger.error(
@@ -176,8 +198,8 @@ def setup_handlers() -> None:
                         "error_type": type(e).__name__,
                         "error_message": str(e),
                         "traceback": traceback.format_exc(),
-                        "env_id": env_id
-                    }
+                        "env_id": env_id,
+                    },
                 )
         sys.exit(0)
 
@@ -188,22 +210,18 @@ def setup_handlers() -> None:
 async def serve() -> None:
     """Start the MCP runtime server."""
     configure_logging()
-    
-    log_with_data(logger, logging.DEBUG, "Starting runtime server", {
-        "version": "0.1.0"
-    })
-    
+
+    log_with_data(
+        logger, logging.DEBUG, "Starting runtime server", {"version": "0.1.0"}
+    )
+
     server = init_server()
     setup_handlers()
-    
+
     async with stdio.stdio_server() as (read_stream, write_stream):
         logger.debug("Server streams initialized")
         options = server.create_initialization_options()
-        await server.run(
-            read_stream,
-            write_stream,
-            options
-        )
+        await server.run(read_stream, write_stream, options)
 
 
 def main() -> None:
