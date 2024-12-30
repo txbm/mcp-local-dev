@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import appdirs
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any
 
@@ -18,7 +18,7 @@ ENVIRONMENTS: Dict[str, Environment] = {}
 async def create_environment(config: EnvironmentConfig) -> Environment:
     """Create a new runtime environment."""
     try:
-        env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        env_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         root_dir = Path(appdirs.user_cache_dir("mcp-runtime-server")) / "envs" / env_id
         
         bin_dir = root_dir / "bin"
