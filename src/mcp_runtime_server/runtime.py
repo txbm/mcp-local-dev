@@ -3,15 +3,19 @@ import os
 import asyncio
 import shutil
 import uuid
+import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from mcp_runtime_server.types import RuntimeConfig, RuntimeEnv, CaptureConfig
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
+from mcp_runtime_server.logging import log_runtime_error
 
+
+logger = logging.getLogger(__name__)
 
 # Active environments
 ACTIVE_ENVS: Dict[str, RuntimeEnv] = {}
@@ -56,6 +60,8 @@ async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
         
     except Exception as e:
         cleanup_sandbox(sandbox)
+        context = {"config": config.dict()} if hasattr(config, "dict") else {"config": str(config)}
+        log_runtime_error(e, context)
         raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
@@ -77,6 +83,11 @@ async def cleanup_environment(env_id: str, force: bool = False) -> None:
         sandbox_info.id = env_id
         sandbox_info.root = Path(env.working_dir)
         cleanup_sandbox(sandbox_info)
+        
+    except Exception as e:
+        context = {"env_id": env_id, "force": force}
+        log_runtime_error(e, context)
+        raise
         
     finally:
         del ACTIVE_ENVS[env_id]
@@ -122,4 +133,6 @@ async def run_in_env(
         return process
         
     except Exception as e:
+        context = {"env_id": env_id, "command": command}
+        log_runtime_error(e, context)
         raise RuntimeError(f"Failed to run command: {e}") from e
