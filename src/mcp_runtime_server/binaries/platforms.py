@@ -40,19 +40,19 @@ PLATFORM_MAPPINGS = {
     "Linux": {
         "node": "linux",
         "bun": "linux",
-        "uv": "linux",
+        "uv": "unknown-linux-gnu",  # UV uses gnu suffix for Linux
         "format": "tar.gz"
     },
     "Darwin": {
         "node": "darwin",
         "bun": "darwin",
-        "uv": "macos",
+        "uv": "apple-darwin",  # UV uses apple prefix for macOS
         "format": "tar.gz"
     },
     "Windows": {
         "node": "win",
         "bun": "windows",
-        "uv": "windows",
+        "uv": "pc-windows-msvc",  # UV uses MSVC suffix for Windows
         "format": "zip"
     }
 }
@@ -83,13 +83,16 @@ def get_platform_info() -> PlatformInfo:
     platform_map = PLATFORM_MAPPINGS[system]
     arch_map = ARCH_MAPPINGS[machine]
     
+    # For UV, we want arch-platform format 
+    uv_platform = f"{arch_map['uv']}-{platform_map['uv']}"
+    
     return PlatformInfo(
         os_name=system.lower(),
         arch=machine,
         format=platform_map["format"],
         node_platform=f"{platform_map['node']}-{arch_map['node']}",
         bun_platform=f"{platform_map['bun']}-{arch_map['bun']}",
-        uv_platform=f"{platform_map['uv']}-{arch_map['uv']}"
+        uv_platform=uv_platform
     )
 
 

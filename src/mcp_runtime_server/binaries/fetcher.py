@@ -5,7 +5,7 @@ import tempfile
 import zipfile
 import tarfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
 from mcp_runtime_server.binaries.platforms import get_platform_info
@@ -127,6 +127,33 @@ def extract_binary(
             return dest_dir / binary_files[0]
 
 
+async def get_binary_spec(name: str) -> Dict[str, Any]:
+    """Get binary specification with resolved version.
+    
+    Args:
+        name: Binary name
+        
+    Returns:
+        Binary specification dictionary
+        
+    Raises:
+        RuntimeError: If version cannot be resolved
+    """
+    if name not in RUNTIME_BINARIES:
+        raise ValueError(f"Unknown binary: {name}")
+        
+    spec = RUNTIME_BINARIES[name].copy()
+    
+    # Handle dynamic version for UV
+    if name == "uv" and spec["version"] is None:
+        spec["version"] = await get_latest_uv_release()
+        
+    if not spec["version"]:
+        raise RuntimeError(f"Version not available for {name}")
+        
+    return spec
+
+
 async def fetch_binary(name: str) -> Path:
     """Fetch a binary, downloading if necessary.
     
@@ -139,18 +166,8 @@ async def fetch_binary(name: str) -> Path:
     Raises:
         RuntimeError: If binary fetch fails
     """
-    if name not in RUNTIME_BINARIES:
-        raise ValueError(f"Unknown binary: {name}")
-        
-    spec = RUNTIME_BINARIES[name].copy()
-    
-    # Handle dynamic version for UV
-    if name == "uv" and spec["version"] is None:
-        spec["version"] = await get_latest_uv_release()
-    
+    spec = await get_binary_spec(name)
     version = spec["version"]
-    if not version:
-        raise RuntimeError(f"Version not available for {name}")
     
     # Check cache first
     cached = get_binary_path(name, version)
@@ -166,13 +183,22 @@ async def fetch_binary(name: str) -> Path:
     }
     
     # Build URLs
-    download_url = spec["url_template"].format(
-        version=version,
-        platform=platform_map[name].split("-")[0],
-        arch=platform_map[name].split("-")[1]
-    )
+    platform_str = platform_map[name]
+    if name == "uv":
+        # UV uses a different URL format
+        download_url = spec["url_template"].format(
+            version=f"v{version}",
+            platform_arch=platform_str
+        )
+    else:
+        download_url = spec["url_template"].format(
+            version=version,
+            platform=platform_str.split("-")[0],
+            arch=platform_str.split("-")[1]
+        )
+        
     checksum_url = spec["checksum_template"].format(
-        version=version
+        version=version if name != "uv" else f"v{version}"
     )
     
     # Create temporary directory for download
