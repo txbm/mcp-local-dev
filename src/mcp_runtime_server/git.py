@@ -19,11 +19,7 @@ async def clone_repository(url: str, target_dir: str, env_vars: Dict[str, str]) 
     try:
         logger.debug(f"Original URL: {url}")
         
-        if "github.com" in url:
-            parts = url.split("github.com/")[1].strip("/.git")
-            url = f"https://github.com/{parts}.git"
-            logger.debug(f"Transformed URL: {url}")
-            
+        # Don't modify the URL - let git handle it
         cmd = f"git clone {url} {target_dir}"
         logger.info(f"Executing git clone command: {cmd}")
         logger.debug(f"Clone target directory: {target_dir}")
