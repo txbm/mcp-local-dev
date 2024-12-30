@@ -28,10 +28,10 @@ from mcp_runtime_server.errors import (
     InvalidEnvironmentError,
     ResourceLimitError,
     BinaryNotFoundError,
-    SandboxError
+    SandboxError,
+    log_error
 )
-from mcp_runtime_server.logging import setup_logging
-
+from mcp_runtime_server.logging import configure_logging
 
 logger = logging.getLogger(__name__)
 ACTIVE_ENVS: Dict[str, Any] = {}
@@ -253,32 +253,30 @@ def init_runtime_server() -> Server:
 
             raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
             
-        except (RuntimeServerError, BaseException) as e:
+        except Exception as e:
             if isinstance(e, RuntimeServerError):
-                logger.error(f"Tool execution error: {str(e)}", exc_info=True)
+                log_error(e, {"tool": name, "arguments": arguments}, logger)
                 raise types.ErrorData(
                     code=e.code,
                     message=str(e),
                     data=e.details if hasattr(e, 'details') else None
                 )
-            else:
-                logger.error(f"Unexpected error in tool execution: {str(e)}", exc_info=True)
-                raise RuntimeServerError(str(e), INTERNAL_ERROR)
-
-
-    return server
+            log_error(e, {"tool": name, "arguments": arguments}, logger)
+            raise RuntimeError(str(e)) from None
 
 
 def setup_signal_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
     def handle_shutdown(signum, frame):
-        logger.info("\\nShutting down runtime server...")
+        logger.info("Shutting down runtime server...", extra={
+            "data": {"signal": signum}
+        })
         # Cleanup all active environments
         for env_id in list(ACTIVE_ENVS.keys()):
             try:
                 asyncio.create_task(cleanup_environment(env_id, force=True))
-            except BaseException as e:
-                logger.error(f"Error cleaning up environment {env_id}: {e}")
+            except Exception as e:
+                log_error(e, {"env_id": env_id}, logger)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_shutdown)
@@ -287,7 +285,12 @@ def setup_signal_handlers() -> None:
 
 async def serve_runtime() -> None:
     """Start the MCP runtime server."""
-    setup_logging()  # Configure logging with filters
+    configure_logging()  # Configure logging with structured JSON and colors
+    
+    logger.info("Starting runtime server", extra={
+        "data": {"version": "0.1.0"}
+    })
+    
     server = init_runtime_server()
     setup_signal_handlers()
     
@@ -307,9 +310,5 @@ async def serve_runtime() -> None:
 
 
 def main() -> None:
-    """Simplified main entry point using asyncio directly."""
+    """Main entry point using asyncio directly."""
     asyncio.run(serve_runtime())
-
-
-if __name__ == "__main__":
-    main()
