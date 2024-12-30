@@ -3,30 +3,21 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Any
 
-from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox, Sandbox
+from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.types import RuntimeConfig, Environment
 
 logger = logging.getLogger(__name__)
 
-# Active environments and their sandboxes
-ENVIRONMENTS: Dict[str, Environment] = {}
-SANDBOXES: Dict[str, Sandbox] = {}
-
-
-def _get_sandbox_for_env(env_id: str) -> Optional[Sandbox]:
-    """Get sandbox associated with an environment."""
-    return SANDBOXES.get(env_id)
+# Active runtime state
+RUNTIME_STATE: Dict[str, Any] = {}
 
 
 async def create_environment(config: RuntimeConfig) -> Environment:
     """Create a new runtime environment."""
     try:
-        # Create unique environment ID
-        env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-
-        # Create sandbox first
+        # Create sandbox and environment
         sandbox = create_sandbox()
         work_dir = sandbox.root / "work"
         
@@ -44,15 +35,18 @@ async def create_environment(config: RuntimeConfig) -> Environment:
 
         # Create environment
         env = Environment(
-            id=env_id,
+            id=datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
             config=config,
             created_at=datetime.utcnow(),
             working_dir=str(work_dir)
         )
         
-        # Store both environment and sandbox
-        ENVIRONMENTS[env.id] = env
-        SANDBOXES[env.id] = sandbox
+        # Store complete runtime state
+        RUNTIME_STATE[env.id] = {
+            "env": env,
+            "sandbox": sandbox
+        }
+        
         return env
         
     except Exception as e:
@@ -63,39 +57,30 @@ async def create_environment(config: RuntimeConfig) -> Environment:
 
 async def cleanup_environment(env_id: str) -> None:
     """Clean up a runtime environment."""
-    if env_id not in ENVIRONMENTS:
+    if env_id not in RUNTIME_STATE:
         return
         
+    state = RUNTIME_STATE[env_id]
     try:
-        # Clean up sandbox if it exists
-        sandbox = SANDBOXES.get(env_id)
-        if sandbox:
-            cleanup_sandbox(sandbox)
-            del SANDBOXES[env_id]
-            
+        cleanup_sandbox(state["sandbox"])
     finally:
-        # Always clean up environment
-        del ENVIRONMENTS[env_id]
+        del RUNTIME_STATE[env_id]
 
 
 async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
     """Run a command in an environment."""
-    if env_id not in ENVIRONMENTS:
+    if env_id not in RUNTIME_STATE:
         raise ValueError(f"Unknown environment: {env_id}")
         
-    env = ENVIRONMENTS[env_id]
-    sandbox = SANDBOXES.get(env_id)
-    if not sandbox:
-        raise ValueError(f"No sandbox found for environment: {env_id}")
+    state = RUNTIME_STATE[env_id]
     
     try:
-        # Run command in sandbox environment
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=env.working_dir,
-            env=sandbox.env_vars
+            cwd=state["env"].working_dir,
+            env=state["sandbox"].env_vars
         )
         
         return process
@@ -109,79 +94,31 @@ async def auto_run_tests(env: Environment) -> Dict[str, any]:
     manager = env.config.manager.value
     
     try:
-        if manager == "node":
-            # Check for package.json
-            if not (Path(env.working_dir) / "package.json").exists():
-                return {"error": "No package.json found"}
+        if not Path(env.working_dir, "pyproject.toml").exists():
+            return {"error": "No pyproject.toml found"}
 
-            # Run npm/yarn test
-            process = await run_command(env.id, "npm test")
+        # Create venv and install deps
+        cmds = [
+            "uv venv",
+            "uv pip install -e .",
+            "uv pip install pytest",
+            "python -m pytest"
+        ]
+        
+        for cmd in cmds:
+            process = await run_command(env.id, cmd)
             stdout, stderr = await process.communicate()
             
-            return {
-                "success": process.returncode == 0,
-                "output": stdout.decode() if stdout else "",
-                "error": stderr.decode() if stderr else ""
-            }
-
-        elif manager == "bun":
-            # Similar to node but use bun test
-            process = await run_command(env.id, "bun test")
-            stdout, stderr = await process.communicate()
-            
-            return {
-                "success": process.returncode == 0,
-                "output": stdout.decode() if stdout else "",
-                "error": stderr.decode() if stderr else ""
-            }
-
-        elif manager == "uv":
-            # Check for pyproject.toml
-            if not (Path(env.working_dir) / "pyproject.toml").exists():
-                return {"error": "No pyproject.toml found"}
-
-            # Create and activate virtual environment
-            venv_process = await run_command(env.id, "uv venv")
-            stdout, stderr = await venv_process.communicate()
-            if venv_process.returncode != 0:
+            if process.returncode != 0:
                 return {
                     "success": False,
-                    "error": f"Failed to create virtual environment: {stderr.decode()}"
+                    "error": f"Command '{cmd}' failed: {stderr.decode()}"
                 }
-
-            # Install dependencies
-            install_process = await run_command(env.id, "uv pip install -e .")
-            stdout, stderr = await install_process.communicate()
-            if install_process.returncode != 0:
-                return {
-                    "success": False,
-                    "error": f"Failed to install dependencies: {stderr.decode()}"
-                }
-
-            # Install pytest
-            pytest_install = await run_command(env.id, "uv pip install pytest")
-            stdout, stderr = await pytest_install.communicate()
-            if pytest_install.returncode != 0:
-                return {
-                    "success": False,
-                    "error": f"Failed to install pytest: {stderr.decode()}"
-                }
-
-            # Run pytest
-            process = await run_command(env.id, "python -m pytest")
-            stdout, stderr = await process.communicate()
-            
-            return {
-                "success": process.returncode == 0,
-                "output": stdout.decode() if stdout else "",
-                "error": stderr.decode() if stderr else ""
-            }
-
-        else:
-            raise ValueError(f"Unsupported manager: {manager}")
+        
+        return {
+            "success": True,
+            "output": stdout.decode() if stdout else ""
+        }
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
