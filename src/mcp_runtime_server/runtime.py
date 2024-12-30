@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from mcp_runtime_server.types import RuntimeConfig, RuntimeEnv, CaptureConfig
+from mcp_runtime_server.types import RuntimeConfig, RuntimeEnv, CaptureConfig, ManagerType
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
@@ -19,6 +19,29 @@ logger = logging.getLogger(__name__)
 
 # Active environments
 ACTIVE_ENVS: Dict[str, RuntimeEnv] = {}
+
+
+async def create_python_environment(config: RuntimeConfig, sandbox) -> Path:
+    """Create a Python-specific environment.
+    
+    Args:
+        config: Runtime configuration
+        sandbox: Sandbox environment
+        
+    Returns:
+        Path to Python executable
+    """
+    # For Python environments, we use the system Python
+    python_path = shutil.which("python3")
+    if not python_path:
+        raise RuntimeError("Python3 not found in system")
+        
+    python_path = Path(python_path)
+    dest = sandbox.bin_dir / python_path.name
+    dest.write_bytes(python_path.read_bytes())
+    dest.chmod(0o755)
+    
+    return dest
 
 
 async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
@@ -37,9 +60,12 @@ async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
     sandbox = create_sandbox(base_env=config.env)
     
     try:
-        # Get binary manager
-        binary_path = await ensure_binary(config.manager.value)
-        
+        if config.manager.config.type == ManagerType.PYTHON:
+            binary_path = await create_python_environment(config, sandbox)
+        else:
+            # Get binary manager for non-Python runtimes
+            binary_path = await ensure_binary(config.manager.value)
+            
         # Link binary into sandbox
         binary_name = binary_path.name
         dest = sandbox.bin_dir / binary_name
