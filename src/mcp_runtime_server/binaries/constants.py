@@ -17,7 +17,7 @@ RUNTIME_BINARIES = {
     "uv": {
         "version": None,  # Will be fetched dynamically
         "url_template": "https://github.com/astral-sh/uv/releases/download/{version}/uv-{platform_arch}.tar.gz",
-        "checksum_template": "https://github.com/astral-sh/uv/releases/download/{version}/checksums.txt",
+        "checksum_template": "https://github.com/astral-sh/uv/releases/download/{version}/sha256.sum",
         "binary_path": "uv"
     }
 }
