@@ -13,9 +13,12 @@ logger = logging.getLogger(__name__)
 
 def get_manager_binary(manager: RuntimeManager) -> str:
     """Get the path to the runtime manager binary."""
+    if manager == RuntimeManager.NODE:
+        binary_name = "node"
+    else:
+        binary_name = manager.value
 
-    bin_name = "npm" if manager.value == RuntimeManager.NODE else manager.value
-    binary = shutil.which(bin_name)
+    binary = shutil.which(binary_name)
     if not binary:
         raise RuntimeError(f"Runtime {manager.value} not found in PATH")
     return binary
@@ -30,7 +33,9 @@ def build_install_command(
         args = []
 
     if manager == RuntimeManager.NODE:
-        cmd = get_manager_binary(manager)
+        cmd = shutil.which("npm")
+        if not cmd:
+            raise RuntimeError("npm not found in PATH")
         return cmd, ["install", *args]
 
     elif manager == RuntimeManager.BUN:
@@ -44,20 +49,26 @@ def build_install_command(
     raise RuntimeError(f"Unsupported runtime: {manager}")
 
 
-def prepare_env_vars(
-    manager: RuntimeManager, base_env: Dict[str, str]
-) -> Dict[str, str]:
+def prepare_env_vars(manager: RuntimeManager, base_env: Dict[str, str]) -> Dict[str, str]:
     """Prepare environment variables for a runtime manager."""
     env = base_env.copy()
 
     if manager == RuntimeManager.NODE:
-        env.update({"NODE_NO_WARNINGS": "1", "NPM_CONFIG_UPDATE_NOTIFIER": "false"})
+        env.update({
+            "NODE_NO_WARNINGS": "1",
+            "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+        })
 
     elif manager == RuntimeManager.BUN:
-        env.update({"NO_INSTALL_HINTS": "1"})
+        env.update({
+            "NO_INSTALL_HINTS": "1"
+        })
 
     elif manager == RuntimeManager.UV:
-        env.update({"VIRTUAL_ENV": env.get("VIRTUAL_ENV", ""), "PIP_NO_CACHE_DIR": "1"})
+        env.update({
+            "VIRTUAL_ENV": env.get("VIRTUAL_ENV", ""),
+            "PIP_NO_CACHE_DIR": "1"
+        })
 
     return env
 
