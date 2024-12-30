@@ -10,7 +10,7 @@ from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import stdio
-from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
+from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, TextContent, CallToolResult
 
 from mcp_runtime_server.errors import (
     RuntimeServerError,
@@ -30,7 +30,7 @@ from mcp_runtime_server.types import (
     ResourceLimits
 )
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
-from mcp_runtime_server.logging import configure_logging
+from mcp_runtime_server.logging import configure_logging, log_with_data
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ def init_server() -> Server:
         ]
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
         """Handle tool invocations."""
         try:
             if name == "create_environment":
@@ -178,16 +178,15 @@ def init_server() -> Server:
                     if "resource_limits" in arguments else None
                 )
                 env = await create_environment(config)
-                return types.CallToolResult(
-                    content=[types.TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "id": env.id,
-                            "working_dir": env.working_dir,
-                            "created_at": env.created_at.isoformat()
-                        })
-                    )]
+                content = TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "id": env.id,
+                        "working_dir": env.working_dir,
+                        "created_at": env.created_at.isoformat()
+                    })
                 )
+                return CallToolResult(content=[content])
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -203,19 +202,18 @@ def init_server() -> Server:
                 )
                 stdout, stderr = await process.communicate()
                 
-                return types.CallToolResult(
-                    content=[types.TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "stdout": stdout.decode() if stdout else "",
-                            "stderr": stderr.decode() if stderr else "",
-                            "exit_code": process.returncode,
-                            "start_time": process.start_time.isoformat(),
-                            "end_time": process.end_time.isoformat(),
-                            "stats": process.stats if hasattr(process, "stats") else None
-                        })
-                    )]
+                content = TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "stdout": stdout.decode() if stdout else "",
+                        "stderr": stderr.decode() if stderr else "",
+                        "exit_code": process.returncode,
+                        "start_time": process.start_time.isoformat(),
+                        "end_time": process.end_time.isoformat(),
+                        "stats": process.stats if hasattr(process, "stats") else None
+                    })
                 )
+                return CallToolResult(content=[content])
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -229,12 +227,11 @@ def init_server() -> Server:
                     include_coverage=arguments.get("include_coverage", True),
                     parallel=arguments.get("parallel", False)
                 )
-                return types.CallToolResult(
-                    content=[types.TextContent(
-                        type="text",
-                        text=json.dumps(results)
-                    )]
+                content = TextContent(
+                    type="text",
+                    text=json.dumps(results)
                 )
+                return CallToolResult(content=[content])
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -244,33 +241,36 @@ def init_server() -> Server:
                     arguments["env_id"],
                     force=arguments.get("force", False)
                 )
-                return types.CallToolResult(
-                    content=[types.TextContent(
-                        type="text",
-                        text=json.dumps({"status": "success"})
-                    )]
+                content = TextContent(
+                    type="text",
+                    text=json.dumps({"status": "success"})
                 )
+                return CallToolResult(content=[content])
 
             raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
             
         except Exception as e:
             if isinstance(e, RuntimeServerError):
                 log_error(e, {"tool": name, "arguments": arguments}, logger)
-                raise types.ErrorData(
-                    code=e.code,
-                    message=str(e),
-                    data=e.details if hasattr(e, "details") else None
+                error_content = TextContent(
+                    type="text",
+                    text=str(e)
                 )
+                return CallToolResult(content=[error_content], isError=True)
             log_error(e, {"tool": name, "arguments": arguments}, logger)
-            raise RuntimeError(str(e)) from None
+            error_content = TextContent(
+                type="text",
+                text=str(e)
+            )
+            return CallToolResult(content=[error_content], isError=True)
 
-    return server  # Added return statement
+    return server
 
 
 def setup_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
     def handle_shutdown(signum, frame):
-        logger.info("Shutting down runtime server...", extra={
+        logger.debug("Shutting down runtime server...", extra={
             "data": {"signal": signum}
         })
         # Cleanup all active environments
@@ -289,7 +289,7 @@ async def serve() -> None:
     """Start the MCP runtime server."""
     configure_logging()
     
-    logger.info("Starting runtime server", extra={
+    logger.debug("Starting runtime server", extra={
         "data": {"version": "0.1.0"}
     })
     
