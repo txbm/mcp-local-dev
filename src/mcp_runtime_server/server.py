@@ -129,9 +129,12 @@ def init_server() -> Server:
                 
                 log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
                 
-                # Properly construct the MCP response types
-                text_content = TextContent(type="text", text=json.dumps(result))
-                return CallToolResult(content=[text_content])
+                return CallToolResult(
+                    content=[{
+                        "type": "text",
+                        "text": json.dumps(result)
+                    }]
+                )
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -164,8 +167,12 @@ def init_server() -> Server:
                     "exit_code": process.returncode
                 })
                 
-                text_content = TextContent(type="text", text=json.dumps(result))
-                return CallToolResult(content=[text_content])
+                return CallToolResult(
+                    content=[{
+                        "type": "text", 
+                        "text": json.dumps(result)
+                    }]
+                )
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -187,8 +194,12 @@ def init_server() -> Server:
                     "results": results
                 })
                 
-                text_content = TextContent(type="text", text=json.dumps(results))
-                return CallToolResult(content=[text_content])
+                return CallToolResult(
+                    content=[{
+                        "type": "text",
+                        "text": json.dumps(results)
+                    }]
+                )
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -205,8 +216,12 @@ def init_server() -> Server:
                     "env_id": arguments["env_id"]
                 })
                 
-                text_content = TextContent(type="text", text=json.dumps({"status": "success"}))
-                return CallToolResult(content=[text_content])
+                return CallToolResult(
+                    content=[{
+                        "type": "text",
+                        "text": json.dumps({"status": "success"})
+                    }]
+                )
 
             logger.error(f"Unknown tool requested: {name}")
             raise ValueError(f"Unknown tool: {name}")
@@ -221,9 +236,13 @@ def init_server() -> Server:
                     "error_message": str(e)
                 }
             })
-            # Properly construct error response
-            text_content = TextContent(type="text", text=str(e))
-            return CallToolResult(content=[text_content], isError=True)
+            return CallToolResult(
+                content=[{
+                    "type": "text",
+                    "text": str(e)
+                }],
+                isError=True
+            )
 
     return server
 
