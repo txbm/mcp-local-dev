@@ -234,6 +234,9 @@ def init_server() -> Server:
                 text=str(e)
             )], isError=True)
 
+    # Return the server instance
+    return server
+
 
 def setup_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
