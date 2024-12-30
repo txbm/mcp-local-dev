@@ -26,3 +26,13 @@ class Environment:
     config: RuntimeConfig
     created_at: datetime
     working_dir: str
+
+
+@dataclass(frozen=True)
+class TestConfig:
+    """Test configuration."""
+    name: str
+    command: str
+    timeout_seconds: int = 30
+    expected_exit_code: int = 0
+    expected_output: Optional[str] = None
