@@ -1,38 +1,35 @@
 """Runtime environment management."""
 import asyncio
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict
-import tempfile
 
+from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.types import RuntimeConfig, Environment
-from mcp_runtime_server.environments import ENVIRONMENTS
 
 logger = logging.getLogger(__name__)
 
-
-def _get_git_root_dir() -> Path:
-    """Get Git root directory for storing repositories."""
-    root = Path(tempfile.gettempdir()) / "mcp-runtime" / "repos"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+# Active environments
+ENVIRONMENTS: Dict[str, Environment] = {}
 
 
 async def create_environment(config: RuntimeConfig) -> Environment:
     """Create a new runtime environment."""
     try:
-        # Create unique working directory
+        # Create unique environment ID
         env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        work_dir = _get_git_root_dir() / env_id
-        work_dir.mkdir(parents=True)
+
+        # Create sandbox first
+        sandbox = create_sandbox()
+        work_dir = sandbox.root / "work"
         
         # Clone repository
         process = await asyncio.create_subprocess_exec(
             "git", "clone", config.github_url, str(work_dir),
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
+            env=sandbox.env_vars
         )
         stdout, stderr = await process.communicate()
         
@@ -51,9 +48,8 @@ async def create_environment(config: RuntimeConfig) -> Environment:
         return env
         
     except Exception as e:
-        if 'work_dir' in locals() and work_dir.exists():
-            import shutil
-            shutil.rmtree(str(work_dir))
+        if 'sandbox' in locals():
+            cleanup_sandbox(sandbox)
         raise ValueError(f"Failed to create environment: {e}") from e
 
 
@@ -64,12 +60,15 @@ async def cleanup_environment(env_id: str) -> None:
         
     env = ENVIRONMENTS[env_id]
     work_dir = Path(env.working_dir)
+    sandbox_root = work_dir.parent.parent  # Get sandbox root from work dir
     
     try:
-        # Clean up working directory
-        if work_dir.exists():
-            import shutil
-            shutil.rmtree(str(work_dir))
+        # Find and clean up the sandbox
+        sandbox = next(
+            sb for sb in get_active_sandboxes()
+            if sb.root == sandbox_root
+        )
+        cleanup_sandbox(sandbox)
             
     finally:
         del ENVIRONMENTS[env_id]
@@ -81,14 +80,23 @@ async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
         raise ValueError(f"Unknown environment: {env_id}")
         
     env = ENVIRONMENTS[env_id]
+    work_dir = Path(env.working_dir)
+    sandbox_root = work_dir.parent.parent
     
     try:
-        # Run command in working directory
+        # Find associated sandbox
+        sandbox = next(
+            sb for sb in get_active_sandboxes()
+            if sb.root == sandbox_root
+        )
+        
+        # Run command in sandbox environment
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=env.working_dir
+            cwd=env.working_dir,
+            env=sandbox.env_vars
         )
         
         return process
