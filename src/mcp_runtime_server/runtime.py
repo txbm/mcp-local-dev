@@ -8,11 +8,9 @@ from typing import Dict
 import tempfile
 
 from mcp_runtime_server.types import RuntimeConfig, Environment
+from mcp_runtime_server.environments import ENVIRONMENTS
 
 logger = logging.getLogger(__name__)
-
-# Active environments
-ENVIRONMENTS: Dict[str, Environment] = {}
 
 
 def _get_git_root_dir() -> Path:
@@ -135,8 +133,35 @@ async def auto_run_tests(env: Environment) -> Dict[str, any]:
             if not (Path(env.working_dir) / "pyproject.toml").exists():
                 return {"error": "No pyproject.toml found"}
 
+            # Create and activate virtual environment
+            venv_process = await run_command(env.id, "uv venv")
+            stdout, stderr = await venv_process.communicate()
+            if venv_process.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"Failed to create virtual environment: {stderr.decode()}"
+                }
+
+            # Install dependencies
+            install_process = await run_command(env.id, "uv pip install -e .")
+            stdout, stderr = await install_process.communicate()
+            if install_process.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"Failed to install dependencies: {stderr.decode()}"
+                }
+
+            # Install pytest
+            pytest_install = await run_command(env.id, "uv pip install pytest")
+            stdout, stderr = await pytest_install.communicate()
+            if pytest_install.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"Failed to install pytest: {stderr.decode()}"
+                }
+
             # Run pytest
-            process = await run_command(env.id, "uv run pytest")
+            process = await run_command(env.id, "python -m pytest")
             stdout, stderr = await process.communicate()
             
             return {
