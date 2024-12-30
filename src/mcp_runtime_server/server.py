@@ -11,9 +11,9 @@ from mcp.server.lowlevel import Server
 from mcp.types import Tool, TextContent
 from mcp.server import stdio
 
-from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command, ENVIRONMENTS
-from mcp_runtime_server.testing import auto_run_tests
-from mcp_runtime_server.types import RuntimeConfig
+from mcp_runtime_server.environments import create_environment, cleanup_environment, ENVIRONMENTS
+from mcp_runtime_server.testing.execution import auto_run_tests
+from mcp_runtime_server.types import EnvironmentConfig
 from mcp_runtime_server.logging import configure_logging, log_with_data
 
 logger = logging.getLogger(__name__)
@@ -35,17 +35,12 @@ def init_server() -> Server:
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "manager": {
-                            "type": "string", 
-                            "enum": ["node", "bun", "uv"],
-                            "description": "Runtime manager to use"
-                        },
                         "github_url": {
                             "type": "string", 
                             "description": "GitHub repository URL"
                         }
                     },
-                    "required": ["manager", "github_url"]
+                    "required": ["github_url"]
                 }
             ),
             Tool(
@@ -93,15 +88,15 @@ def init_server() -> Server:
             })
 
             if name == "create_environment":
-                config = RuntimeConfig(
-                    manager=arguments["manager"],
+                config = EnvironmentConfig(
                     github_url=arguments["github_url"]
                 )
                 env = await create_environment(config)
                 result = {
                     "id": env.id,
                     "working_dir": str(env.work_dir),
-                    "created_at": env.created_at.isoformat()
+                    "created_at": env.created_at.isoformat(),
+                    "runtime": env.manager.value if env.manager else None
                 }
                 
                 log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
@@ -116,9 +111,17 @@ def init_server() -> Server:
                     logger.error(f"Unknown environment: {arguments['env_id']}")
                     raise RuntimeError(f"Unknown environment: {arguments['env_id']}")
 
-                log_with_data(logger, logging.DEBUG, "Running tests", {"env_id": arguments["env_id"]})
+                env = ENVIRONMENTS[arguments["env_id"]]
+                if not env.manager:
+                    logger.error("Runtime not detected for environment")
+                    raise RuntimeError("Runtime not detected for environment")
 
-                results = await auto_run_tests(ENVIRONMENTS[arguments["env_id"]])
+                log_with_data(logger, logging.DEBUG, "Running tests", {
+                    "env_id": arguments["env_id"],
+                    "runtime": env.manager.value
+                })
+
+                results = await auto_run_tests(env)
                 log_with_data(logger, logging.DEBUG, "Test execution completed", results)
                 
                 return [TextContent(type="text", text=json.dumps(results))]
@@ -151,8 +154,6 @@ def init_server() -> Server:
             )
             logger.error("Tool invocation failed", exc_info=True)
             return [TextContent(type="text", text=str(e))]
-
-    return server
 
 
 def setup_handlers() -> None:
