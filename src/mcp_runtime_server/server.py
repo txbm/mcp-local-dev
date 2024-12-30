@@ -163,7 +163,7 @@ def init_server() -> Server:
         ]
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> types.ServerResult:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
         """Handle tool invocations."""
         try:
             if name == "create_environment":
@@ -186,8 +186,7 @@ def init_server() -> Server:
                         "created_at": env.created_at.isoformat()
                     })
                 )
-                tool_result = types.CallToolResult(content=[content])
-                return types.ServerResult(tool_result)
+                return types.CallToolResult(content=[content])
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -214,8 +213,7 @@ def init_server() -> Server:
                         "stats": process.stats if hasattr(process, "stats") else None
                     })
                 )
-                tool_result = types.CallToolResult(content=[content])
-                return types.ServerResult(tool_result)
+                return types.CallToolResult(content=[content])
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -233,8 +231,7 @@ def init_server() -> Server:
                     type="text", 
                     text=json.dumps(results)
                 )
-                tool_result = types.CallToolResult(content=[content])
-                return types.ServerResult(tool_result)
+                return types.CallToolResult(content=[content])
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -248,8 +245,7 @@ def init_server() -> Server:
                     type="text",
                     text=json.dumps({"status": "success"})
                 )
-                tool_result = types.CallToolResult(content=[content])
-                return types.ServerResult(tool_result)
+                return types.CallToolResult(content=[content])
 
             raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
             
@@ -260,15 +256,13 @@ def init_server() -> Server:
                     type="text",
                     text=str(e)
                 )
-                tool_result = types.CallToolResult(content=[content], isError=True)
-                return types.ServerResult(tool_result)
+                return types.CallToolResult(content=[content], isError=True)
             log_error(e, {"tool": name, "arguments": arguments}, logger)
             content = types.TextContent(
                 type="text",
                 text=str(e)
             )
-            tool_result = types.CallToolResult(content=[content], isError=True)
-            return types.ServerResult(tool_result)
+            return types.CallToolResult(content=[content], isError=True)
 
     return server
 
