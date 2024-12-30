@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 from mcp_runtime_server.types import RuntimeConfig, Environment
 from mcp_runtime_server.logging import log_with_data
-from mcp_runtime_server.testing import auto_run_tests
+from mcp_runtime_server.commands import run_command
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +57,10 @@ async def create_environment(config: RuntimeConfig) -> Environment:
         )
         
         # Clone repository
-        process = await asyncio.create_subprocess_exec(
-            "git", "clone", config.github_url, str(work_dir),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env.env_vars
+        process = await run_command(
+            f"git clone {config.github_url} {work_dir}",
+            str(work_dir),
+            env.env_vars
         )
         stdout, stderr = await process.communicate()
         
@@ -88,25 +87,3 @@ async def cleanup_environment(env_id: str) -> None:
             shutil.rmtree(str(env.root_dir))
     finally:
         del ENVIRONMENTS[env_id]
-
-
-async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
-    """Run a command in an environment."""
-    if env_id not in ENVIRONMENTS:
-        raise RuntimeError(f"Unknown environment: {env_id}")
-        
-    env = ENVIRONMENTS[env_id]
-    
-    try:
-        process = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=env.work_dir,
-            env=env.env_vars
-        )
-        
-        return process
-        
-    except Exception as e:
-        raise RuntimeError(f"Failed to run command: {e}")
