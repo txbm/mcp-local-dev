@@ -129,10 +129,9 @@ def init_server() -> Server:
                 
                 log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
                 
-                return types.CallToolResult(content=[types.TextContent(
-                    type="text",
-                    text=json.dumps(result)
-                )])
+                # Create proper TextContent instance
+                content = types.TextContent(type="text", text=json.dumps(result))
+                return types.CallToolResult(content=[content])
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -165,10 +164,9 @@ def init_server() -> Server:
                     "exit_code": process.returncode
                 })
                 
-                return types.CallToolResult(content=[types.TextContent(
-                    type="text",
-                    text=json.dumps(result)
-                )])
+                # Create proper TextContent instance
+                content = types.TextContent(type="text", text=json.dumps(result))
+                return types.CallToolResult(content=[content])
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -190,10 +188,9 @@ def init_server() -> Server:
                     "results": results
                 })
                 
-                return types.CallToolResult(content=[types.TextContent(
-                    type="text", 
-                    text=json.dumps(results)
-                )])
+                # Create proper TextContent instance
+                content = types.TextContent(type="text", text=json.dumps(results))
+                return types.CallToolResult(content=[content])
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -210,10 +207,9 @@ def init_server() -> Server:
                     "env_id": arguments["env_id"]
                 })
                 
-                return types.CallToolResult(content=[types.TextContent(
-                    type="text",
-                    text=json.dumps({"status": "success"})
-                )])
+                # Create proper TextContent instance
+                content = types.TextContent(type="text", text=json.dumps({"status": "success"}))
+                return types.CallToolResult(content=[content])
 
             logger.error(f"Unknown tool requested: {name}")
             raise ValueError(f"Unknown tool: {name}")
@@ -229,10 +225,9 @@ def init_server() -> Server:
                     "error_message": str(e)
                 }
             })
-            return types.CallToolResult(content=[types.TextContent(
-                type="text",
-                text=str(e)
-            )], isError=True)
+            # Create proper TextContent instance for error
+            content = types.TextContent(type="text", text=str(e))
+            return types.CallToolResult(content=[content], isError=True)
 
     # Return the server instance
     return server
