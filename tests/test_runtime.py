@@ -19,7 +19,7 @@ async def test_environment_cleanup(temp_dir):
     """Test environment cleanup."""
     config = RuntimeConfig(
         manager=RuntimeManager.UVX,
-        github_url="https://github.com/test/repo"
+        github_url="https://github.com/txbm/mcp-runtime-server.git"
     )
     
     env = await create_environment(config)
@@ -32,16 +32,14 @@ async def test_environment_cleanup(temp_dir):
 @pytest.mark.asyncio
 async def test_environment_isolation(temp_dir):
     """Test that environments are properly isolated."""
-    # Create two environments
-    env1 = await create_environment(RuntimeConfig(
+    # Create two environments with same repo but different paths
+    config = RuntimeConfig(
         manager=RuntimeManager.NPX,
-        github_url="https://github.com/test/repo1"
-    ))
+        github_url="https://github.com/txbm/mcp-runtime-server.git"
+    )
     
-    env2 = await create_environment(RuntimeConfig(
-        manager=RuntimeManager.NPX,
-        github_url="https://github.com/test/repo2"
-    ))
+    env1 = await create_environment(config)
+    env2 = await create_environment(config)
     
     # Verify they have different working directories
     assert env1.root_dir != env2.root_dir
