@@ -3,13 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
-from mcp_runtime_server.errors import RuntimeServerError
-
-
-class FrameworkError(RuntimeServerError):
-    """Framework-related error."""
-    pass
-
 
 @dataclass(frozen=True)
 class Framework:
@@ -115,7 +108,7 @@ def detect_frameworks(working_dir: str) -> List[Framework]:
         return list(detected)
         
     except Exception as e:
-        raise FrameworkError(f"Failed to detect frameworks: {e}")
+        raise RuntimeError(f"Failed to detect frameworks: {e}")
 
 
 def get_framework_command(
@@ -153,7 +146,7 @@ def get_framework_command(
         return command, env_vars
         
     except Exception as e:
-        raise FrameworkError(f"Failed to get framework command: {e}")
+        raise RuntimeError(f"Failed to get framework command: {e}")
 
 
 def parse_test_results(
@@ -191,7 +184,7 @@ def parse_test_results(
             }
             
     except Exception as e:
-        raise FrameworkError(f"Failed to parse test results: {e}")
+        raise RuntimeError(f"Failed to parse test results: {e}")
 
 
 def _parse_jest_output(output: str) -> Dict[str, Any]:
