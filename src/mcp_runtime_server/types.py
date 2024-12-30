@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 
 
-RuntimeManager = Enum('RuntimeManager', [
+RTManager = Enum('RTManager', [
     ('NODE', 'node'),
     ('BUN', 'bun'),
     ('UV', 'uv')
@@ -37,9 +37,9 @@ class CaptureConfig:
 
 
 @dataclass(frozen=True)
-class RuntimeConfig:
+class RTConfig:
     """Configuration for runtime environments."""
-    manager: RuntimeManager
+    manager: RTManager
     package_name: str
     version: Optional[str] = None
     args: list[str] = None
@@ -53,10 +53,10 @@ class RuntimeConfig:
 
 
 @dataclass(frozen=True)
-class RuntimeEnv:
+class RTEnv:
     """Runtime environment state."""
     id: str
-    config: RuntimeConfig
+    config: RTConfig
     created_at: datetime
     working_dir: str
     env_vars: Dict[str, str]
@@ -64,7 +64,7 @@ class RuntimeEnv:
 
 @dataclass(frozen=True)
 class TestConfig:
-    """Test configuration for runtime environments."""
+    """Test configuration."""
     name: str
     command: str
     timeout_seconds: int = 30
@@ -81,7 +81,7 @@ TestResult = Enum('TestResult', [
 
 
 @dataclass(frozen=True)
-class CapturedOutput:
+class Output:
     """Output captured from test execution."""
     stdout: str
     stderr: str
@@ -91,21 +91,21 @@ class CapturedOutput:
 
 
 @dataclass(frozen=True)
-class TestRunResult:
+class TestRun:
     """Results from a test run."""
     config: TestConfig
     result: TestResult
-    captured: CapturedOutput
+    captured: Output
     error_message: Optional[str] = None
     failure_details: Optional[Dict[str, str]] = None
 
 
-RuntimeExitCode: TypeAlias = int
-RuntimeOutput: TypeAlias = str
-RuntimeEnvVars: TypeAlias = Dict[str, str]
+ExitCode: TypeAlias = int
+OutText: TypeAlias = str
+EnvVars: TypeAlias = Dict[str, str]
 
-def runtime_error(message: str, details: Optional[Dict[str, Any]] = None) -> Exception:
-    """Create a runtime error with optional details."""
+def make_error(message: str, details: Optional[Dict[str, Any]] = None) -> Exception:
+    """Create an error with optional details."""
     err = Exception(message)
     if details:
         setattr(err, 'details', details)
