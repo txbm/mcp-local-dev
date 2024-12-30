@@ -72,7 +72,7 @@ class TestConfig:
     expected_output: Optional[str] = None
 
 
-TestResult = Enum('TestResult', [
+RunResult = Enum('RunResult', [
     ('PASS', 'pass'),
     ('FAIL', 'fail'),
     ('ERROR', 'error'),
@@ -91,10 +91,10 @@ class CapturedOutput:
 
 
 @dataclass(frozen=True)
-class TestResult:
+class TestRun:
     """Results from a test run."""
     config: TestConfig
-    result: TestResult
+    result: RunResult
     captured: CapturedOutput
     error_message: Optional[str] = None
     failure_details: Optional[Dict[str, str]] = None
