@@ -19,7 +19,13 @@ async def clone_repository(url: str, target_dir: str, env_vars: Dict[str, str]) 
     try:
         logger.debug(f"Original URL: {url}")
         
-        # Don't modify the URL - let git handle it
+        # Ensure HTTPS URL
+        if not url.startswith("https://"):
+            if url.startswith("http://") or url.startswith("git@"):
+                raise ValueError("Only HTTPS URLs are supported")
+            url = f"https://{url}"
+            
+        logger.debug(f"Final URL: {url}")
         cmd = f"git clone {url} {target_dir}"
         logger.info(f"Executing git clone command: {cmd}")
         logger.debug(f"Clone target directory: {target_dir}")
