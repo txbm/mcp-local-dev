@@ -1,50 +1,82 @@
 """Logging configuration for MCP Runtime Server."""
+import json
 import logging
-from typing import Set, Dict, Any
+import logging.config
+from datetime import datetime
+from typing import Any, Dict
 
-# Requests that should not be logged
-SUPPRESSED_REQUESTS: Set[str] = {
-    'ListResourcesRequest',
-    'ListPromptsRequest'
-}
-
-class RequestFilter(logging.Filter):
-    """Filter out noisy request logging."""
+class ColorFormatter(logging.Formatter):
+    """Custom formatter with color support."""
     
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Filter log records.
+    COLORS = {
+        'DEBUG': '\033[36m',    # Cyan
+        'INFO': '\033[32m',     # Green
+        'WARNING': '\033[33m',  # Yellow
+        'ERROR': '\033[31m',    # Red
+        'CRITICAL': '\033[35m'  # Magenta
+    }
+    RESET = '\033[0m'
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record with color and as JSON."""
+        # Add source file info
+        record.source_info = f"{record.filename}:{record.lineno}"
         
-        Args:
-            record: Log record to filter
-            
-        Returns:
-            True if record should be logged, False otherwise
-        """
-        # Check if this is a request processing message
-        if 'Processing request of type' in record.msg:
-            # Extract request type
-            request_type = record.msg.split('type ')[-1]
-            return request_type not in SUPPRESSED_REQUESTS
-        return True
+        # Create the base log object
+        log_object = {
+            'timestamp': datetime.fromtimestamp(record.created).isoformat(),
+            'logger': record.name,
+            'level': record.levelname,
+            'source': record.source_info,
+            'message': record.getMessage()
+        }
+        
+        # Add exception info if present
+        if record.exc_info:
+            log_object['exception'] = self.formatException(record.exc_info)
 
+        # Add any extra fields
+        if hasattr(record, 'data'):
+            log_object['data'] = record.data
 
-def log_runtime_error(error: Exception, context: Dict[str, Any]) -> None:
-    """Log runtime errors with context.
+        # Format as colored JSON
+        color = self.COLORS.get(record.levelname, '')
+        formatted = json.dumps(log_object, indent=None)
+        return f"{color}{formatted}{self.RESET}"
+
+def configure_logging(level: str = 'INFO') -> None:
+    """Configure logging with color and JSON formatting."""
+    config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'colored_json': {
+                '()': ColorFormatter
+            }
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'colored_json',
+                'stream': 'ext://sys.stdout'
+            }
+        },
+        'loggers': {
+            'mcp_runtime_server': {
+                'handlers': ['console'],
+                'level': level,
+                'propagate': False
+            }
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': level
+        }
+    }
     
-    Args:
-        error: The exception that occurred
-        context: Additional context information
-    """
-    logger = logging.getLogger(__name__)
-    logger.error(f"Runtime error: {str(error)}", extra={"context": context})
+    logging.config.dictConfig(config)
 
-
-def setup_logging() -> None:
-    """Configure logging with request filtering."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    # Add filter to the root logger
-    logging.getLogger('mcp.server.lowlevel.server').addFilter(RequestFilter())
+def log_with_data(logger: logging.Logger, level: int, msg: str, data: Dict[str, Any] = None) -> None:
+    """Helper to log messages with structured data."""
+    extra = {'data': data} if data else {}
+    logger.log(level, msg, extra=extra)
