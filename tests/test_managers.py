@@ -14,22 +14,27 @@ from mcp_runtime_server.managers import (
 )
 
 @pytest.mark.asyncio
-async def test_get_manager_binary(all_managers_environment):
+async def test_get_manager_binary(environment_per_manager):
     """Test manager binary resolution."""
-    envs = await all_managers_environment
-    env = [e for e in envs if e.config.manager == RuntimeManager.NPX][0]
+    envs = await environment_per_manager
     
-    # Valid manager
-    binary = get_manager_binary(env.config.manager)
-    assert binary.endswith("npx")
+    # Test each manager binary
+    for env in envs:
+        binary = get_manager_binary(env.config.manager)
+        assert binary.endswith(env.config.manager.value)
     
     # Invalid manager
     with pytest.raises(RuntimeError):
         get_manager_binary(RuntimeManager("nonexistent"))
 
 @pytest.mark.asyncio
-async def test_build_install_command():
+async def test_build_install_command(environment_per_manager):
     """Test installation command building."""
+    envs = await environment_per_manager
+    npx_env = next(e for e in envs if e.config.manager == RuntimeManager.NPX)
+    uvx_env = next(e for e in envs if e.config.manager == RuntimeManager.UVX)
+    pipx_env = next(e for e in envs if e.config.manager == RuntimeManager.PIPX)
+    
     # NPX command
     cmd, args = build_install_command(
         RuntimeManager.NPX,
@@ -63,8 +68,10 @@ async def test_build_install_command():
     assert "black" in args
 
 @pytest.mark.asyncio
-async def test_validate_package_name():
+async def test_validate_package_name(environment_per_manager):
     """Test package name validation."""
+    envs = await environment_per_manager
+    
     # NPM package names
     assert validate_package_name(RuntimeManager.NPX, "chalk")
     assert validate_package_name(RuntimeManager.NPX, "@types/node")
@@ -102,16 +109,17 @@ async def test_prepare_env_vars(runtime_environment):
     assert pipx_env["PATH"] == base_env["PATH"]
 
 @pytest.mark.asyncio
-async def test_cleanup_manager_artifacts(runtime_environment):
+async def test_cleanup_manager_artifacts(environment_per_manager):
     """Test cleanup of manager artifacts."""
-    env = await runtime_environment
-    work_dir = env.work_dir
+    envs = await environment_per_manager
+    npx_env = next(e for e in envs if e.config.manager == RuntimeManager.NPX)
+    uvx_env = next(e for e in envs if e.config.manager == RuntimeManager.UVX)
     
-    # Create some dummy artifacts
+    # Create npm artifacts
     npm_artifacts = [
-        work_dir / "node_modules",
-        work_dir / "package.json",
-        work_dir / "package-lock.json"
+        npx_env.work_dir / "node_modules",
+        npx_env.work_dir / "package.json",
+        npx_env.work_dir / "package-lock.json"
     ]
     for artifact in npm_artifacts:
         if str(artifact).endswith("modules"):
@@ -120,15 +128,15 @@ async def test_cleanup_manager_artifacts(runtime_environment):
             artifact.touch()
     
     # Test NPX cleanup
-    cleanup_manager_artifacts(RuntimeManager.NPX, str(work_dir))
+    cleanup_manager_artifacts(RuntimeManager.NPX, str(npx_env.work_dir))
     for artifact in npm_artifacts:
         assert not artifact.exists()
     
     # Create Python artifacts
     python_artifacts = [
-        work_dir / "__pycache__",
-        work_dir / "test.pyc",
-        work_dir / ".venv"
+        uvx_env.work_dir / "__pycache__",
+        uvx_env.work_dir / "test.pyc",
+        uvx_env.work_dir / ".venv"
     ]
     for artifact in python_artifacts:
         if str(artifact).endswith(("__pycache__", ".venv")):
@@ -137,15 +145,19 @@ async def test_cleanup_manager_artifacts(runtime_environment):
             artifact.touch()
     
     # Test UVX cleanup
-    cleanup_manager_artifacts(RuntimeManager.UVX, str(work_dir))
+    cleanup_manager_artifacts(RuntimeManager.UVX, str(uvx_env.work_dir))
     for artifact in python_artifacts:
         assert not artifact.exists()
 
 @pytest.mark.asyncio
-async def test_prepare_env_vars_isolation(runtime_environment):
+async def test_prepare_env_vars_isolation(environment_per_manager):
     """Test that environment preparations are isolated."""
-    env = await runtime_environment
-    base_env = env.env_vars.copy()
+    envs = await environment_per_manager
+    
+    npx_env = next(e for e in envs if e.config.manager == RuntimeManager.NPX)
+    uvx_env = next(e for e in envs if e.config.manager == RuntimeManager.UVX)
+    
+    base_env = npx_env.env_vars.copy()
     base_env["CUSTOM_VAR"] = "value"
     
     env1 = prepare_env_vars(RuntimeManager.NPX, base_env)
@@ -163,7 +175,7 @@ async def test_prepare_env_vars_isolation(runtime_environment):
     assert "PIP_NO_CACHE_DIR" in env2
 
 @pytest.mark.asyncio
-async def test_multiple_version_formats():
+async def test_multiple_version_formats(environment_per_manager):
     """Test handling of different version formats."""
     # NPM style versions
     cmd, args = build_install_command(
@@ -182,11 +194,11 @@ async def test_multiple_version_formats():
     assert "package==>=2.0.0,<3.0.0" in " ".join(args)
 
 @pytest.mark.asyncio
-async def test_cleanup_nonexistent_path(runtime_environment):
+async def test_cleanup_nonexistent_path(environment_per_manager):
     """Test cleanup behavior with nonexistent paths."""
-    env = await runtime_environment
-    non_existent = env.work_dir / "nonexistent"
+    envs = await environment_per_manager
     
-    # Should not raise any errors
-    cleanup_manager_artifacts(RuntimeManager.NPX, str(non_existent))
-    cleanup_manager_artifacts(RuntimeManager.UVX, str(non_existent))
+    for env in envs:
+        non_existent = env.work_dir / "nonexistent"
+        cleanup_manager_artifacts(env.config.manager, str(non_existent))
+        # Should not raise any errors
