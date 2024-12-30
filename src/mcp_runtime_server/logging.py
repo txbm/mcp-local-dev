@@ -3,7 +3,6 @@ import json
 import logging
 import logging.config
 import sys
-import traceback
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -29,20 +28,10 @@ class JsonFormatter(logging.Formatter):
         
         # Add exception info if present
         if record.exc_info:
-            exception_type, exception_value, exception_traceback = record.exc_info
             log_object['exception'] = {
-                'type': str(exception_type.__name__),
-                'message': str(exception_value),
-                'traceback': self.formatException(record.exc_info),
-                'stack': [
-                    {
-                        'filename': frame.filename,
-                        'lineno': frame.lineno,
-                        'name': frame.name,
-                        'line': frame.line
-                    }
-                    for frame in traceback.extract_tb(exception_traceback)
-                ]
+                'type': record.exc_info[0].__name__,
+                'message': str(record.exc_info[1]),
+                'traceback': self.formatException(record.exc_info)
             }
 
         # Add any extra fields
@@ -132,7 +121,7 @@ def log_with_data(
     level: int, 
     msg: str, 
     data: Optional[Dict[str, Any]] = None,
-    exc_info: Union[bool, Tuple[type, BaseException, traceback.TracebackType]] = None
+    exc_info: Union[bool, Tuple[Any, BaseException, Any]] = None
 ) -> None:
     """
     Enhanced helper to log messages with structured data and optional exception info.
