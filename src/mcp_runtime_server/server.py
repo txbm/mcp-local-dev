@@ -14,17 +14,17 @@ from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 
 from mcp_runtime_server.errors import (
     RuntimeServerError,
-    InvalidEnvError,
+    EnvironmentError,
     ResourceLimitError,
-    BinNotFoundError,
+    BinaryNotFoundError,
     SandboxError,
     log_error
 )
-from mcp_runtime_server.runtime import create_env, cleanup_env, run_in_env
-from mcp_runtime_server.testing import auto_detect_tests
+from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command
+from mcp_runtime_server.testing import auto_run_tests
 from mcp_runtime_server.types import (
-    RTManager,
-    RTConfig,
+    RuntimeManager,
+    RuntimeConfig,
     CaptureConfig,
     CaptureMode, 
     ResourceLimits
@@ -35,7 +35,7 @@ from mcp_runtime_server.logging import configure_logging
 logger = logging.getLogger(__name__)
 
 # Active environments
-ACTIVE_ENVS: Dict[str, Any] = {}
+ENVIRONMENTS: Dict[str, Any] = {}
 
 def init_server() -> Server:
     """Initialize the MCP runtime server."""
@@ -53,7 +53,7 @@ def init_server() -> Server:
                     "properties": {
                         "manager": {
                             "type": "string",
-                            "enum": [m.value for m in RTManager],
+                            "enum": [m.value for m in RuntimeManager],
                             "description": "Runtime manager to use"
                         },
                         "package_name": {
@@ -167,8 +167,8 @@ def init_server() -> Server:
         """Handle tool invocations."""
         try:
             if name == "create_environment":
-                config = RTConfig(
-                    manager=RTManager(arguments["manager"]),
+                config = RuntimeConfig(
+                    manager=RuntimeManager(arguments["manager"]),
                     package_name=arguments["package_name"],
                     version=arguments.get("version"),
                     args=arguments.get("args", []),
@@ -177,7 +177,7 @@ def init_server() -> Server:
                     resource_limits=ResourceLimits(**arguments["resource_limits"])
                     if "resource_limits" in arguments else None
                 )
-                env = await create_env(config)
+                env = await create_environment(config)
                 return types.CallToolResult(
                     content=[types.TextContent(
                         type="text",
@@ -191,12 +191,12 @@ def init_server() -> Server:
 
             elif name == "run_command":
                 if "env_id" not in arguments:
-                    raise InvalidEnvError("Missing env_id parameter")
+                    raise EnvironmentError("Missing env_id parameter")
                     
                 capture_config = CaptureConfig(
                     **arguments.get("capture_config", {})
                 )
-                process = await run_in_env(
+                process = await run_command(
                     arguments["env_id"],
                     arguments["command"],
                     capture_config
@@ -219,13 +219,13 @@ def init_server() -> Server:
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
-                    raise InvalidEnvError("Missing env_id parameter")
+                    raise EnvironmentError("Missing env_id parameter")
                     
-                if arguments["env_id"] not in ACTIVE_ENVS:
-                    raise InvalidEnvError(arguments["env_id"])
+                if arguments["env_id"] not in ENVIRONMENTS:
+                    raise EnvironmentError(arguments["env_id"])
                     
-                results = await auto_detect_tests(
-                    ACTIVE_ENVS[arguments["env_id"]],
+                results = await auto_run_tests(
+                    ENVIRONMENTS[arguments["env_id"]],
                     include_coverage=arguments.get("include_coverage", True),
                     parallel=arguments.get("parallel", False)
                 )
@@ -238,9 +238,9 @@ def init_server() -> Server:
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
-                    raise InvalidEnvError("Missing env_id parameter")
+                    raise EnvironmentError("Missing env_id parameter")
                     
-                await cleanup_env(
+                await cleanup_environment(
                     arguments["env_id"],
                     force=arguments.get("force", False)
                 )
@@ -265,16 +265,16 @@ def init_server() -> Server:
             raise RuntimeError(str(e)) from None
 
 
-def setup_signals() -> None:
+def setup_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
     def handle_shutdown(signum, frame):
         logger.info("Shutting down runtime server...", extra={
             "data": {"signal": signum}
         })
         # Cleanup all active environments
-        for env_id in list(ACTIVE_ENVS.keys()):
+        for env_id in list(ENVIRONMENTS.keys()):
             try:
-                asyncio.create_task(cleanup_env(env_id, force=True))
+                asyncio.create_task(cleanup_environment(env_id, force=True))
             except Exception as e:
                 log_error(e, {"env_id": env_id}, logger)
         sys.exit(0)
@@ -283,16 +283,16 @@ def setup_signals() -> None:
     signal.signal(signal.SIGTERM, handle_shutdown)
 
 
-async def serve_runtime() -> None:
+async def serve() -> None:
     """Start the MCP runtime server."""
-    configure_logging()  # Configure logging with JSON
+    configure_logging()
     
     logger.info("Starting runtime server", extra={
         "data": {"version": "0.1.0"}
     })
     
     server = init_server()
-    setup_signals()
+    setup_handlers()
     
     async with stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
@@ -311,4 +311,4 @@ async def serve_runtime() -> None:
 
 def main() -> None:
     """Main entry point."""
-    asyncio.run(serve_runtime())
+    asyncio.run(serve())
