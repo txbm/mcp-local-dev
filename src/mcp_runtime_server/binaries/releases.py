@@ -19,4 +19,4 @@ async def get_latest_uv_release() -> str:
                     f"Failed to fetch latest UV release: {response.status}"
                 )
             data = await response.json()
-            return data["tag_name"].lstrip("v")
+            return data["tag_name"]
