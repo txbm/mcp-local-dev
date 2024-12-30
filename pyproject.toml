@@ -9,15 +9,13 @@ description = "Model Context Protocol Runtime Server - A secure sandbox for mana
 authors = [
     {name = "MCP Contributors", email = "info@modelcontextprotocol.io"}
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.12,<=3.13"
 dependencies = [
-    "mcp>=0.7.0",
-    "aiohttp>=3.9.0",
-    "psutil>=5.9.0",
-    "appdirs>=1.4.4",
-    "structlog>=23.0.0",
-    "python-seccomp>=3.0.0; sys_platform == 'linux'",
-    "python-unshare>=0.1.0; sys_platform == 'linux'"
+    "mcp@git+https://github.com/modelcontextprotocol/python-sdk",
+    "aiohttp==3.11.11",
+    "psutil==6.1.1",
+    "appdirs==1.4.4",
+    "structlog==24.4.0"
 ]
 
 [project.optional-dependencies]
@@ -79,3 +77,6 @@ exclude_lines = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_runtime_server"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
