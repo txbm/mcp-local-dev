@@ -19,7 +19,7 @@ async def test_env(temp_dir):
     """Create a test environment."""
     config = RuntimeConfig(
         manager=RuntimeManager.UVX,
-        github_url="https://github.com/test/repo"
+        github_url="https://github.com/txbm/mcp-runtime-server.git"
     )
     env = await create_environment(config)
     yield env
@@ -29,18 +29,14 @@ async def test_env(temp_dir):
 @pytest.mark.asyncio
 async def test_environment_isolation(temp_dir):
     """Test environment isolation."""
-    config1 = RuntimeConfig(
+    # Create test environments from same repo but different paths
+    config = RuntimeConfig(
         manager=RuntimeManager.UVX,
-        github_url="https://github.com/test/repo1"
+        github_url="https://github.com/txbm/mcp-runtime-server.git"
     )
     
-    config2 = RuntimeConfig(
-        manager=RuntimeManager.UVX,
-        github_url="https://github.com/test/repo2"
-    )
-    
-    env1 = await create_environment(config1)
-    env2 = await create_environment(config2)
+    env1 = await create_environment(config)
+    env2 = await create_environment(config)
     
     try:
         # Check paths are isolated
