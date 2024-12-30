@@ -9,8 +9,8 @@ class Framework:
     """Test framework configuration."""
     name: str
     run_command: str
-    file_patterns: List[str]
-    config_files: List[str]
+    file_patterns: Tuple[str, ...]  # Changed from List to Tuple
+    config_files: Tuple[str, ...]   # Changed from List to Tuple
     result_parser: str
 
 
@@ -20,22 +20,22 @@ FRAMEWORKS = {
     "jest": Framework(
         name="jest",
         run_command="jest",
-        file_patterns=["*.test.js", "*.spec.js"],
-        config_files=["jest.config.js", "package.json"],
+        file_patterns=("*.test.js", "*.spec.js"),  # Changed to tuple
+        config_files=("jest.config.js", "package.json"),  # Changed to tuple
         result_parser="jest"
     ),
     "mocha": Framework(
         name="mocha",
         run_command="mocha",
-        file_patterns=["test/*.js", "*.test.js", "*.spec.js"],
-        config_files=[".mocharc.js", ".mocharc.json", "package.json"],
+        file_patterns=("test/*.js", "*.test.js", "*.spec.js"),  # Changed to tuple
+        config_files=(".mocharc.js", ".mocharc.json", "package.json"),  # Changed to tuple
         result_parser="mocha"
     ),
     "vitest": Framework(
         name="vitest",
         run_command="vitest",
-        file_patterns=["*.test.ts", "*.spec.ts"],
-        config_files=["vitest.config.ts", "vite.config.ts"],
+        file_patterns=("*.test.ts", "*.spec.ts"),  # Changed to tuple
+        config_files=("vitest.config.ts", "vite.config.ts"),  # Changed to tuple
         result_parser="vitest"
     ),
 
@@ -43,15 +43,15 @@ FRAMEWORKS = {
     "pytest": Framework(
         name="pytest",
         run_command="pytest",
-        file_patterns=["test_*.py", "*_test.py"],
-        config_files=["pytest.ini", "pyproject.toml", "setup.cfg"],
+        file_patterns=("test_*.py", "*_test.py"),  # Changed to tuple
+        config_files=("pytest.ini", "pyproject.toml", "setup.cfg"),  # Changed to tuple
         result_parser="pytest"
     ),
     "unittest": Framework(
         name="unittest",
         run_command="python -m unittest discover",
-        file_patterns=["test_*.py", "*_test.py"],
-        config_files=["unittest.cfg"],
+        file_patterns=("test_*.py", "*_test.py"),  # Changed to tuple
+        config_files=("unittest.cfg",),  # Changed to tuple with comma
         result_parser="unittest"
     ),
 
@@ -59,8 +59,8 @@ FRAMEWORKS = {
     "cargo-test": Framework(
         name="cargo-test",
         run_command="cargo test",
-        file_patterns=["**/tests/*.rs"],
-        config_files=["Cargo.toml"],
+        file_patterns=("**/tests/*.rs",),  # Changed to tuple with comma
+        config_files=("Cargo.toml",),  # Changed to tuple with comma
         result_parser="cargo-test"
     ),
 
@@ -68,8 +68,8 @@ FRAMEWORKS = {
     "go-test": Framework(
         name="go-test",
         run_command="go test",
-        file_patterns=["*_test.go"],
-        config_files=["go.mod"],
+        file_patterns=("*_test.go",),  # Changed to tuple with comma
+        config_files=("go.mod",),  # Changed to tuple with comma
         result_parser="go-test"
     )
 }
