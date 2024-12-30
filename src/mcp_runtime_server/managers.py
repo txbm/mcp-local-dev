@@ -1,10 +1,10 @@
 """Runtime manager utilities."""
 
-from typing import List, Dict, Tuple, Optional
-import shutil
-import os
 import logging
+import os
+import shutil
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 
 from mcp_runtime_server.types import RuntimeManager
 
@@ -23,10 +23,9 @@ def get_manager_binary(manager: RuntimeManager) -> str:
     Raises:
         RuntimeError: If manager binary not found
     """
-    # Check if command exists in PATH
     binary = shutil.which(manager.value)
     if not binary:
-        raise RuntimeError(f"Runtime manager {manager.value} not found in PATH")
+        raise RuntimeError(f"Runtime {manager.value} not found in PATH")
     return binary
 
 
@@ -53,36 +52,22 @@ def build_install_command(
     if args is None:
         args = []
 
-    if manager == RuntimeManager.NPX:
-        # NPX command format
-        cmd = get_manager_binary(manager)
-        pkg_spec = f"{package}@{version}" if version else package
-        return cmd, ["-y", "--no-install-links", pkg_spec, *args]
+    if manager == RuntimeManager.NODE:
+        cmd = get_manager_binary("npm")
+        return cmd, ["install", "--no-save", package, *args]
 
     elif manager == RuntimeManager.BUN:
-        # Bun command format
         cmd = get_manager_binary(manager)
-        pkg_spec = f"{package}@{version}" if version else package
-        return cmd, [pkg_spec, *args]
+        return cmd, ["install", package, *args]
 
-    elif manager == RuntimeManager.UVX:
-        # UV command format
+    elif manager == RuntimeManager.UV:
         cmd = get_manager_binary(manager)
         if version:
-            return cmd, ["--version", version, package, *args]
-        return cmd, [package, *args]
-
-    elif manager == RuntimeManager.PIPX:
-        # PIPX command format
-        cmd = get_manager_binary(manager)
-        if version:
-            pkg_spec = f"{package}=={version}"
-        else:
-            pkg_spec = package
-        return cmd, ["run", "--no-cache", pkg_spec, *args]
+            return cmd, ["pip", "install", f"{package}=={version}", *args]
+        return cmd, ["pip", "install", package, *args]
 
     else:
-        raise RuntimeError(f"Unsupported runtime manager: {manager}")
+        raise RuntimeError(f"Unsupported runtime: {manager}")
 
 
 def validate_package_name(manager: RuntimeManager, package: str) -> bool:
@@ -98,25 +83,18 @@ def validate_package_name(manager: RuntimeManager, package: str) -> bool:
     if not package:
         return False
 
-    # Basic validation - could be enhanced for each manager
-    if manager in (RuntimeManager.NPX, RuntimeManager.BUN):
+    if manager in (RuntimeManager.NODE, RuntimeManager.BUN):
         # NPM package naming rules
-        return all(c.isalnum() or c in "-_@/" for c in package)
+        return all(c.isalnum() or c in "-_@/." for c in package)
 
-    elif manager == RuntimeManager.UVX:
-        # Python package naming rules
-        return all(c.isalnum() or c in "-_." for c in package)
-
-    elif manager == RuntimeManager.PIPX:
+    elif manager == RuntimeManager.UV:
         # Python package naming rules
         return all(c.isalnum() or c in "-_." for c in package)
 
     return False
 
 
-def prepare_env_vars(
-    manager: RuntimeManager, base_env: Dict[str, str]
-) -> Dict[str, str]:
+def prepare_env_vars(manager: RuntimeManager, base_env: Dict[str, str]) -> Dict[str, str]:
     """Prepare environment variables for a runtime manager.
 
     Args:
@@ -128,44 +106,22 @@ def prepare_env_vars(
     """
     env = base_env.copy()
 
-    if manager == RuntimeManager.NPX:
-        # NPX specific environment setup
-        env.update(
-            {
-                "NPX_NO_UPDATE_NOTIFIER": "1",
-                "NO_UPDATE_NOTIFIER": "1",
-                "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-            }
-        )
+    if manager == RuntimeManager.NODE:
+        env.update({
+            "NODE_NO_WARNINGS": "1",
+            "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+        })
 
     elif manager == RuntimeManager.BUN:
-        # Bun specific environment setup
-        env.update(
-            {
-                "BUNX_CACHE": env.get("BUNX_CACHE", "/tmp/bunx-cache"),
-                "NO_INSTALL_HINTS": "1",
-            }
-        )
+        env.update({
+            "NO_INSTALL_HINTS": "1"
+        })
 
-    elif manager == RuntimeManager.UVX:
-        # UV specific environment setup
-        env.update(
-            {
-                "VIRTUAL_ENV": env.get("VIRTUAL_ENV", ""),
-                "PIP_NO_CACHE_DIR": "1",
-                "PIP_NO_WARN_SCRIPT_LOCATION": "1",
-            }
-        )
-
-    elif manager == RuntimeManager.PIPX:
-        # PIPX specific environment setup
-        env.update(
-            {
-                "PIPX_HOME": env.get("PIPX_HOME", "/tmp/pipx"),
-                "PIPX_BIN_DIR": env.get("PIPX_BIN_DIR", "/tmp/pipx/bin"),
-                "PIP_NO_CACHE_DIR": "1",
-            }
-        )
+    elif manager == RuntimeManager.UV:
+        env.update({
+            "VIRTUAL_ENV": env.get("VIRTUAL_ENV", ""),
+            "PIP_NO_CACHE_DIR": "1"
+        })
 
     return env
 
@@ -179,25 +135,20 @@ def cleanup_manager_artifacts(manager: RuntimeManager, working_dir: str) -> None
     """
     work_path = Path(working_dir)
 
-    if manager == RuntimeManager.NPX:
-        # Clean NPX/NPM artifacts
-        for pattern in ["node_modules", "package*.json", ".npm"]:
+    if manager in (RuntimeManager.NODE, RuntimeManager.BUN):
+        # Clean Node/Bun artifacts
+        patterns = ["node_modules", "package*.json", ".npm"]
+        if manager == RuntimeManager.BUN:
+            patterns.extend(["bun.lockb", ".bun"])
+
+        for pattern in patterns:
             for path in work_path.glob(pattern):
                 if path.is_dir():
                     shutil.rmtree(path, ignore_errors=True)
                 else:
                     path.unlink(missing_ok=True)
 
-    elif manager == RuntimeManager.BUN:
-        # Clean Bun artifacts
-        for pattern in ["node_modules", "bun.lockb", ".bun"]:
-            for path in work_path.glob(pattern):
-                if path.is_dir():
-                    shutil.rmtree(path, ignore_errors=True)
-                else:
-                    path.unlink(missing_ok=True)
-
-    elif manager == RuntimeManager.UVX:
+    elif manager == RuntimeManager.UV:
         # Clean UV artifacts
         for pattern in [".venv", "__pycache__", "*.pyc"]:
             for path in work_path.glob(pattern):
@@ -205,9 +156,3 @@ def cleanup_manager_artifacts(manager: RuntimeManager, working_dir: str) -> None
                     shutil.rmtree(path, ignore_errors=True)
                 else:
                     path.unlink(missing_ok=True)
-
-    elif manager == RuntimeManager.PIPX:
-        # Clean PIPX artifacts
-        pipx_home = Path(os.environ.get("PIPX_HOME", "/tmp/pipx"))
-        if pipx_home.exists():
-            shutil.rmtree(pipx_home, ignore_errors=True)
