@@ -3,7 +3,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from mcp_runtime_server.types import Environment, RuntimeConfig, RuntimeManager
+from mcp_runtime_server.types import Environment, RuntimeManager, EnvironmentConfig
 from mcp_runtime_server.environments import create_environment, cleanup_environment
 
 
@@ -17,8 +17,7 @@ def temp_dir():
 @pytest.fixture
 async def test_env(temp_dir):
     """Create a test environment."""
-    config = RuntimeConfig(
-        manager=RuntimeManager.UVX,
+    config = EnvironmentConfig(
         github_url="https://github.com/txbm/mcp-runtime-server.git"
     )
     env = await create_environment(config)
@@ -29,9 +28,7 @@ async def test_env(temp_dir):
 @pytest.mark.asyncio
 async def test_environment_isolation(temp_dir):
     """Test environment isolation."""
-    # Create test environments from same repo but different paths
-    config = RuntimeConfig(
-        manager=RuntimeManager.UVX,
+    config = EnvironmentConfig(
         github_url="https://github.com/txbm/mcp-runtime-server.git"
     )
     
@@ -44,9 +41,13 @@ async def test_environment_isolation(temp_dir):
         assert env1.bin_dir != env2.bin_dir
         assert env1.tmp_dir != env2.tmp_dir
         
-        # Check env vars are isolated
+        # Check env vars are isolated  
         for key in ["HOME", "TMPDIR", "PATH"]:
             assert env1.env_vars[key] != env2.env_vars[key]
+            
+        # Both should detect as Python projects
+        assert env1.manager == RuntimeManager.UVX
+        assert env2.manager == RuntimeManager.UVX
             
     finally:
         await cleanup_environment(env1.id)
