@@ -12,8 +12,7 @@ from mcp_runtime_server.types import RuntimeConfig, RuntimeEnv, CaptureConfig
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
-from mcp_runtime_server.logging import log_runtime_error
-
+from mcp_runtime_server.errors import log_error
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
     except Exception as e:
         cleanup_sandbox(sandbox)
         context = {"config": config.dict()} if hasattr(config, "dict") else {"config": str(config)}
-        log_runtime_error(e, context)
+        log_error(e, context, logger)
         raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
@@ -86,7 +85,7 @@ async def cleanup_environment(env_id: str, force: bool = False) -> None:
         
     except Exception as e:
         context = {"env_id": env_id, "force": force}
-        log_runtime_error(e, context)
+        log_error(e, context, logger)
         raise
         
     finally:
@@ -134,5 +133,5 @@ async def run_in_env(
         
     except Exception as e:
         context = {"env_id": env_id, "command": command}
-        log_runtime_error(e, context)
+        log_error(e, context, logger)
         raise RuntimeError(f"Failed to run command: {e}") from e
