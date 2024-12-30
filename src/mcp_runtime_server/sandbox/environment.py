@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Dict, Optional, NamedTuple
 import appdirs
 
+from mcp_runtime_server.errors import SandboxError
 from mcp_runtime_server.sandbox.security import apply_restrictions, remove_restrictions
 
 
-class SandboxInfo(NamedTuple):
+class Sandbox(NamedTuple):
     """Information about a sandbox environment."""
     id: str
     root: Path
@@ -18,7 +19,7 @@ class SandboxInfo(NamedTuple):
     env_vars: Dict[str, str]
 
 
-def get_sandbox_dir() -> Path:
+def get_sandbox_root() -> Path:
     """Get the root directory for sandbox environments.
     
     Returns:
@@ -29,7 +30,7 @@ def get_sandbox_dir() -> Path:
     return sandbox_dir
 
 
-def create_sandbox_dirs(root: Path) -> Dict[str, Path]:
+def create_directories(root: Path) -> Dict[str, Path]:
     """Create standard sandbox directory structure.
     
     Args:
@@ -92,24 +93,21 @@ def prepare_environment(
 
 def create_sandbox(
     base_env: Optional[Dict[str, str]] = None
-) -> SandboxInfo:
+) -> Sandbox:
     """Create a new sandbox environment.
     
     Args:
         base_env: Optional base environment variables
         
     Returns:
-        SandboxInfo with sandbox details
-        
-    Raises:
-        RuntimeError: If sandbox creation fails
+        Sandbox with environment details
     """
     sandbox_id = str(uuid.uuid4())
-    root = get_sandbox_dir() / sandbox_id
+    root = get_sandbox_root() / sandbox_id
     
     try:
         # Create directory structure
-        dirs = create_sandbox_dirs(root)
+        dirs = create_directories(root)
         
         # Prepare environment
         env_vars = prepare_environment(root, dirs, base_env)
@@ -117,7 +115,7 @@ def create_sandbox(
         # Apply security restrictions
         apply_restrictions(root)
         
-        return SandboxInfo(
+        return Sandbox(
             id=sandbox_id,
             root=root,
             bin_dir=dirs["bin"],
@@ -128,10 +126,10 @@ def create_sandbox(
         # Clean up on failure
         if root.exists():
             shutil.rmtree(root, ignore_errors=True)
-        raise RuntimeError(f"Failed to create sandbox: {e}") from e
+        raise SandboxError(f"Failed to create sandbox: {e}")
 
 
-def cleanup_sandbox(sandbox: SandboxInfo) -> None:
+def cleanup_sandbox(sandbox: Sandbox) -> None:
     """Clean up a sandbox environment.
     
     Args:
@@ -146,5 +144,4 @@ def cleanup_sandbox(sandbox: SandboxInfo) -> None:
             shutil.rmtree(sandbox.root, ignore_errors=True)
             
     except Exception as e:
-        # Log but don't raise - best effort cleanup
-        print(f"Warning: Failed to clean up sandbox {sandbox.id}: {e}")
+        raise SandboxError(f"Failed to clean up sandbox {sandbox.id}: {e}")
