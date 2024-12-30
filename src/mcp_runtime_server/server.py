@@ -10,7 +10,7 @@ from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import stdio
-from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, TextContent, CallToolResult
+from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 
 from mcp_runtime_server.errors import (
     RuntimeServerError,
@@ -163,7 +163,7 @@ def init_server() -> Server:
         ]
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> types.ServerResult:
         """Handle tool invocations."""
         try:
             if name == "create_environment":
@@ -178,15 +178,16 @@ def init_server() -> Server:
                     if "resource_limits" in arguments else None
                 )
                 env = await create_environment(config)
-                content = TextContent(
-                    type="text",
-                    text=json.dumps({
-                        "id": env.id,
-                        "working_dir": env.working_dir,
-                        "created_at": env.created_at.isoformat()
-                    })
-                )
-                return CallToolResult(content=[content])
+                return types.ServerResult({
+                    "content": [{
+                        "type": "text",
+                        "text": json.dumps({
+                            "id": env.id,
+                            "working_dir": env.working_dir,
+                            "created_at": env.created_at.isoformat()
+                        })
+                    }]
+                })
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -202,18 +203,19 @@ def init_server() -> Server:
                 )
                 stdout, stderr = await process.communicate()
                 
-                content = TextContent(
-                    type="text",
-                    text=json.dumps({
-                        "stdout": stdout.decode() if stdout else "",
-                        "stderr": stderr.decode() if stderr else "",
-                        "exit_code": process.returncode,
-                        "start_time": process.start_time.isoformat(),
-                        "end_time": process.end_time.isoformat(),
-                        "stats": process.stats if hasattr(process, "stats") else None
-                    })
-                )
-                return CallToolResult(content=[content])
+                return types.ServerResult({
+                    "content": [{
+                        "type": "text",
+                        "text": json.dumps({
+                            "stdout": stdout.decode() if stdout else "",
+                            "stderr": stderr.decode() if stderr else "",
+                            "exit_code": process.returncode,
+                            "start_time": process.start_time.isoformat(),
+                            "end_time": process.end_time.isoformat(),
+                            "stats": process.stats if hasattr(process, "stats") else None
+                        })
+                    }]
+                })
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -227,11 +229,12 @@ def init_server() -> Server:
                     include_coverage=arguments.get("include_coverage", True),
                     parallel=arguments.get("parallel", False)
                 )
-                content = TextContent(
-                    type="text",
-                    text=json.dumps(results)
-                )
-                return CallToolResult(content=[content])
+                return types.ServerResult({
+                    "content": [{
+                        "type": "text",
+                        "text": json.dumps(results)
+                    }]
+                })
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -241,28 +244,33 @@ def init_server() -> Server:
                     arguments["env_id"],
                     force=arguments.get("force", False)
                 )
-                content = TextContent(
-                    type="text",
-                    text=json.dumps({"status": "success"})
-                )
-                return CallToolResult(content=[content])
+                return types.ServerResult({
+                    "content": [{
+                        "type": "text",
+                        "text": json.dumps({"status": "success"})
+                    }]
+                })
 
             raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
             
         except Exception as e:
             if isinstance(e, RuntimeServerError):
                 log_error(e, {"tool": name, "arguments": arguments}, logger)
-                error_content = TextContent(
-                    type="text",
-                    text=str(e)
-                )
-                return CallToolResult(content=[error_content], isError=True)
+                return types.ServerResult({
+                    "content": [{
+                        "type": "text",
+                        "text": str(e)
+                    }],
+                    "isError": True
+                })
             log_error(e, {"tool": name, "arguments": arguments}, logger)
-            error_content = TextContent(
-                type="text",
-                text=str(e)
-            )
-            return CallToolResult(content=[error_content], isError=True)
+            return types.ServerResult({
+                "content": [{
+                    "type": "text",
+                    "text": str(e)
+                }],
+                "isError": True
+            })
 
     return server
 
