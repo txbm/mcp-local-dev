@@ -1,11 +1,14 @@
 """MCP Runtime Server."""
-from mcp_runtime_server.runtime import (
-    create_environment,
-    cleanup_environment,
-    run_command,
-    auto_run_tests
-)
+# Core types
 from mcp_runtime_server.types import (
-    RuntimeConfig,
+    RuntimeManager, 
+    EnvironmentConfig,
     Environment
 )
+
+# Core functionality
+from mcp_runtime_server.environments import (
+    create_environment,
+    cleanup_environment
+)
+from mcp_runtime_server.testing.execution import auto_run_tests
