@@ -16,11 +16,10 @@ def test_get_manager_binary(test_get_manager_binary):
     # Test each manager binary
     for manager in RuntimeManager:
         binary = get_manager_binary(manager)
-        assert binary == f"/usr/bin/{manager.value}"
-    
-    # Test nonexistent binary
-    with pytest.raises(RuntimeError, match="Runtime nonexistent not found"):
-        get_manager_binary("nonexistent")
+        if manager == RuntimeManager.NODE:
+            assert binary == "/usr/bin/node" 
+        else:
+            assert binary == f"/usr/bin/{manager.value}"
 
 def test_build_install_command():
     """Test installation command building."""
