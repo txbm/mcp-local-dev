@@ -62,9 +62,7 @@ def build_install_command(
 
     elif manager == RuntimeManager.UV:
         cmd = get_manager_binary(manager)
-        if version:
-            return cmd, ["pip", "install", f"{package}=={version}", *args]
-        return cmd, ["pip", "install", package, *args]
+        return cmd, ["sync", *args]
 
     else:
         raise RuntimeError(f"Unsupported runtime: {manager}")
