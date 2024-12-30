@@ -5,7 +5,8 @@ from mcp_runtime_server.types import (
     RuntimeConfig,
     Environment,
     TestConfig,
-    TestResult,
+    RunResult,
+    TestRun,
     CaptureConfig,
     CaptureMode,
     ResourceLimits,
@@ -32,7 +33,8 @@ __all__ = [
     
     # Testing types
     "TestConfig",
-    "TestResult",
+    "RunResult",
+    "TestRun",
     "CapturedOutput",
     
     # Configuration types
