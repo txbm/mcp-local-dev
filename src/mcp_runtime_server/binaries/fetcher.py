@@ -6,7 +6,7 @@ import zipfile
 import tarfile
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, Union, Callable
+from typing import Optional, Dict, Any, Union, Callable, List
 from functools import partial
 
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
@@ -43,6 +43,13 @@ async def download_file(
                 async for chunk in response.content.iter_chunked(8192):
                     f.write(chunk)
 
+def get_archive_files(archive, ext: str) -> List[str]:
+    """Get list of files from archive handling different archive types."""
+    if ext == '.zip':
+        return archive.namelist()
+    else:  # tar-based archives
+        return archive.getnames()
+
 def extract_binary(
     archive_path: Path, 
     binary_path: str, 
@@ -50,21 +57,21 @@ def extract_binary(
 ) -> Path:
     """Extract binary from archive with flexible support."""
     extractors = {
-        '.zip': zipfile.ZipFile,
-        '.tar.gz': tarfile.open,
-        '.tgz': tarfile.open
+        '.zip': (zipfile.ZipFile, get_archive_files),
+        '.tar.gz': (tarfile.open, get_archive_files),
+        '.tgz': (tarfile.open, get_archive_files)
     }
     
     ext = ''.join(archive_path.suffixes[-2:]) if len(archive_path.suffixes) > 1 else archive_path.suffix
     
-    extractor = extractors.get(ext)
-    if not extractor:
+    extractor_class, list_func = extractors.get(ext, (None, None))
+    if not extractor_class:
         raise ValueError(f"Unsupported archive type: {ext}")
 
-    with extractor(archive_path) as archive:
+    with extractor_class(archive_path) as archive:
         binary_name = Path(binary_path).name
         matching_files = [
-            f for f in archive.namelist() 
+            f for f in list_func(archive, ext)
             if f.endswith(binary_name)
         ]
 
