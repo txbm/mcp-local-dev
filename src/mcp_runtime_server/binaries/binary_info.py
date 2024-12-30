@@ -51,7 +51,7 @@ async def get_bun_latest_release() -> str:
                 raise ValueError("Could not parse Bun release version")
             return match.group(1)
 
-def get_binary_download_info(name: str, version: Optional[str] = None) -> Tuple[str, str, str]:
+async def get_binary_download_info(name: str, version: Optional[str] = None) -> Tuple[str, str, str]:
     """Get binary download information."""
     spec = RUNTIME_BINARIES[name]
     
@@ -59,7 +59,9 @@ def get_binary_download_info(name: str, version: Optional[str] = None) -> Tuple[
     if version is None:
         release_strategy = RELEASE_STRATEGIES.get(name)
         if release_strategy:
-            version = globals()[release_strategy]()
+            # Await the async release strategy function
+            strategy_func = globals()[release_strategy]
+            version = await strategy_func()
         else:
             version = spec.get("version")
     
