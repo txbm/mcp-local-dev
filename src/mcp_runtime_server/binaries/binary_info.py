@@ -1,7 +1,8 @@
 """Binary-specific information and handling."""
 import re
+import platform
 import aiohttp
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, NamedTuple
 from mcp_runtime_server.binaries.constants import (
     GITHUB_API_BASE,
     GITHUB_REPOS_PATH,
@@ -10,7 +11,45 @@ from mcp_runtime_server.binaries.constants import (
     UV_OWNER,
     UV_REPO
 )
-from mcp_runtime_server.binaries.platforms import get_platform_info
+from mcp_runtime_server.binaries.platforms import (
+    get_platform_info, 
+    get_binary_location,
+    PLATFORM_MAPPINGS
+)
+
+class RuntimeInfo(NamedTuple):
+    """Binary runtime configuration."""
+    url_template: str
+    checksum_template: Optional[str]
+    binary_name: str
+    version_prefix: str = "v"  # How version numbers are prefixed in URLs
+    github_release: bool = False  # Whether this is a GitHub release URL pattern
+    platform_style: str = "simple"  # Use 'simple' or 'composite' platform strings
+
+
+RUNTIME_CONFIGS = {
+    "node": RuntimeInfo(
+        url_template="https://nodejs.org/dist/{version_prefix}{version}/node-{version_prefix}{version}-{platform}-{arch}.{format}",
+        checksum_template="https://nodejs.org/dist/{version_prefix}{version}/SHASUMS256.txt",
+        binary_name="node",
+        version_prefix="v"
+    ),
+    "bun": RuntimeInfo(
+        url_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/bun-{platform}-{arch}.{format}",
+        checksum_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/SHASUMS.txt",
+        binary_name="bun",
+        version_prefix="v",
+        github_release=True
+    ),
+    "uv": RuntimeInfo(
+        url_template="https://github.com/{owner}/{repo}/releases/download/{version_prefix}{version}/uv-{platform}.{format}",
+        checksum_template=None,
+        binary_name="uv",
+        version_prefix="",
+        github_release=True,
+        platform_style="composite"
+    )
+}
 
 RELEASE_STRATEGIES = {
     "uv": "get_github_latest_release",
@@ -51,20 +90,57 @@ async def get_bun_latest_release() -> str:
                 raise ValueError("Could not parse Bun release version")
             return match.group(1)
 
+def format_url(
+    template: str,
+    runtime_name: str,
+    version: str,
+    platform_str: str,
+    format: str,
+    **kwargs
+) -> str:
+    """Format URL with consistent handling of platform strings."""
+    config = RUNTIME_CONFIGS[runtime_name]
+    system = platform.system()
+
+    # Get values needed for all URL patterns
+    values = {
+        "version": version,
+        "version_prefix": config.version_prefix,
+        "format": format,
+        **kwargs  # Allow additional values like owner/repo for GitHub URLs
+    }
+
+    # Handle platform string based on style
+    if config.platform_style == "composite":
+        values["platform"] = platform_str
+    else:
+        if "-" in platform_str:
+            plat, arch = platform_str.split("-")
+            values["platform"] = plat
+            values["arch"] = arch
+        else:
+            values["platform"] = platform_str
+            values["arch"] = "x64"
+
+    return template.format(**values)
+
 async def get_binary_download_info(name: str, version: Optional[str] = None) -> Tuple[str, str, str]:
     """Get binary download information."""
-    spec = RUNTIME_BINARIES[name]
+    if name not in RUNTIME_CONFIGS:
+        raise ValueError(f"Unknown runtime: {name}")
+
+    config = RUNTIME_CONFIGS[name]
     
     # Determine version
     if version is None:
         release_strategy = RELEASE_STRATEGIES.get(name)
         if release_strategy:
-            # Await the async release strategy function
             strategy_func = globals()[release_strategy]
             version = await strategy_func()
         else:
-            version = spec.get("version")
-    
+            raise ValueError(f"No release strategy for {name} and no version provided")
+
+    # Get platform information
     platform_info = get_platform_info()
     platform_map = {
         "node": platform_info.node_platform,
@@ -73,49 +149,22 @@ async def get_binary_download_info(name: str, version: Optional[str] = None) -> 
     }
     platform_str = platform_map[name]
     
-    if name == "uv":
-        # Get extension based on the platform
-        if any(platform in platform_str for platform in ["windows"]):
-            extension = ".zip"
-        else:
-            extension = ".tar.gz"
-            
-        download_url = (
-            f"https://github.com/{UV_OWNER}/{UV_REPO}/releases/download/"
-            f"{version}/uv-{platform_str}{extension}"
-        )
-    else:
-        # For other runtimes, split into platform and arch
-        if "-" in platform_str:
-            platform, arch = platform_str.split("-")
-        else:
-            platform = platform_str
-            arch = "x64"  # Default to 64-bit architecture
-            
-        download_url = spec["url_template"].format(
-            version=version,
-            platform=platform,
-            arch=arch
-        )
+    # Format download URL
+    extra_values = {}
+    if config.github_release:
+        if name == "uv":
+            extra_values.update({"owner": UV_OWNER, "repo": UV_REPO})
     
-    return download_url, version, spec["binary_path"]
+    download_url = format_url(
+        config.url_template,
+        name,
+        version,
+        platform_str,
+        platform_info.format,
+        **extra_values
+    )
 
-RUNTIME_BINARIES: Dict[str, Any] = {
-    "node": {
-        "version": "20.10.0",
-        "url_template": "https://nodejs.org/dist/v{version}/node-v{version}-{platform}-{arch}.tar.gz",
-        "checksum_template": "https://nodejs.org/dist/v{version}/SHASUMS256.txt",
-        "binary_path": "bin/node",
-        "npx_path": "bin/npx"
-    },
-    "bun": {
-        "version": "1.0.21",
-        "url_template": "https://github.com/oven-sh/bun/releases/download/bun-v{version}/bun-{platform}-{arch}.zip",
-        "checksum_template": "https://github.com/oven-sh/bun/releases/download/bun-v{version}/SHASUMS.txt",
-        "binary_path": "bun"
-    },
-    "uv": {
-        "version": None,  # Will be fetched dynamically
-        "binary_path": "uv"
-    }
-}
+    # Get binary path based on platform
+    binary_path = f"{get_binary_location(config.binary_name)}/{config.binary_name}"
+    
+    return download_url, version, binary_path
