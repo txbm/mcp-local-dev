@@ -12,17 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_manager_binary(manager: RuntimeManager) -> str:
-    """Get the path to the runtime manager binary.
-
-    Args:
-        manager: Runtime manager type
-
-    Returns:
-        Path to binary or command name
-
-    Raises:
-        RuntimeError: If manager binary not found
-    """
+    """Get the path to the runtime manager binary."""
     binary = shutil.which(manager.value)
     if not binary:
         raise RuntimeError(f"Runtime {manager.value} not found in PATH")
@@ -31,77 +21,29 @@ def get_manager_binary(manager: RuntimeManager) -> str:
 
 def build_install_command(
     manager: RuntimeManager,
-    package: str,
-    version: Optional[str] = None,
     args: Optional[List[str]] = None,
 ) -> Tuple[str, List[str]]:
-    """Build package installation command for a runtime manager.
-
-    Args:
-        manager: Runtime manager type
-        package: Package name to install
-        version: Optional version specification
-        args: Additional arguments
-
-    Returns:
-        Tuple of (command, arguments list)
-
-    Raises:
-        RuntimeError: If manager is not supported
-    """
+    """Build runtime installation command."""
     if args is None:
         args = []
 
     if manager == RuntimeManager.NODE:
         cmd = get_manager_binary("npm")
-        return cmd, ["install", "--no-save", package, *args]
+        return cmd, ["install", *args]
 
     elif manager == RuntimeManager.BUN:
         cmd = get_manager_binary(manager)
-        return cmd, ["install", package, *args]
+        return cmd, ["install", *args]
 
     elif manager == RuntimeManager.UV:
         cmd = get_manager_binary(manager)
         return cmd, ["sync", *args]
 
-    else:
-        raise RuntimeError(f"Unsupported runtime: {manager}")
-
-
-def validate_package_name(manager: RuntimeManager, package: str) -> bool:
-    """Validate package name format for a runtime manager.
-
-    Args:
-        manager: Runtime manager type
-        package: Package name to validate
-
-    Returns:
-        True if package name is valid
-    """
-    if not package:
-        return False
-
-    if manager in (RuntimeManager.NODE, RuntimeManager.BUN):
-        # NPM package naming rules
-        return all(c.isalnum() or c in "-_@/." for c in package)
-
-    elif manager == RuntimeManager.UV:
-        # Python package naming rules
-        return all(c.isalnum() or c in "-_." for c in package)
-
-    return False
+    raise RuntimeError(f"Unsupported runtime: {manager}")
 
 
 def prepare_env_vars(manager: RuntimeManager, base_env: Dict[str, str]) -> Dict[str, str]:
-    """Prepare environment variables for a runtime manager.
-
-    Args:
-        manager: Runtime manager type
-        base_env: Base environment variables
-
-    Returns:
-        Dict of environment variables
-    """
+    """Prepare environment variables for a runtime manager."""
     env = base_env.copy()
 
     if manager == RuntimeManager.NODE:
@@ -125,17 +67,12 @@ def prepare_env_vars(manager: RuntimeManager, base_env: Dict[str, str]) -> Dict[
 
 
 def cleanup_manager_artifacts(manager: RuntimeManager, working_dir: str) -> None:
-    """Clean up artifacts left by a runtime manager.
-
-    Args:
-        manager: Runtime manager type
-        working_dir: Working directory to clean
-    """
+    """Clean up artifacts left by a runtime manager."""
     work_path = Path(working_dir)
 
     if manager in (RuntimeManager.NODE, RuntimeManager.BUN):
         # Clean Node/Bun artifacts
-        patterns = ["node_modules", "package*.json", ".npm"]
+        patterns = ["node_modules", ".npm"]
         if manager == RuntimeManager.BUN:
             patterns.extend(["bun.lockb", ".bun"])
 
