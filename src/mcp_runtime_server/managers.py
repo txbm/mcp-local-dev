@@ -13,12 +13,7 @@ logger = logging.getLogger(__name__)
 
 def get_manager_binary(manager: RuntimeManager) -> str:
     """Get the path to the runtime manager binary."""
-    if manager == RuntimeManager.NODE:
-        binary_name = "node"
-    else:
-        binary_name = manager.value
-
-    binary = shutil.which(binary_name)
+    binary = shutil.which(manager.value)
     if not binary:
         raise RuntimeError(f"Runtime {manager.value} not found in PATH")
     return binary
