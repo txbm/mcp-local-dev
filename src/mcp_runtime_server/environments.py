@@ -18,33 +18,26 @@ ENVIRONMENTS: Dict[str, Environment] = {}
 async def create_environment(config: RuntimeConfig) -> Environment:
     """Create a new runtime environment."""
     try:
-        # Create unique environment ID and root directory
         env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         root_dir = Path(appdirs.user_cache_dir("mcp-runtime-server")) / "envs" / env_id
         
-        # Create directory structure
         bin_dir = root_dir / "bin"
-        tmp_dir = root_dir / "tmp"  
+        tmp_dir = root_dir / "tmp"
         work_dir = root_dir / "work"
         
         for d in [bin_dir, tmp_dir, work_dir]:
             d.mkdir(parents=True)
         
-        # Set up environment variables 
         env_vars = os.environ.copy()
         env_vars.update({
             "HOME": str(work_dir),
             "TMPDIR": str(tmp_dir),
-            "PATH": f"{bin_dir}:{env_vars.get('PATH', '')}",
-            "GIT_TERMINAL_PROMPT": "0",
-            "GIT_ASKPASS": "echo",  # Disable password prompting
-            "GIT_SSH_COMMAND": "ssh -o BatchMode=yes"  # Disable SSH prompting
+            "PATH": f"{bin_dir}:{env_vars.get('PATH', '')}"
         })
         
         for var in ["PYTHONPATH", "NODE_PATH", "LD_PRELOAD", "LD_LIBRARY_PATH"]:
             env_vars.pop(var, None)
             
-        # Create environment
         env = Environment(
             id=env_id,
             config=config,
@@ -56,18 +49,12 @@ async def create_environment(config: RuntimeConfig) -> Environment:
             env_vars=env_vars
         )
         
-        # Convert github URL to anonymous HTTPS
-        clone_url = config.github_url
-        if "github.com" in clone_url:
-            parts = clone_url.split("github.com", 1)
-            if len(parts) == 2:
-                clone_url = f"https://github.com{parts[1]}"
-            clone_url = clone_url.replace(".git", "")
+        # Use explicit protocol override for public repos
+        clone_url = f"//:https://github.com{config.github_url.split('github.com')[1].strip('/')}".replace(".git", "")
         
-        # Clone repository
         process = await run_command(
             f"git clone {clone_url} {work_dir}",
-            str(work_dir.parent),  # Clone into parent since work_dir will be target
+            str(work_dir.parent),
             env_vars
         )
         stdout, stderr = await process.communicate()
