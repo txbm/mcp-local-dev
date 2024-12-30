@@ -107,15 +107,15 @@ def init_server() -> Server:
                     github_url=arguments["github_url"]
                 )
                 env = await create_environment(config)
-                content = types.TextContent(
+                result = {
+                    "id": env.id,
+                    "working_dir": env.working_dir,
+                    "created_at": env.created_at.isoformat()
+                }
+                return types.CallToolResult(content=[types.TextContent(
                     type="text",
-                    text=json.dumps({
-                        "id": env.id,
-                        "working_dir": env.working_dir,
-                        "created_at": env.created_at.isoformat()
-                    })
-                )
-                return types.CallToolResult(content=[content])
+                    text=json.dumps(result)
+                )])
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -130,15 +130,15 @@ def init_server() -> Server:
                 )
                 stdout, stderr = await process.communicate()
                 
-                content = types.TextContent(
+                result = {
+                    "stdout": stdout.decode() if stdout else "",
+                    "stderr": stderr.decode() if stderr else "",
+                    "exit_code": process.returncode
+                }
+                return types.CallToolResult(content=[types.TextContent(
                     type="text",
-                    text=json.dumps({
-                        "stdout": stdout.decode() if stdout else "",
-                        "stderr": stderr.decode() if stderr else "",
-                        "exit_code": process.returncode
-                    })
-                )
-                return types.CallToolResult(content=[content])
+                    text=json.dumps(result)
+                )])
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -148,32 +148,29 @@ def init_server() -> Server:
                     raise ValueError(f"Unknown environment: {arguments['env_id']}")
 
                 results = await auto_run_tests(ENVIRONMENTS[arguments["env_id"]])
-                content = types.TextContent(
+                return types.CallToolResult(content=[types.TextContent(
                     type="text", 
                     text=json.dumps(results)
-                )
-                return types.CallToolResult(content=[content])
+                )])
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
                     raise ValueError("Missing env_id parameter")
                     
                 await cleanup_environment(arguments["env_id"])
-                content = types.TextContent(
+                return types.CallToolResult(content=[types.TextContent(
                     type="text",
                     text=json.dumps({"status": "success"})
-                )
-                return types.CallToolResult(content=[content])
+                )])
 
             raise ValueError(f"Unknown tool: {name}")
             
         except Exception as e:
             log_error(e, {"tool": name, "arguments": arguments}, logger)
-            content = types.TextContent(
+            return types.CallToolResult(content=[types.TextContent(
                 type="text",
                 text=str(e)
-            )
-            return types.CallToolResult(content=[content], isError=True)
+            )], isError=True)
 
     return server
 
