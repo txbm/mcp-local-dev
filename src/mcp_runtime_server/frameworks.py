@@ -3,8 +3,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
+from mcp_runtime_server.errors import RuntimeServerError
+
+
+class FrameworkError(RuntimeServerError):
+    """Framework-related error."""
+    pass
+
+
 @dataclass(frozen=True)
-class TestFramework:
+class Framework:
     """Test framework configuration."""
     name: str
     run_command: str
@@ -12,24 +20,25 @@ class TestFramework:
     config_files: List[str]
     result_parser: str
 
+
 # Framework definitions with their detection rules
 FRAMEWORKS = {
     # JavaScript/Node.js
-    "jest": TestFramework(
+    "jest": Framework(
         name="jest",
         run_command="jest",
         file_patterns=["*.test.js", "*.spec.js"],
         config_files=["jest.config.js", "package.json"],
         result_parser="jest"
     ),
-    "mocha": TestFramework(
+    "mocha": Framework(
         name="mocha",
         run_command="mocha",
         file_patterns=["test/*.js", "*.test.js", "*.spec.js"],
         config_files=[".mocharc.js", ".mocharc.json", "package.json"],
         result_parser="mocha"
     ),
-    "vitest": TestFramework(
+    "vitest": Framework(
         name="vitest",
         run_command="vitest",
         file_patterns=["*.test.ts", "*.spec.ts"],
@@ -38,14 +47,14 @@ FRAMEWORKS = {
     ),
 
     # Python
-    "pytest": TestFramework(
+    "pytest": Framework(
         name="pytest",
         run_command="pytest",
         file_patterns=["test_*.py", "*_test.py"],
         config_files=["pytest.ini", "pyproject.toml", "setup.cfg"],
         result_parser="pytest"
     ),
-    "unittest": TestFramework(
+    "unittest": Framework(
         name="unittest",
         run_command="python -m unittest discover",
         file_patterns=["test_*.py", "*_test.py"],
@@ -54,7 +63,7 @@ FRAMEWORKS = {
     ),
 
     # Rust
-    "cargo-test": TestFramework(
+    "cargo-test": Framework(
         name="cargo-test",
         run_command="cargo test",
         file_patterns=["**/tests/*.rs"],
@@ -63,7 +72,7 @@ FRAMEWORKS = {
     ),
 
     # Go
-    "go-test": TestFramework(
+    "go-test": Framework(
         name="go-test",
         run_command="go test",
         file_patterns=["*_test.go"],
@@ -73,74 +82,82 @@ FRAMEWORKS = {
 }
 
 
-def detect_frameworks(working_dir: str) -> List[TestFramework]:
+def detect_frameworks(working_dir: str) -> List[Framework]:
     """Detect test frameworks in a project directory.
     
     Args:
         working_dir: Project directory to examine
         
     Returns:
-        List of detected test frameworks
+        List of detected frameworks
     """
-    path = Path(working_dir)
-    detected = set()
+    try:
+        path = Path(working_dir)
+        detected = set()
 
-    # Check for config files
-    all_files = set(str(p) for p in path.rglob("*"))
-    
-    for framework in FRAMEWORKS.values():
-        # Look for config files
-        for config in framework.config_files:
-            if any(f.endswith(config) for f in all_files):
-                detected.add(framework)
-                break
-                
-        # Look for test files matching patterns
-        if not framework in detected:
-            for pattern in framework.file_patterns:
-                if any(path.rglob(pattern)):
+        # Check for config files
+        all_files = set(str(p) for p in path.rglob("*"))
+        
+        for framework in FRAMEWORKS.values():
+            # Look for config files
+            for config in framework.config_files:
+                if any(f.endswith(config) for f in all_files):
                     detected.add(framework)
                     break
-    
-    return list(detected)
+                    
+            # Look for test files matching patterns
+            if not framework in detected:
+                for pattern in framework.file_patterns:
+                    if any(path.rglob(pattern)):
+                        detected.add(framework)
+                        break
+        
+        return list(detected)
+        
+    except Exception as e:
+        raise FrameworkError(f"Failed to detect frameworks: {e}")
 
 
 def get_framework_command(
-    framework: TestFramework,
+    framework: Framework,
     working_dir: str
 ) -> Tuple[str, Dict[str, str]]:
     """Get the appropriate test command for a framework.
     
     Args:
-        framework: Test framework to use
+        framework: Framework to get command for
         working_dir: Project directory
         
     Returns:
         Tuple of (command, environment variables)
     """
-    env_vars = {}
-    command = framework.run_command
+    try:
+        env_vars = {}
+        command = framework.run_command
 
-    if framework.name == "jest":
-        # Check for jest binary in node_modules
-        jest_bin = Path(working_dir) / "node_modules" / ".bin" / "jest"
-        if jest_bin.exists():
-            command = str(jest_bin)
-        env_vars["NODE_ENV"] = "test"
+        if framework.name == "jest":
+            # Check for jest binary in node_modules
+            jest_bin = Path(working_dir) / "node_modules" / ".bin" / "jest"
+            if jest_bin.exists():
+                command = str(jest_bin)
+            env_vars["NODE_ENV"] = "test"
 
-    elif framework.name == "pytest":
-        # Add coverage and verbose output by default
-        command = f"{command} -v --cov"
+        elif framework.name == "pytest":
+            # Add coverage and verbose output by default
+            command = f"{command} -v --cov"
+            
+        elif framework.name == "cargo-test":
+            # Add color output
+            command = f"{command} --color always"
+            
+        return command, env_vars
         
-    elif framework.name == "cargo-test":
-        # Add color output
-        command = f"{command} --color always"
-        
-    return command, env_vars
+    except Exception as e:
+        raise FrameworkError(f"Failed to get framework command: {e}")
 
 
 def parse_test_results(
-    framework: TestFramework,
+    framework: Framework,
     stdout: str,
     stderr: str,
     exit_code: int
@@ -148,7 +165,7 @@ def parse_test_results(
     """Parse framework-specific test output.
     
     Args:
-        framework: Test framework that generated the output
+        framework: Framework that generated the output
         stdout: Standard output from test run
         stderr: Standard error from test run
         exit_code: Process exit code
@@ -156,24 +173,27 @@ def parse_test_results(
     Returns:
         Dict containing parsed test results
     """
-    if framework.name == "jest":
-        return _parse_jest_output(stdout)
-    elif framework.name == "pytest":
-        return _parse_pytest_output(stdout)
-    elif framework.name == "cargo-test":
-        return _parse_cargo_test_output(stdout)
-    elif framework.name == "go-test":
-        return _parse_go_test_output(stdout)
-    else:
-        # Basic parsing for unknown frameworks
-        return {
-            "success": exit_code == 0,
-            "output": stdout,
-            "errors": stderr if stderr else None
-        }
+    try:
+        if framework.name == "jest":
+            return _parse_jest_output(stdout)
+        elif framework.name == "pytest":
+            return _parse_pytest_output(stdout)
+        elif framework.name == "cargo-test":
+            return _parse_cargo_test_output(stdout)
+        elif framework.name == "go-test":
+            return _parse_go_test_output(stdout)
+        else:
+            # Basic parsing for unknown frameworks
+            return {
+                "success": exit_code == 0,
+                "output": stdout,
+                "errors": stderr if stderr else None
+            }
+            
+    except Exception as e:
+        raise FrameworkError(f"Failed to parse test results: {e}")
 
 
-# Framework-specific result parsers
 def _parse_jest_output(output: str) -> Dict[str, Any]:
     """Parse Jest test output."""
     results = {
