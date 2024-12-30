@@ -14,12 +14,7 @@ from mcp_runtime_server.types import (
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
 from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command
-from mcp_runtime_server.errors import (
-    RuntimeServerError, 
-    EnvironmentError,
-    BinaryNotFoundError,
-    SandboxError
-)
+from mcp_runtime_server.errors import log_error
 
 __version__ = "0.1.0"
 
@@ -49,9 +44,6 @@ __all__ = [
     "cleanup_sandbox",
     "ensure_binary",
     
-    # Error types
-    "RuntimeServerError",
-    "EnvironmentError",
-    "BinaryNotFoundError",
-    "SandboxError"
+    # Error handling
+    "log_error"
 ]
