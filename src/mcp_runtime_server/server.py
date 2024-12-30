@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
-import mcp.types as types
+from mcp.types import Tool, TextContent, CallToolResult, Result
 from mcp.server import stdio
 
 from mcp_runtime_server.errors import log_error
@@ -28,11 +28,11 @@ def init_server() -> Server:
     server = Server("mcp-runtime-server")
 
     @server.list_tools() 
-    async def list_tools() -> List[types.Tool]:
+    async def list_tools() -> List[Tool]:
         """List available runtime management tools."""
         logger.debug("Listing available tools")
         tools = [
-            types.Tool(
+            Tool(
                 name="create_environment",
                 description="Create a new runtime environment with sandbox isolation",
                 inputSchema={
@@ -51,7 +51,7 @@ def init_server() -> Server:
                     "required": ["manager", "github_url"]
                 }
             ),
-            types.Tool(
+            Tool(
                 name="run_command",
                 description="Run a command in an isolated sandbox environment",
                 inputSchema={
@@ -69,7 +69,7 @@ def init_server() -> Server:
                     "required": ["env_id", "command"]
                 }
             ),
-            types.Tool(
+            Tool(
                 name="run_tests",
                 description="Auto-detect and run tests in a sandboxed environment",
                 inputSchema={
@@ -83,7 +83,7 @@ def init_server() -> Server:
                     "required": ["env_id"]
                 }
             ),
-            types.Tool(
+            Tool(
                 name="cleanup",
                 description="Clean up a sandboxed environment",
                 inputSchema={
@@ -102,7 +102,7 @@ def init_server() -> Server:
         return tools
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
         """Handle tool invocations."""
         try:
             log_with_data(logger, logging.DEBUG, f"Tool invocation started: {name}", {
@@ -129,9 +129,9 @@ def init_server() -> Server:
                 
                 log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
                 
-                # Create proper TextContent instance
-                content = types.TextContent(type="text", text=json.dumps(result))
-                return types.CallToolResult(content=[content])
+                # Properly construct the MCP response types
+                text_content = TextContent(type="text", text=json.dumps(result))
+                return CallToolResult(content=[text_content])
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -164,9 +164,8 @@ def init_server() -> Server:
                     "exit_code": process.returncode
                 })
                 
-                # Create proper TextContent instance
-                content = types.TextContent(type="text", text=json.dumps(result))
-                return types.CallToolResult(content=[content])
+                text_content = TextContent(type="text", text=json.dumps(result))
+                return CallToolResult(content=[text_content])
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -188,9 +187,8 @@ def init_server() -> Server:
                     "results": results
                 })
                 
-                # Create proper TextContent instance
-                content = types.TextContent(type="text", text=json.dumps(results))
-                return types.CallToolResult(content=[content])
+                text_content = TextContent(type="text", text=json.dumps(results))
+                return CallToolResult(content=[text_content])
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -207,16 +205,14 @@ def init_server() -> Server:
                     "env_id": arguments["env_id"]
                 })
                 
-                # Create proper TextContent instance
-                content = types.TextContent(type="text", text=json.dumps({"status": "success"}))
-                return types.CallToolResult(content=[content])
+                text_content = TextContent(type="text", text=json.dumps({"status": "success"}))
+                return CallToolResult(content=[text_content])
 
             logger.error(f"Unknown tool requested: {name}")
             raise ValueError(f"Unknown tool: {name}")
             
         except Exception as e:
             log_error(e, {"tool": name, "arguments": arguments}, logger)
-            # Log the actual error instance and traceback
             logger.error("Tool invocation failed", exc_info=True, extra={
                 "data": {
                     "tool": name,
@@ -225,11 +221,10 @@ def init_server() -> Server:
                     "error_message": str(e)
                 }
             })
-            # Create proper TextContent instance for error
-            content = types.TextContent(type="text", text=str(e))
-            return types.CallToolResult(content=[content], isError=True)
+            # Properly construct error response
+            text_content = TextContent(type="text", text=str(e))
+            return CallToolResult(content=[text_content], isError=True)
 
-    # Return the server instance
     return server
 
 
@@ -267,17 +262,11 @@ async def serve() -> None:
     
     async with stdio.stdio_server() as (read_stream, write_stream):
         logger.debug("Server streams initialized")
+        options = server.create_initialization_options()
         await server.run(
             read_stream,
             write_stream,
-            InitializationOptions(
-                server_name="mcp-runtime-server",
-                server_version="0.1.0",
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={}
-                )
-            )
+            options
         )
 
 
