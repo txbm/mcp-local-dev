@@ -10,6 +10,7 @@ from typing import Dict, Any
 
 from mcp_runtime_server.types import RuntimeConfig, Environment
 from mcp_runtime_server.logging import log_with_data
+from mcp_runtime_server.testing import auto_run_tests
 
 logger = logging.getLogger(__name__)
 
@@ -109,36 +110,3 @@ async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
         
     except Exception as e:
         raise ValueError(f"Failed to run command: {e}")
-
-
-async def auto_run_tests(env: Environment) -> Dict[str, any]:
-    """Auto-detect and run tests."""
-    try:
-        if not (env.work_dir / "pyproject.toml").exists():
-            return {"error": "No pyproject.toml found"}
-
-        # Create venv and install deps
-        cmds = [
-            "uv venv",
-            "uv pip install -e .",
-            "uv pip install pytest",
-            "python -m pytest"
-        ]
-        
-        for cmd in cmds:
-            process = await run_command(env.id, cmd)
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode != 0:
-                return {
-                    "success": False,
-                    "error": f"Command '{cmd}' failed: {stderr.decode()}"
-                }
-        
-        return {
-            "success": True,
-            "output": stdout.decode() if stdout else ""
-        }
-
-    except Exception as e:
-        return {"success": False, "error": str(e)}
