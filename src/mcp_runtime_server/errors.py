@@ -1,4 +1,5 @@
 """Simplified error handling for MCP runtime server."""
+import logging
 from typing import Any, Dict, Optional
 from mcp.types import (
     ErrorData,
@@ -9,6 +10,27 @@ from mcp.types import (
     INTERNAL_ERROR
 )
 
+logger = logging.getLogger(__name__)
+
+def log_error(
+    error: Exception,
+    context: Optional[Dict[str, Any]] = None,
+    logger: Optional[logging.Logger] = None
+) -> None:
+    """Log an error with context."""
+    logger = logger or logging.getLogger(__name__)
+    
+    error_info = {
+        "error_type": error.__class__.__name__,
+        "error_message": str(error)
+    }
+    if context:
+        error_info["context"] = context
+    if isinstance(error, RuntimeServerError):
+        error_info["code"] = error.code
+        error_info["details"] = error.details
+        
+    logger.error("Runtime error occurred", extra={"data": error_info})
 
 class RuntimeServerError(Exception):
     """Base error class for runtime server with standardized error handling."""
