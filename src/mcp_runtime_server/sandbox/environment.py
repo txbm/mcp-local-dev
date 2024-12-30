@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Dict, Optional, NamedTuple
 import appdirs
 
-from mcp_runtime_server.errors import SandboxError
 from mcp_runtime_server.sandbox.security import apply_restrictions, remove_restrictions
 
 
@@ -126,7 +125,7 @@ def create_sandbox(
         # Clean up on failure
         if root.exists():
             shutil.rmtree(root, ignore_errors=True)
-        raise SandboxError(f"Failed to create sandbox: {e}")
+        raise ValueError(f"Failed to create sandbox: {e}")
 
 
 def cleanup_sandbox(sandbox: Sandbox) -> None:
@@ -144,4 +143,4 @@ def cleanup_sandbox(sandbox: Sandbox) -> None:
             shutil.rmtree(sandbox.root, ignore_errors=True)
             
     except Exception as e:
-        raise SandboxError(f"Failed to clean up sandbox {sandbox.id}: {e}")
+        raise ValueError(f"Failed to clean up sandbox {sandbox.id}: {e}")
