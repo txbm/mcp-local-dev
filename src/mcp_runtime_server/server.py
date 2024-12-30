@@ -39,7 +39,12 @@ ENVIRONMENTS: Dict[str, Any] = {}
 
 def init_server() -> Server:
     """Initialize the MCP runtime server."""
-    server = Server("mcp-runtime-server")
+    server = Server(
+        name="mcp-runtime-server",
+        version="0.1.0",
+        notification_options=NotificationOptions(),
+        experimental_capabilities={}
+    )
 
     @server.list_tools() 
     async def list_tools() -> List[types.Tool]:
@@ -295,18 +300,7 @@ async def serve() -> None:
     setup_handlers()
     
     async with stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="mcp-runtime-server",
-                server_version="0.1.0",
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={}
-                )
-            )
-        )
+        await server.start(read_stream, write_stream)  # Changed from run() to start()
 
 
 def main() -> None:
