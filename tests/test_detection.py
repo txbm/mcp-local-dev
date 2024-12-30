@@ -14,15 +14,20 @@ def test_node_detection():
         
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
-        assert runtime.manager == RuntimeManager.NPX
+        assert runtime.manager == RuntimeManager.NODE
 
 
 def test_bun_detection():
     """Test Bun project detection."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        Path(tmpdir, "bun.lockb").touch()
+        # Should not detect as Bun with just package.json
         Path(tmpdir, "package.json").touch()
+        runtime = detect_runtime(tmpdir)
+        assert runtime is not None
+        assert runtime.manager == RuntimeManager.NODE
         
+        # Should detect as Bun with both files
+        Path(tmpdir, "bun.lockb").touch()
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
         assert runtime.manager == RuntimeManager.BUN
@@ -31,18 +36,18 @@ def test_bun_detection():
 def test_python_detection():
     """Test Python project detection."""
     with tempfile.TemporaryDirectory() as tmpdir:
+        # Test pyproject.toml
         Path(tmpdir, "pyproject.toml").touch()
-        
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
-        assert runtime.manager == RuntimeManager.UVX
+        assert runtime.manager == RuntimeManager.UV
         
-        requirements = Path(tmpdir, "requirements.txt")
-        requirements.touch()
-        
+        # Test setup.py
+        Path(tmpdir).mkdir(exist_ok=True)
+        Path(tmpdir, "setup.py").touch()
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
-        assert runtime.manager == RuntimeManager.UVX
+        assert runtime.manager == RuntimeManager.UV
 
 
 def test_unknown_project():
@@ -62,4 +67,10 @@ def test_nested_files():
         
         runtime = detect_runtime(tmpdir)
         assert runtime is not None
-        assert runtime.manager == RuntimeManager.NPX
+        assert runtime.manager == RuntimeManager.NODE
+        
+        # Add bun.lockb, should switch to Bun
+        Path(nested, "bun.lockb").touch()
+        runtime = detect_runtime(tmpdir)
+        assert runtime is not None
+        assert runtime.manager == RuntimeManager.BUN
