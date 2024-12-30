@@ -2,10 +2,12 @@
 from typing import List, Dict, Tuple
 import shutil
 import os
+import logging
 from pathlib import Path
 
 from mcp_runtime_server.types import RuntimeManager
-from mcp_runtime_server.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def get_manager_binary(manager: RuntimeManager) -> str:
@@ -18,12 +20,12 @@ def get_manager_binary(manager: RuntimeManager) -> str:
         Path to binary or command name
         
     Raises:
-        ValueError: If manager binary not found
+        RuntimeError: If manager binary not found
     """
     # Check if command exists in PATH
     binary = shutil.which(manager.value)
     if not binary:
-        raise ValueError(f"Runtime manager {manager.value} not found in PATH")
+        raise RuntimeError(f"Runtime manager {manager.value} not found in PATH")
     return binary
 
 
@@ -45,7 +47,7 @@ def build_install_command(
         Tuple of (command, arguments list)
         
     Raises:
-        ValueError: If manager is not supported
+        RuntimeError: If manager is not supported
     """
     if args is None:
         args = []
@@ -56,7 +58,7 @@ def build_install_command(
         pkg_spec = f"{package}@{version}" if version else package
         return cmd, ["-y", "--no-install-links", pkg_spec, *args]
         
-    elif manager == RuntimeManager.BUNX:
+    elif manager == RuntimeManager.BUN:
         # Bun command format
         cmd = get_manager_binary(manager)
         pkg_spec = f"{package}@{version}" if version else package
@@ -79,7 +81,7 @@ def build_install_command(
         return cmd, ["run", "--no-cache", pkg_spec, *args]
         
     else:
-        raise ValueError(f"Unsupported runtime manager: {manager}")
+        raise RuntimeError(f"Unsupported runtime manager: {manager}")
 
 
 def validate_package_name(manager: RuntimeManager, package: str) -> bool:
@@ -96,7 +98,7 @@ def validate_package_name(manager: RuntimeManager, package: str) -> bool:
         return False
         
     # Basic validation - could be enhanced for each manager
-    if manager in (RuntimeManager.NPX, RuntimeManager.BUNX):
+    if manager in (RuntimeManager.NPX, RuntimeManager.BUN):
         # NPM package naming rules
         return all(c.isalnum() or c in "-_@/" for c in package)
         
@@ -134,7 +136,7 @@ def prepare_env_vars(
             "NPM_CONFIG_UPDATE_NOTIFIER": "false"
         })
         
-    elif manager == RuntimeManager.BUNX:
+    elif manager == RuntimeManager.BUN:
         # Bun specific environment setup
         env.update({
             "BUNX_CACHE": env.get("BUNX_CACHE", "/tmp/bunx-cache"),
@@ -181,7 +183,7 @@ def cleanup_manager_artifacts(
                 else:
                     path.unlink(missing_ok=True)
                     
-    elif manager == RuntimeManager.BUNX:
+    elif manager == RuntimeManager.BUN:
         # Clean Bun artifacts
         for pattern in ["node_modules", "bun.lockb", ".bun"]:
             for path in work_path.glob(pattern):
