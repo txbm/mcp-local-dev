@@ -16,19 +16,9 @@ from mcp_runtime_server.binaries.cache import (
     cache_binary,
     cleanup_cache
 )
-from mcp_runtime_server.binaries.releases import (
-    get_github_latest_release,
-    get_nodejs_latest_release,
-    get_bun_latest_release
-)
+from mcp_runtime_server.binaries.binary_info import get_binary_download_info
 
 logger = logging.getLogger(__name__)
-
-RELEASE_STRATEGIES = {
-    "uv": get_github_latest_release,
-    "node": get_nodejs_latest_release,
-    "bun": get_bun_latest_release
-}
 
 def with_error_handling(func):
     """Decorator for consistent error handling in binary fetching."""
@@ -90,41 +80,12 @@ async def fetch_binary(
     version: Optional[str] = None
 ) -> Path:
     """Fetch a binary with unified strategy."""
-    spec = RUNTIME_BINARIES[name]
-    
-    # Determine version
-    if version is None:
-        release_strategy = RELEASE_STRATEGIES.get(name)
-        if release_strategy:
-            version = await release_strategy()
-        else:
-            version = spec.get("version")
+    download_url, version, binary_path = get_binary_download_info(name, version)
     
     # Check cache
     cached = get_binary_path(name, version)
     if cached:
         return cached
-
-    # Platform detection
-    platform_info = get_platform_info()
-    platform_map = {
-        "node": platform_info.node_platform,
-        "bun": platform_info.bun_platform,
-        "uv": platform_info.uv_platform
-    }
-    platform_str = platform_map[name]
-    if "-" in platform_str:
-        platform, arch = platform_str.split("-")
-    else:
-        platform = platform_str
-        arch = "x64"  # Default to 64-bit architecture
-
-    # URL construction
-    download_url = spec["url_template"].format(
-        version=version,
-        platform=platform,
-        arch=arch
-    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
@@ -135,7 +96,7 @@ async def fetch_binary(
         await download_file(download_url, archive_path)
         
         # Extract
-        binary = extract_binary(archive_path, spec["binary_path"], tmp_path)
+        binary = extract_binary(archive_path, binary_path, tmp_path)
         
         # Cache
         cached_path = cache_binary(name, version, binary, "")
