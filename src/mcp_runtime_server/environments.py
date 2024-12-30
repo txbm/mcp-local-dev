@@ -1,6 +1,5 @@
 """Environment management."""
-import asyncio
-import logging
+import logging 
 import os
 import shutil
 import appdirs
@@ -10,40 +9,11 @@ from typing import Dict, Any
 
 from mcp_runtime_server.types import EnvironmentConfig, Environment
 from mcp_runtime_server.detection import detect_runtime
-from mcp_runtime_server.commands import run_command
+from mcp_runtime_server.git import clone_repository
 
 logger = logging.getLogger(__name__)
 
 ENVIRONMENTS: Dict[str, Environment] = {}
-
-async def clone_repository(url: str, target_dir: str, env_vars: Dict[str, str]) -> None:
-    """Clone a GitHub repository using HTTPS.
-    
-    Args:
-        url: Repository URL
-        target_dir: Clone target directory
-        env_vars: Environment variables for git
-    """
-    try:
-        if "github.com" in url:
-            parts = url.split("github.com/")[1].strip("/.git")
-            url = f"https://github.com/{parts}.git"
-            
-        cmd = f"git clone {url} {target_dir}"
-        logger.debug(f"Executing clone command: {cmd}")
-            
-        process = await run_command(
-            cmd,
-            str(Path(target_dir).parent),
-            env_vars
-        )
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
-            
-    except Exception as e:
-        raise RuntimeError(f"Clone failed: {str(e)}")
 
 async def create_environment(config: EnvironmentConfig) -> Environment:
     """Create a new runtime environment."""
