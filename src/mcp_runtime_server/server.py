@@ -253,19 +253,18 @@ def init_runtime_server() -> Server:
 
             raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
             
-        except RuntimeServerError as e:
-            logger.error(f"Tool execution error: {str(e)}", exc_info=True)
-            raise types.ErrorData(
-                code=e.code,
-                message=str(e),
-                data=e.details if hasattr(e, 'details') else None
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error in tool execution: {str(e)}", exc_info=True)
-            raise types.ErrorData(
-                code=INTERNAL_ERROR,
-                message=str(e)
-            )
+        except (RuntimeServerError, BaseException) as e:
+            if isinstance(e, RuntimeServerError):
+                logger.error(f"Tool execution error: {str(e)}", exc_info=True)
+                raise types.ErrorData(
+                    code=e.code,
+                    message=str(e),
+                    data=e.details if hasattr(e, 'details') else None
+                )
+            else:
+                logger.error(f"Unexpected error in tool execution: {str(e)}", exc_info=True)
+                raise RuntimeServerError(str(e), INTERNAL_ERROR)
+
 
     return server
 
@@ -278,7 +277,7 @@ def setup_signal_handlers() -> None:
         for env_id in list(ACTIVE_ENVS.keys()):
             try:
                 asyncio.create_task(cleanup_environment(env_id, force=True))
-            except Exception as e:
+            except BaseException as e:
                 logger.error(f"Error cleaning up environment {env_id}: {e}")
         sys.exit(0)
 
@@ -313,7 +312,7 @@ def main() -> None:
         asyncio.run(serve_runtime())
     except KeyboardInterrupt:
         logger.info("\nServer stopped")
-    except Exception as e:
+    except BaseException as e:
         logger.error(f"Error: {e}", exc_info=True)
         sys.exit(1)
 
