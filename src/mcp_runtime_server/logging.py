@@ -1,88 +1,50 @@
-"""Logging utilities."""
-from functools import wraps
-import structlog
-from typing import Any, Callable, TypeVar
+"""Logging configuration for MCP Runtime Server."""
+import logging
+from typing import Set, Dict, Any
 
-# Type variables for generic function decorators
-F = TypeVar('F', bound=Callable[..., Any])
+# Requests that should not be logged
+SUPPRESSED_REQUESTS: Set[str] = {
+    'ListResourcesRequest',
+    'ListPromptsRequest'
+}
 
-# Configure structured logging
-logger = structlog.get_logger()
-
-def with_logging(*, context: str) -> Callable[[F], F]:
-    """Decorator to add structured logging to functions.
+class RequestFilter(logging.Filter):
+    """Filter out noisy request logging."""
     
-    Args:
-        context: Context name for log entries
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Filter log records.
         
-    Returns:
-        Decorated function with logging
-    """
-    def decorator(func: F) -> F:
-        @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            bound_logger = logger.bind(
-                context=context,
-                function=func.__name__
-            )
+        Args:
+            record: Log record to filter
             
-            # Log function call
-            bound_logger.info(
-                "function_called",
-                args=args,
-                kwargs={k: v for k, v in kwargs.items() if k != "env"}  # Don't log env vars
-            )
-            
-            try:
-                result = await func(*args, **kwargs)
-                
-                # Log success
-                bound_logger.info(
-                    "function_succeeded",
-                    result_type=type(result).__name__
-                )
-                
-                return result
-                
-            except Exception as e:
-                # Log error with details
-                bound_logger.error(
-                    "function_failed",
-                    error_type=type(e).__name__,
-                    error_message=str(e)
-                )
-                raise
-                
-        return wrapper  # type: ignore
-    return decorator
+        Returns:
+            True if record should be logged, False otherwise
+        """
+        # Check if this is a request processing message
+        if 'Processing request of type' in record.msg:
+            # Extract request type
+            request_type = record.msg.split('type ')[-1]
+            return request_type not in SUPPRESSED_REQUESTS
+        return True
 
 
 def log_runtime_error(error: Exception, context: Dict[str, Any]) -> None:
-    """Log runtime errors with additional context.
+    """Log runtime errors with context.
     
     Args:
-        error: Exception that occurred
+        error: The exception that occurred
         context: Additional context information
     """
-    logger.error(
-        "runtime_error",
-        error_type=type(error).__name__,
-        error_message=str(error),
-        **context
+    logger = logging.getLogger(__name__)
+    logger.error(f"Runtime error: {str(error)}", extra={"context": context})
+
+
+def setup_logging() -> None:
+    """Configure logging with request filtering."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-
-
-def format_process_error(error: Exception, command: str) -> str:
-    """Format process execution error message.
     
-    Args:
-        error: Process execution error
-        command: Command that was attempted
-        
-    Returns:
-        Formatted error message
-    """
-    return (
-        f"Failed to execute command: {command}\n"
-        f"Error: {type(error).__name__}: {str(error)}"
-    )
+    # Add filter to the root logger
+    logging.getLogger('mcp.server.lowlevel.server').addFilter(RequestFilter())
