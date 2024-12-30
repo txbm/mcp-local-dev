@@ -113,7 +113,11 @@ async def fetch_binary(
         "uv": platform_info.uv_platform
     }
     platform_str = platform_map[name]
-    platform, arch = platform_str.split("-")
+    if "-" in platform_str:
+        platform, arch = platform_str.split("-")
+    else:
+        platform = platform_str
+        arch = "x64"  # Default to 64-bit architecture
 
     # URL construction
     download_url = spec["url_template"].format(
