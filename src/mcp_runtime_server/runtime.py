@@ -11,7 +11,6 @@ from typing import Dict, Any
 from mcp_runtime_server.types import RuntimeConfig, Environment
 from mcp_runtime_server.logging import log_with_data
 from mcp_runtime_server.commands import run_command
-from mcp_runtime_server.testing.execution import auto_run_tests
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,8 @@ async def create_environment(config: RuntimeConfig) -> Environment:
         env_vars.update({
             "HOME": str(work_dir),
             "TMPDIR": str(tmp_dir),
-            "PATH": f"{bin_dir}:{env_vars.get('PATH', '')}"
+            "PATH": f"{bin_dir}:{env_vars.get('PATH', '')}",
+            "GIT_TERMINAL_PROMPT": "0"  # Disable git credential prompting
         })
         
         for var in ["PYTHONPATH", "NODE_PATH", "LD_PRELOAD", "LD_LIBRARY_PATH"]:
@@ -57,9 +57,19 @@ async def create_environment(config: RuntimeConfig) -> Environment:
             env_vars=env_vars
         )
         
-        # Clone repository
+        # Convert github URL to anonymous HTTPS if needed
+        clone_url = config.github_url
+        if "github.com" in clone_url:
+            # Convert SSH or HTTPS with auth to anonymous HTTPS
+            parts = clone_url.split("github.com", 1)
+            if len(parts) == 2:
+                clone_url = f"https://github.com{parts[1]}"
+            # Remove potential .git suffix
+            clone_url = clone_url.replace(".git", "")
+        
+        # Clone repository 
         process = await run_command(
-            f"git clone {config.github_url} {work_dir}",
+            f"git -c credential.helper= clone {clone_url} {work_dir}",
             str(work_dir),
             env.env_vars
         )
