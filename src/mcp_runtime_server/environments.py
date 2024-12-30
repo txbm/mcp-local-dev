@@ -23,15 +23,19 @@ async def clone_repository(url: str, target_dir: str, env_vars: Dict[str, str]) 
         target_dir: Clone target directory
         env_vars: Environment variables for git
     """
-    if "github.com" in url:
-        # Extract owner/repo path
-        parts = url.split("github.com", 1)
-        if len(parts) == 2:
-            repo_path = parts[1].strip("/.git")
-            url = f"https://github.com/{repo_path}.git"
+    # Extract owner/repo from URL
+    try:
+        if "github.com" in url:
+            parts = url.split("github.com/")[1].strip("/.git")
+            clone_url = f"https://github.com/{parts}.git"
+        else:
+            clone_url = url
+            
+    except Exception:
+        raise RuntimeError(f"Invalid GitHub URL format: {url}")
             
     process = await run_command(
-        f"git clone {url} {target_dir}",
+        f"git clone {clone_url} {target_dir}",
         str(Path(target_dir).parent),
         env_vars
     )
