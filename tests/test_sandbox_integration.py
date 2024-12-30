@@ -22,7 +22,7 @@ async def test_env(temp_dir):
     )
     env = await create_environment(config)
     yield env
-    await cleanup_environment(env.id)
+    cleanup_environment(env.id)
 
 
 @pytest.mark.asyncio
@@ -46,9 +46,22 @@ async def test_environment_isolation(temp_dir):
             assert env1.env_vars[key] != env2.env_vars[key]
             
         # Both should detect as Python projects
-        assert env1.manager == RuntimeManager.UVX
-        assert env2.manager == RuntimeManager.UVX
+        assert env1.manager == RuntimeManager.UV
+        assert env2.manager == RuntimeManager.UV
             
     finally:
-        await cleanup_environment(env1.id)
-        await cleanup_environment(env2.id)
+        cleanup_environment(env1.id)
+        cleanup_environment(env2.id)
+        assert not env1.root_dir.exists()
+        assert not env2.root_dir.exists()
+
+
+@pytest.mark.asyncio  
+async def test_sandbox_cleanup_on_error(temp_dir):
+    """Test sandbox cleanup on environment creation error."""
+    config = EnvironmentConfig(
+        github_url="https://nonexistent.invalid/repo.git"
+    )
+    
+    with pytest.raises(RuntimeError):
+        await create_environment(config)
