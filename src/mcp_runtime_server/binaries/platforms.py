@@ -83,8 +83,13 @@ def get_platform_info() -> PlatformInfo:
     platform_map = PLATFORM_MAPPINGS[system]
     arch_map = ARCH_MAPPINGS[machine]
     
-    # For UV, we want arch-platform format 
-    uv_platform = f"{arch_map['uv']}-{platform_map['uv']}"
+    # UV uniquely combines arch and platform
+    # e.g., aarch64-apple-darwin, x86_64-unknown-linux-gnu
+    # And uses this full string in the release archive name
+    if system == "Linux":
+        uv_platform = f"{arch_map['uv']}-{platform_map['uv']}"
+    else:  # Darwin, Windows
+        uv_platform = f"{arch_map['uv']}-{platform_map['uv']}"
     
     return PlatformInfo(
         os_name=system.lower(),
