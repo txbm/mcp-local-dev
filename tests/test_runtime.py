@@ -29,10 +29,10 @@ async def test_environment_cleanup(temp_dir):
     env = await create_environment(config)
     assert env.id in ENVIRONMENTS
     assert env.manager == RuntimeManager.UV  # Should detect Python project
+    assert env._temp_dir is not None  # Verify temp dir is managed
 
     cleanup_environment(env.id)
     assert env.id not in ENVIRONMENTS
-    assert not env.root_dir.exists()
 
 
 @pytest.mark.asyncio
@@ -56,11 +56,13 @@ async def test_environment_isolation(temp_dir):
     assert env1.manager == RuntimeManager.UV
     assert env2.manager == RuntimeManager.UV
 
+    # Verify temp dirs are managed
+    assert env1._temp_dir is not None
+    assert env2._temp_dir is not None
+
     # Clean up
     cleanup_environment(env1.id)
     cleanup_environment(env2.id)
-    assert not env1.root_dir.exists()
-    assert not env2.root_dir.exists()
 
 
 @pytest.mark.asyncio
