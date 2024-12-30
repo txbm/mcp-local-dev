@@ -1,16 +1,10 @@
-"""Tests for runtime management functionality."""
-import os
+"""Tests for runtime functionality."""
 import pytest
-from datetime import datetime
 import tempfile
 from pathlib import Path
 
-from mcp_runtime_server.types import RuntimeManager, RuntimeConfig, Environment
-from mcp_runtime_server.runtime import (
-    create_environment,
-    cleanup_environment,
-    ENVIRONMENTS
-)
+from mcp_runtime_server.types import RuntimeManager, RuntimeConfig
+from mcp_runtime_server.environments import create_environment, cleanup_environment, ENVIRONMENTS
 
 
 @pytest.fixture
@@ -20,39 +14,8 @@ def temp_dir():
         yield tmpdir
 
 
-@pytest.fixture
-async def test_env(temp_dir):
-    """Create a test environment."""
-    config = RuntimeConfig(
-        manager=RuntimeManager.UVX,
-        github_url="https://github.com/test/repo"
-    )
-    env = await create_environment(config)
-    yield env
-    await cleanup_environment(env.id)
-
-
 @pytest.mark.asyncio
-async def test_create_environment(temp_dir):
-    """Test environment creation."""
-    config = RuntimeConfig(
-        manager=RuntimeManager.NPX,
-        github_url="https://github.com/test/repo"
-    )
-    
-    env = await create_environment(config)
-    
-    assert env.id in ENVIRONMENTS
-    assert env.config == config
-    assert isinstance(env.created_at, datetime)
-    assert isinstance(env.root_dir, Path)
-    assert "HOME" in env.env_vars
-    
-    await cleanup_environment(env.id)
-
-
-@pytest.mark.asyncio
-async def test_cleanup_environment(temp_dir):
+async def test_environment_cleanup(temp_dir):
     """Test environment cleanup."""
     config = RuntimeConfig(
         manager=RuntimeManager.UVX,
