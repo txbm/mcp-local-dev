@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-from mcp_runtime_server.types import RuntimeConfig, Environment
+from mcp_runtime_server.types import EnvironmentConfig, Environment
+from mcp_runtime_server.detection import detect_runtime
 from mcp_runtime_server.commands import run_command
 
 logger = logging.getLogger(__name__)
@@ -23,28 +24,28 @@ async def clone_repository(url: str, target_dir: str, env_vars: Dict[str, str]) 
         target_dir: Clone target directory
         env_vars: Environment variables for git
     """
-    # Extract owner/repo from URL
     try:
         if "github.com" in url:
             parts = url.split("github.com/")[1].strip("/.git")
-            clone_url = f"https://github.com/{parts}.git"
-        else:
-            clone_url = url
+            url = f"https://github.com/{parts}.git"
             
-    except Exception:
-        raise RuntimeError(f"Invalid GitHub URL format: {url}")
+        cmd = f"git clone {url} {target_dir}"
+        logger.debug(f"Executing clone command: {cmd}")
             
-    process = await run_command(
-        f"git clone {clone_url} {target_dir}",
-        str(Path(target_dir).parent),
-        env_vars
-    )
-    stdout, stderr = await process.communicate()
-    
-    if process.returncode != 0:
-        raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
+        process = await run_command(
+            cmd,
+            str(Path(target_dir).parent),
+            env_vars
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
+            
+    except Exception as e:
+        raise RuntimeError(f"Clone failed: {str(e)}")
 
-async def create_environment(config: RuntimeConfig) -> Environment:
+async def create_environment(config: EnvironmentConfig) -> Environment:
     """Create a new runtime environment."""
     try:
         env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -75,10 +76,18 @@ async def create_environment(config: RuntimeConfig) -> Environment:
             bin_dir=bin_dir,
             work_dir=work_dir,
             tmp_dir=tmp_dir,
+            manager=None,
             env_vars=env_vars
         )
         
         await clone_repository(config.github_url, str(work_dir), env_vars)
+        
+        runtime = detect_runtime(str(work_dir))
+        if not runtime:
+            raise RuntimeError("Unable to detect runtime for repository")
+            
+        env.manager = runtime.manager
+        env.env_vars.update(runtime.env_vars)
         
         ENVIRONMENTS[env.id] = env
         return env
