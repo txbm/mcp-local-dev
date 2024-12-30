@@ -62,10 +62,43 @@ class RuntimeEnv:
     env_vars: Dict[str, str]
 
 
-class TestConfig(NamedTuple):
+@dataclass(frozen=True)
+class TestConfig:
     """Test configuration for runtime environments."""
     name: str
-    config: RuntimeConfig
+    command: str
+    timeout_seconds: int = 30
+    expected_exit_code: int = 0
+    expected_output: Optional[str] = None
+
+
+TestResult = Enum('TestResult', [
+    ('PASS', 'pass'),
+    ('FAIL', 'fail'),
+    ('ERROR', 'error'),
+    ('TIMEOUT', 'timeout')
+])
+
+
+@dataclass(frozen=True)
+class CapturedOutput:
+    """Output captured from test execution."""
+    stdout: str
+    stderr: str
+    exit_code: int
+    start_time: datetime
+    end_time: datetime
+
+
+@dataclass(frozen=True)
+class TestRunResult:
+    """Results from a test run."""
+    config: TestConfig
+    result: TestResult
+    captured: CapturedOutput
+    error_message: Optional[str] = None
+    failure_details: Optional[Dict[str, str]] = None
+
 
 RuntimeExitCode: TypeAlias = int
 RuntimeOutput: TypeAlias = str
