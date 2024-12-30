@@ -5,7 +5,7 @@ import tempfile
 import zipfile
 import tarfile
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Dict, Any
 
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
 from mcp_runtime_server.binaries.platforms import get_platform_info
@@ -185,21 +185,20 @@ async def fetch_binary(name: str) -> Path:
     # Build URLs
     platform_str = platform_map[name]
     if name == "uv":
-        # UV uses a different URL format
+        # UV uses a different URL format without 'v' prefix
         download_url = spec["url_template"].format(
-            version=f"v{version}",
+            version=version,
             platform_arch=platform_str
         )
+        checksum_url = spec["checksum_template"].format(version=version)
     else:
+        # Node and Bun use v-prefixed versions
         download_url = spec["url_template"].format(
             version=version,
             platform=platform_str.split("-")[0],
             arch=platform_str.split("-")[1]
         )
-        
-    checksum_url = spec["checksum_template"].format(
-        version=version if name != "uv" else f"v{version}"
-    )
+        checksum_url = spec["checksum_template"].format(version=f"v{version}")
     
     # Create temporary directory for download
     with tempfile.TemporaryDirectory() as tmpdir:
