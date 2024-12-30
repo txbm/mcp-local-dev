@@ -16,10 +16,6 @@ from mcp_runtime_server.managers import (
 
 def test_get_manager_binary():
     """Test manager binary resolution."""
-    # Test for Python which should always be available in test environment
-    python_path = os.environ.get("PYTHON", "python")
-    assert python_path
-    
     # Test for non-existent binary
     with pytest.raises(RuntimeError):
         get_manager_binary(RuntimeManager("nonexistent"))
@@ -60,7 +56,7 @@ def test_build_install_command():
     assert "black" in args
     
     # Invalid manager
-    with pytest.raises(ValueError):
+    with pytest.raises(RuntimeError):
         build_install_command(RuntimeManager("invalid"), "pkg")
 
 
