@@ -14,7 +14,7 @@ from mcp.server import stdio
 from mcp_runtime_server.errors import log_error
 from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command
 from mcp_runtime_server.types import RuntimeManager, RuntimeConfig
-from mcp_runtime_server.logging import configure_logging
+from mcp_runtime_server.logging import configure_logging, log_with_data
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,14 @@ ENVIRONMENTS: Dict[str, Any] = {}
 
 def init_server() -> Server:
     """Initialize the MCP runtime server."""
+    logger.debug("Initializing MCP runtime server")
     server = Server("mcp-runtime-server")
 
     @server.list_tools() 
     async def list_tools() -> List[types.Tool]:
         """List available runtime management tools."""
-        return [
+        logger.debug("Listing available tools")
+        tools = [
             types.Tool(
                 name="create_environment",
                 description="Create a new runtime environment with sandbox isolation",
@@ -96,12 +98,24 @@ def init_server() -> Server:
                 }
             )
         ]
+        logger.debug(f"Found {len(tools)} available tools")
+        return tools
 
     @server.call_tool()
     async def call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
         """Handle tool invocations."""
         try:
+            log_with_data(logger, logging.DEBUG, f"Tool invocation started: {name}", {
+                "tool": name,
+                "arguments": arguments
+            })
+
             if name == "create_environment":
+                log_with_data(logger, logging.DEBUG, "Creating new environment", {
+                    "manager": arguments["manager"],
+                    "github_url": arguments["github_url"]
+                })
+                
                 config = RuntimeConfig(
                     manager=RuntimeManager(arguments["manager"]),
                     github_url=arguments["github_url"]
@@ -112,6 +126,9 @@ def init_server() -> Server:
                     "working_dir": env.working_dir,
                     "created_at": env.created_at.isoformat()
                 }
+                
+                log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
+                
                 return types.CallToolResult(content=[types.TextContent(
                     type="text",
                     text=json.dumps(result)
@@ -119,10 +136,17 @@ def init_server() -> Server:
 
             elif name == "run_command":
                 if "env_id" not in arguments:
+                    logger.error("Missing env_id parameter")
                     raise ValueError("Missing env_id parameter")
                     
                 if arguments["env_id"] not in ENVIRONMENTS:
+                    logger.error(f"Unknown environment: {arguments['env_id']}")
                     raise ValueError(f"Unknown environment: {arguments['env_id']}")
+
+                log_with_data(logger, logging.DEBUG, "Running command in environment", {
+                    "env_id": arguments["env_id"],
+                    "command": arguments["command"]
+                })
 
                 process = await run_command(
                     arguments["env_id"],
@@ -135,6 +159,12 @@ def init_server() -> Server:
                     "stderr": stderr.decode() if stderr else "",
                     "exit_code": process.returncode
                 }
+                
+                log_with_data(logger, logging.DEBUG, "Command execution completed", {
+                    "env_id": arguments["env_id"],
+                    "exit_code": process.returncode
+                })
+                
                 return types.CallToolResult(content=[types.TextContent(
                     type="text",
                     text=json.dumps(result)
@@ -142,12 +172,24 @@ def init_server() -> Server:
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
+                    logger.error("Missing env_id parameter")
                     raise ValueError("Missing env_id parameter")
                     
                 if arguments["env_id"] not in ENVIRONMENTS:
+                    logger.error(f"Unknown environment: {arguments['env_id']}")
                     raise ValueError(f"Unknown environment: {arguments['env_id']}")
 
+                log_with_data(logger, logging.DEBUG, "Running tests in environment", {
+                    "env_id": arguments["env_id"]
+                })
+
                 results = await auto_run_tests(ENVIRONMENTS[arguments["env_id"]])
+                
+                log_with_data(logger, logging.DEBUG, "Test execution completed", {
+                    "env_id": arguments["env_id"],
+                    "results": results
+                })
+                
                 return types.CallToolResult(content=[types.TextContent(
                     type="text", 
                     text=json.dumps(results)
@@ -155,35 +197,56 @@ def init_server() -> Server:
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
+                    logger.error("Missing env_id parameter")
                     raise ValueError("Missing env_id parameter")
+                
+                log_with_data(logger, logging.DEBUG, "Cleaning up environment", {
+                    "env_id": arguments["env_id"]
+                })
                     
                 await cleanup_environment(arguments["env_id"])
+                
+                log_with_data(logger, logging.DEBUG, "Environment cleanup completed", {
+                    "env_id": arguments["env_id"]
+                })
+                
                 return types.CallToolResult(content=[types.TextContent(
                     type="text",
                     text=json.dumps({"status": "success"})
                 )])
 
+            logger.error(f"Unknown tool requested: {name}")
             raise ValueError(f"Unknown tool: {name}")
             
         except Exception as e:
             log_error(e, {"tool": name, "arguments": arguments}, logger)
+            # Log the actual error instance and traceback
+            logger.error("Tool invocation failed", exc_info=True, extra={
+                "data": {
+                    "tool": name,
+                    "arguments": arguments,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)
+                }
+            })
             return types.CallToolResult(content=[types.TextContent(
                 type="text",
                 text=str(e)
             )], isError=True)
 
-    return server
-
 
 def setup_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
     def handle_shutdown(signum, frame):
-        logger.debug("Shutting down runtime server...", extra={
-            "data": {"signal": signum}
+        log_with_data(logger, logging.DEBUG, "Shutting down runtime server...", {
+            "signal": signum
         })
         # Cleanup all active environments
         for env_id in list(ENVIRONMENTS.keys()):
             try:
+                log_with_data(logger, logging.DEBUG, "Cleaning up environment during shutdown", {
+                    "env_id": env_id
+                })
                 asyncio.create_task(cleanup_environment(env_id))
             except Exception as e:
                 log_error(e, {"env_id": env_id}, logger)
@@ -197,14 +260,15 @@ async def serve() -> None:
     """Start the MCP runtime server."""
     configure_logging()
     
-    logger.debug("Starting runtime server", extra={
-        "data": {"version": "0.1.0"}
+    log_with_data(logger, logging.DEBUG, "Starting runtime server", {
+        "version": "0.1.0"
     })
     
     server = init_server()
     setup_handlers()
     
     async with stdio.stdio_server() as (read_stream, write_stream):
+        logger.debug("Server streams initialized")
         await server.run(
             read_stream,
             write_stream,
@@ -221,4 +285,5 @@ async def serve() -> None:
 
 def main() -> None:
     """Main entry point."""
+    log_with_data(logger, logging.DEBUG, "Starting MCP runtime server main process")
     asyncio.run(serve())
