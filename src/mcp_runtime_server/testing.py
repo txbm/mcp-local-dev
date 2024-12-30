@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any
 
 from mcp_runtime_server.types import (
     TestConfig, 
-    TestResult,
+    RunResult,
     TestRun,
     CapturedOutput,
     Environment
@@ -19,7 +19,6 @@ from mcp_runtime_server.frameworks import (
     get_framework_command,
     parse_test_results
 )
-from mcp_runtime_server.errors import EnvironmentError
 
 
 async def auto_run_tests(
@@ -203,7 +202,7 @@ async def run_test(env_id: str, config: TestConfig) -> TestRun:
             if captured.exit_code != config.expected_exit_code:
                 return TestRun(
                     config=config,
-                    result=TestResult.FAIL,
+                    result=RunResult.FAIL,
                     captured=captured,
                     error_message=(
                         f"Expected exit code {config.expected_exit_code}, "
@@ -220,7 +219,7 @@ async def run_test(env_id: str, config: TestConfig) -> TestRun:
                 if config.expected_output not in captured.stdout:
                     return TestRun(
                         config=config,
-                        result=TestResult.FAIL,
+                        result=RunResult.FAIL,
                         captured=captured,
                         error_message="Expected output not found in stdout",
                         failure_details={
@@ -231,14 +230,14 @@ async def run_test(env_id: str, config: TestConfig) -> TestRun:
             
             return TestRun(
                 config=config,
-                result=TestResult.PASS,
+                result=RunResult.PASS,
                 captured=captured
             )
             
         except asyncio.TimeoutError:
             return TestRun(
                 config=config,
-                result=TestResult.TIMEOUT,
+                result=RunResult.TIMEOUT,
                 captured=CapturedOutput(
                     stdout="",
                     stderr="Test timed out",
@@ -254,7 +253,7 @@ async def run_test(env_id: str, config: TestConfig) -> TestRun:
     except Exception as e:
         return TestRun(
             config=config,
-            result=TestResult.ERROR,
+            result=RunResult.ERROR,
             captured=CapturedOutput(
                 stdout="",
                 stderr=str(e),
