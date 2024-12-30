@@ -1,15 +1,13 @@
 """Runtime environment management."""
-import os
 import asyncio
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict
+import tempfile
 
-from mcp_runtime_server.types import RuntimeConfig, Environment, CaptureConfig
-from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox, Sandbox
-from mcp_runtime_server.binaries import ensure_binary
-from mcp_runtime_server.errors import RuntimeServerError, EnvironmentError, log_error
+from mcp_runtime_server.types import RuntimeConfig, Environment
 
 logger = logging.getLogger(__name__)
 
@@ -17,115 +15,141 @@ logger = logging.getLogger(__name__)
 ENVIRONMENTS: Dict[str, Environment] = {}
 
 
+def _get_git_root_dir() -> Path:
+    """Get Git root directory for storing repositories."""
+    root = Path(tempfile.gettempdir()) / "mcp-runtime" / "repos"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 async def create_environment(config: RuntimeConfig) -> Environment:
-    """Create a new runtime environment.
-    
-    Args:
-        config: Runtime configuration
-        
-    Returns:
-        Environment instance
-    """
-    # Create sandbox environment
-    sandbox = create_sandbox(base_env=config.env)
-    
+    """Create a new runtime environment."""
     try:
-        # Get binary manager
-        binary_path = await ensure_binary(config.manager.value)
+        # Create unique working directory
+        env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        work_dir = _get_git_root_dir() / env_id
+        work_dir.mkdir(parents=True)
         
-        # Link binary into sandbox
-        binary_name = binary_path.name
-        dest = sandbox.bin_dir / binary_name
-        dest.write_bytes(binary_path.read_bytes())
-        dest.chmod(0o755)
+        # Clone repository
+        process = await asyncio.create_subprocess_exec(
+            "git", "clone", config.github_url, str(work_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
         
+        if process.returncode != 0:
+            raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
+
         # Create environment
         env = Environment(
-            id=sandbox.id,
+            id=env_id,
             config=config,
             created_at=datetime.utcnow(),
-            working_dir=str(sandbox.root),
-            env_vars=sandbox.env_vars
+            working_dir=str(work_dir)
         )
         
         ENVIRONMENTS[env.id] = env
         return env
         
     except Exception as e:
-        cleanup_sandbox(sandbox)
-        context = {"config": config.dict()} if hasattr(config, "dict") else {"config": str(config)}
-        log_error(e, context, logger)
+        if 'work_dir' in locals() and work_dir.exists():
+            import shutil
+            shutil.rmtree(str(work_dir))
         raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
-async def cleanup_environment(env_id: str, force: bool = False) -> None:
-    """Clean up a runtime environment.
-    
-    Args:
-        env_id: Environment identifier
-        force: Force cleanup even if processes are running
-    """
+async def cleanup_environment(env_id: str) -> None:
+    """Clean up a runtime environment."""
     if env_id not in ENVIRONMENTS:
         return
         
     env = ENVIRONMENTS[env_id]
+    work_dir = Path(env.working_dir)
     
     try:
-        # Clean up sandbox 
-        sandbox_info = Sandbox(
-            id=env_id,
-            root=Path(env.working_dir),
-            bin_dir=Path(env.working_dir) / "bin",
-            env_vars=env.env_vars
-        )
-        cleanup_sandbox(sandbox_info)
-        
-    except Exception as e:
-        context = {"env_id": env_id, "force": force}
-        log_error(e, context, logger)
-        raise RuntimeServerError(f"Failed to clean up environment: {e}")
-        
+        # Clean up working directory
+        if work_dir.exists():
+            import shutil
+            shutil.rmtree(str(work_dir))
+            
     finally:
         del ENVIRONMENTS[env_id]
 
 
-async def run_command(
-    env_id: str,
-    command: str,
-    capture_config: Optional[CaptureConfig] = None
-) -> asyncio.subprocess.Process:
-    """Run a command in an environment.
-    
-    Args:
-        env_id: Environment identifier
-        command: Command to run
-        capture_config: Output capture configuration
-        
-    Returns:
-        Process object
-    """
+async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
+    """Run a command in an environment."""
     if env_id not in ENVIRONMENTS:
-        raise EnvironmentError(env_id)
+        raise ValueError(f"Unknown environment: {env_id}")
         
     env = ENVIRONMENTS[env_id]
     
-    # Set up output capture
-    stdout = asyncio.subprocess.PIPE if capture_config else None
-    stderr = asyncio.subprocess.PIPE if capture_config else None
-    
     try:
-        # Run in sandbox
+        # Run command in working directory
         process = await asyncio.create_subprocess_shell(
             command,
-            stdout=stdout,
-            stderr=stderr,
-            cwd=env.working_dir,
-            env=env.env_vars
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=env.working_dir
         )
         
         return process
         
     except Exception as e:
-        context = {"env_id": env_id, "command": command}
-        log_error(e, context, logger)
-        raise RuntimeServerError(f"Failed to run command: {e}")
+        raise RuntimeError(f"Failed to run command: {e}")
+
+
+async def auto_run_tests(env: Environment) -> Dict[str, any]:
+    """Auto-detect and run tests."""
+    manager = env.config.manager.value
+    
+    try:
+        if manager == "node":
+            # Check for package.json
+            if not (Path(env.working_dir) / "package.json").exists():
+                return {"error": "No package.json found"}
+
+            # Run npm/yarn test
+            process = await run_command(env.id, "npm test")
+            stdout, stderr = await process.communicate()
+            
+            return {
+                "success": process.returncode == 0,
+                "output": stdout.decode() if stdout else "",
+                "error": stderr.decode() if stderr else ""
+            }
+
+        elif manager == "bun":
+            # Similar to node but use bun test
+            process = await run_command(env.id, "bun test")
+            stdout, stderr = await process.communicate()
+            
+            return {
+                "success": process.returncode == 0,
+                "output": stdout.decode() if stdout else "",
+                "error": stderr.decode() if stderr else ""
+            }
+
+        elif manager == "uv":
+            # Check for pyproject.toml
+            if not (Path(env.working_dir) / "pyproject.toml").exists():
+                return {"error": "No pyproject.toml found"}
+
+            # Run pytest
+            process = await run_command(env.id, "uv run pytest")
+            stdout, stderr = await process.communicate()
+            
+            return {
+                "success": process.returncode == 0,
+                "output": stdout.decode() if stdout else "",
+                "error": stderr.decode() if stderr else ""
+            }
+
+        else:
+            raise ValueError(f"Unsupported manager: {manager}")
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
