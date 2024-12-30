@@ -2,11 +2,10 @@
 
 import logging
 import os
-import shutil
-import appdirs
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict
 
 from mcp_runtime_server.types import EnvironmentConfig, Environment
 from mcp_runtime_server.detection import detect_runtime
@@ -21,8 +20,9 @@ async def create_environment(config: EnvironmentConfig) -> Environment:
     """Create a new runtime environment."""
     try:
         env_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        root_dir = Path(appdirs.user_cache_dir("mcp-runtime-server")) / "envs" / env_id
-
+        temp_dir = tempfile.TemporaryDirectory(prefix="mcp-runtime-", ignore_cleanup_errors=True)
+        
+        root_dir = Path(temp_dir.name)
         bin_dir = root_dir / "bin"
         tmp_dir = root_dir / "tmp"
         work_dir = root_dir / "work"
@@ -52,6 +52,7 @@ async def create_environment(config: EnvironmentConfig) -> Environment:
             tmp_dir=tmp_dir,
             manager=None,
             env_vars=env_vars,
+            _temp_dir=temp_dir  # Store reference to prevent cleanup
         )
 
         await clone_repository(config.github_url, str(work_dir), env_vars)
@@ -67,8 +68,8 @@ async def create_environment(config: EnvironmentConfig) -> Environment:
         return env
 
     except Exception as e:
-        if "root_dir" in locals() and root_dir.exists():
-            shutil.rmtree(str(root_dir))
+        if "temp_dir" in locals():
+            temp_dir.cleanup()
         raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
@@ -79,8 +80,13 @@ def cleanup_environment(env_id: str) -> None:
 
     env = ENVIRONMENTS[env_id]
     try:
-        if env.root_dir.exists():
-            shutil.rmtree(str(env.root_dir))
-            logger.debug(f"removed {env.root_dir}")
+        if hasattr(env, "_temp_dir"):
+            env._temp_dir.cleanup()  # This removes the directory tree
+        else:
+            # Fallback for old environments without _temp_dir
+            if env.root_dir.exists():
+                import shutil
+                shutil.rmtree(str(env.root_dir))
+                logger.debug(f"removed {env.root_dir}")
     finally:
         del ENVIRONMENTS[env_id]
