@@ -4,6 +4,7 @@ import aiohttp
 import tempfile
 import zipfile
 import tarfile
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -16,6 +17,8 @@ from mcp_runtime_server.binaries.cache import (
     cleanup_cache,
     verify_checksum
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def download_file(url: str, dest: Path) -> None:
@@ -213,16 +216,16 @@ async def fetch_binary(name: str) -> Path:
         archive_path = tmp_path / archive_name
         await download_file(download_url, archive_path)
         
-        # Get and verify checksum
+        # Default to no checksum verification
+        checksum = None
+        
+        # Try to get and verify checksum
         try:
             checksum = await get_checksum(checksum_url, archive_name)
             if not verify_checksum(archive_path, checksum):
                 raise RuntimeError(f"Checksum verification failed for {name}")
         except RuntimeError as e:
-            if "Failed to fetch checksums" in str(e):
-                # If the checksum file can't be fetched, skip verification
-                # This is temporary until we can properly fetch checksums
-                checksum = ""
+            logger.warning(f"Skipping checksum verification: {e}")
         
         # Extract binary
         binary = extract_binary(
@@ -232,7 +235,7 @@ async def fetch_binary(name: str) -> Path:
         )
         
         # Cache the binary
-        cached_path = cache_binary(name, version, binary, checksum)
+        cached_path = cache_binary(name, version, binary, checksum or "")
         
         # Clean up old cached versions
         cleanup_cache()
