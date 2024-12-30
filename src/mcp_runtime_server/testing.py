@@ -1,30 +1,28 @@
 """Test execution and management."""
 import asyncio
 import psutil
-import tempfile
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from mcp_runtime_server.types import (
-    TestConfig,
+    TestConfig, 
     TestResult,
-    TestRunResult,
-    CapturedOutput,
-    RuntimeEnv
+    TestRun,
+    Output,
+    RTEnv
 )
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
 from mcp_runtime_server.frameworks import (
     detect_frameworks,
     get_framework_command,
-    parse_test_results,
-    TestFramework
+    parse_test_results
 )
 
 
-async def auto_detect_and_run_tests(
-    env: RuntimeEnv,
+async def auto_detect_tests(
+    env: RTEnv,
     include_coverage: bool = True,
     parallel: bool = False
 ) -> Dict[str, Any]:
@@ -164,7 +162,7 @@ async def auto_detect_and_run_tests(
 async def run_test(
     env_id: str,
     config: TestConfig
-) -> TestRunResult:
+) -> TestRun:
     """Run a single test in a sandbox.
     
     Args:
@@ -172,7 +170,7 @@ async def run_test(
         config: Test configuration
         
     Returns:
-        TestRunResult with test execution results
+        TestRun with test execution results
     """
     # Create sandbox for test execution
     sandbox = create_sandbox()
@@ -192,7 +190,7 @@ async def run_test(
                 timeout=config.timeout_seconds
             )
             
-            captured = CapturedOutput(
+            captured = Output(
                 stdout=stdout.decode() if stdout else "",
                 stderr=stderr.decode() if stderr else "",
                 exit_code=process.returncode,
@@ -204,7 +202,7 @@ async def run_test(
             
             # Check exit code
             if captured.exit_code != config.expected_exit_code:
-                return TestRunResult(
+                return TestRun(
                     config=config,
                     result=TestResult.FAIL,
                     captured=captured,
@@ -221,7 +219,7 @@ async def run_test(
             # Check expected output if specified
             if config.expected_output:
                 if config.expected_output not in captured.stdout:
-                    return TestRunResult(
+                    return TestRun(
                         config=config,
                         result=TestResult.FAIL,
                         captured=captured,
@@ -232,17 +230,17 @@ async def run_test(
                         }
                     )
             
-            return TestRunResult(
+            return TestRun(
                 config=config,
                 result=TestResult.PASS,
                 captured=captured
             )
             
         except asyncio.TimeoutError:
-            return TestRunResult(
+            return TestRun(
                 config=config,
                 result=TestResult.TIMEOUT,
-                captured=CapturedOutput(
+                captured=Output(
                     stdout="",
                     stderr="Test timed out",
                     exit_code=-1,
@@ -255,10 +253,10 @@ async def run_test(
             )
         
     except Exception as e:
-        return TestRunResult(
+        return TestRun(
             config=config,
             result=TestResult.ERROR,
-            captured=CapturedOutput(
+            captured=Output(
                 stdout="",
                 stderr=str(e),
                 exit_code=-1,
@@ -277,7 +275,7 @@ async def run_tests(
     configs: List[TestConfig],
     parallel: bool = False,
     max_concurrent: Optional[int] = None
-) -> Dict[str, TestRunResult]:
+) -> Dict[str, TestRun]:
     """Run multiple tests in sandboxed environments.
     
     Args:
@@ -289,7 +287,7 @@ async def run_tests(
     Returns:
         Dict mapping test names to their results
     """
-    results: Dict[str, TestRunResult] = {}
+    results: Dict[str, TestRun] = {}
     
     if parallel:
         # Run tests in parallel with optional concurrency limit
