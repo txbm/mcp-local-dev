@@ -1,31 +1,34 @@
 """Runtime environment management."""
 import os
 import asyncio
-import shutil
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from mcp_runtime_server.types import RTConfig, RTEnv, CaptureConfig
+from mcp_runtime_server.types import (
+    RuntimeConfig, 
+    Environment,
+    CaptureConfig
+)
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
-from mcp_runtime_server.errors import log_error
+from mcp_runtime_server.errors import log_error, EnvironmentError
 
 logger = logging.getLogger(__name__)
 
 # Active environments
-ACTIVE_ENVS: Dict[str, RTEnv] = {}
+ENVIRONMENTS: Dict[str, Environment] = {}
 
 
-async def create_env(config: RTConfig) -> RTEnv:
+async def create_environment(config: RuntimeConfig) -> Environment:
     """Create a new runtime environment.
     
     Args:
         config: Runtime configuration
         
     Returns:
-        RTEnv instance
+        Environment instance
     """
     # Create sandbox environment
     sandbox = create_sandbox(base_env=config.env)
@@ -41,7 +44,7 @@ async def create_env(config: RTConfig) -> RTEnv:
         dest.chmod(0o755)
         
         # Create environment
-        env = RTEnv(
+        env = Environment(
             id=sandbox.id,
             config=config,
             created_at=datetime.utcnow(),
@@ -49,7 +52,7 @@ async def create_env(config: RTConfig) -> RTEnv:
             env_vars=sandbox.env_vars
         )
         
-        ACTIVE_ENVS[env.id] = env
+        ENVIRONMENTS[env.id] = env
         return env
         
     except Exception as e:
@@ -59,17 +62,17 @@ async def create_env(config: RTConfig) -> RTEnv:
         raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
-async def cleanup_env(env_id: str, force: bool = False) -> None:
+async def cleanup_environment(env_id: str, force: bool = False) -> None:
     """Clean up a runtime environment.
     
     Args:
         env_id: Environment identifier
         force: Force cleanup even if processes are running
     """
-    if env_id not in ACTIVE_ENVS:
+    if env_id not in ENVIRONMENTS:
         return
         
-    env = ACTIVE_ENVS[env_id]
+    env = ENVIRONMENTS[env_id]
     
     try:
         # Clean up sandbox
@@ -84,10 +87,10 @@ async def cleanup_env(env_id: str, force: bool = False) -> None:
         raise
         
     finally:
-        del ACTIVE_ENVS[env_id]
+        del ENVIRONMENTS[env_id]
 
 
-async def run_in_env(
+async def run_command(
     env_id: str,
     command: str,
     capture_config: Optional[CaptureConfig] = None
@@ -102,10 +105,10 @@ async def run_in_env(
     Returns:
         Process object
     """
-    if env_id not in ACTIVE_ENVS:
-        raise RuntimeError(f"Environment {env_id} not found")
+    if env_id not in ENVIRONMENTS:
+        raise EnvironmentError(env_id)
         
-    env = ACTIVE_ENVS[env_id]
+    env = ENVIRONMENTS[env_id]
     
     # Set up output capture
     stdout = asyncio.subprocess.PIPE if capture_config else None
