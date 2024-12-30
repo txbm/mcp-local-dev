@@ -2,35 +2,30 @@
 import os
 import asyncio
 import shutil
-import uuid
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from mcp_runtime_server.types import RuntimeConfig, RuntimeEnv, CaptureConfig
+from mcp_runtime_server.types import RTConfig, RTEnv, CaptureConfig
 from mcp_runtime_server.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.binaries import ensure_binary
-from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
 from mcp_runtime_server.errors import log_error
 
 logger = logging.getLogger(__name__)
 
 # Active environments
-ACTIVE_ENVS: Dict[str, RuntimeEnv] = {}
+ACTIVE_ENVS: Dict[str, RTEnv] = {}
 
 
-async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
+async def create_env(config: RTConfig) -> RTEnv:
     """Create a new runtime environment.
     
     Args:
         config: Runtime configuration
         
     Returns:
-        RuntimeEnv instance
-        
-    Raises:
-        RuntimeError: If environment creation fails
+        RTEnv instance
     """
     # Create sandbox environment
     sandbox = create_sandbox(base_env=config.env)
@@ -46,7 +41,7 @@ async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
         dest.chmod(0o755)
         
         # Create environment
-        env = RuntimeEnv(
+        env = RTEnv(
             id=sandbox.id,
             config=config,
             created_at=datetime.utcnow(),
@@ -64,7 +59,7 @@ async def create_environment(config: RuntimeConfig) -> RuntimeEnv:
         raise RuntimeError(f"Failed to create environment: {e}") from e
 
 
-async def cleanup_environment(env_id: str, force: bool = False) -> None:
+async def cleanup_env(env_id: str, force: bool = False) -> None:
     """Clean up a runtime environment.
     
     Args:
@@ -106,9 +101,6 @@ async def run_in_env(
         
     Returns:
         Process object
-        
-    Raises:
-        RuntimeError: If command execution fails
     """
     if env_id not in ACTIVE_ENVS:
         raise RuntimeError(f"Environment {env_id} not found")
