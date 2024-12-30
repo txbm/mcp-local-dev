@@ -4,11 +4,11 @@ import json
 import logging
 import signal
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
-from mcp.types import Tool, TextContent, CallToolResult, Result
+from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 from mcp.server import stdio
 
 from mcp_runtime_server.errors import log_error
@@ -102,7 +102,10 @@ def init_server() -> Server:
         return tools
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
+    async def call_tool(
+        name: str, 
+        arguments: Dict[str, Any]
+    ) -> List[Union[TextContent, ImageContent, EmbeddedResource]]:
         """Handle tool invocations."""
         try:
             log_with_data(logger, logging.DEBUG, f"Tool invocation started: {name}", {
@@ -129,12 +132,7 @@ def init_server() -> Server:
                 
                 log_with_data(logger, logging.DEBUG, "Environment created successfully", result)
                 
-                return CallToolResult(
-                    content=[{
-                        "type": "text",
-                        "text": json.dumps(result)
-                    }]
-                )
+                return [TextContent(type="text", text=json.dumps(result))]
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -167,12 +165,7 @@ def init_server() -> Server:
                     "exit_code": process.returncode
                 })
                 
-                return CallToolResult(
-                    content=[{
-                        "type": "text", 
-                        "text": json.dumps(result)
-                    }]
-                )
+                return [TextContent(type="text", text=json.dumps(result))]
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -194,12 +187,7 @@ def init_server() -> Server:
                     "results": results
                 })
                 
-                return CallToolResult(
-                    content=[{
-                        "type": "text",
-                        "text": json.dumps(results)
-                    }]
-                )
+                return [TextContent(type="text", text=json.dumps(results))]
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -216,12 +204,7 @@ def init_server() -> Server:
                     "env_id": arguments["env_id"]
                 })
                 
-                return CallToolResult(
-                    content=[{
-                        "type": "text",
-                        "text": json.dumps({"status": "success"})
-                    }]
-                )
+                return [TextContent(type="text", text=json.dumps({"status": "success"}))]
 
             logger.error(f"Unknown tool requested: {name}")
             raise ValueError(f"Unknown tool: {name}")
@@ -236,13 +219,7 @@ def init_server() -> Server:
                     "error_message": str(e)
                 }
             })
-            return CallToolResult(
-                content=[{
-                    "type": "text",
-                    "text": str(e)
-                }],
-                isError=True
-            )
+            return [TextContent(type="text", text=str(e))]
 
     return server
 
