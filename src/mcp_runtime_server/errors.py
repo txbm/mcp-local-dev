@@ -46,7 +46,7 @@ class RuntimeServerError(Exception):
         self.details = details or {}
 
     def to_error_data(self) -> ErrorData:
-        """Convert to ErrorData format."""
+        """Convert to error data format."""
         return ErrorData(
             code=self.code,
             message=str(self),
@@ -54,8 +54,8 @@ class RuntimeServerError(Exception):
         )
 
 
-class InvalidEnvError(RuntimeServerError):
-    """Error for invalid/missing environment."""
+class EnvironmentError(RuntimeServerError):
+    """Error for invalid or missing environments."""
     def __init__(self, env_id: str):
         super().__init__(
             f"Environment {env_id} not found",
@@ -64,7 +64,7 @@ class InvalidEnvError(RuntimeServerError):
         )
 
 
-class ResourceError(RuntimeServerError):
+class ResourceLimitError(RuntimeServerError):
     """Resource limit exceeded error."""
     def __init__(self, resource_type: str, limit: Any, current: Any):
         super().__init__(
@@ -78,8 +78,8 @@ class ResourceError(RuntimeServerError):
         )
 
 
-class BinNotFoundError(RuntimeServerError):
-    """Binary not found error."""
+class BinaryNotFoundError(RuntimeServerError):
+    """Required binary not found error."""
     def __init__(self, binary_name: str):
         super().__init__(
             f"Binary {binary_name} not found",
