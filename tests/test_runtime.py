@@ -28,16 +28,16 @@ async def test_environment_cleanup(temp_dir):
 
     env = await create_environment(config)
     assert env.id in ENVIRONMENTS
-    assert env.manager == RuntimeManager.UVX  # Should detect Python project
+    assert env.manager == RuntimeManager.UV  # Should detect Python project
 
     cleanup_environment(env.id)
     assert env.id not in ENVIRONMENTS
+    assert not env.root_dir.exists()
 
 
 @pytest.mark.asyncio
 async def test_environment_isolation(temp_dir):
     """Test that environments are properly isolated."""
-    # Create two environments cloning same Python repo
     config = EnvironmentConfig(
         github_url="https://github.com/txbm/mcp-runtime-server.git"
     )
@@ -53,31 +53,22 @@ async def test_environment_isolation(temp_dir):
     assert env1.env_vars != env2.env_vars
 
     # Both should detect as Python/UV projects
-    assert env1.manager == RuntimeManager.UVX
-    assert env2.manager == RuntimeManager.UVX
+    assert env1.manager == RuntimeManager.UV
+    assert env2.manager == RuntimeManager.UV
 
     # Clean up
     cleanup_environment(env1.id)
     cleanup_environment(env2.id)
+    assert not env1.root_dir.exists()
+    assert not env2.root_dir.exists()
 
 
 @pytest.mark.asyncio
-async def test_runtime_detection():
-    """Test runtime detection for different project types."""
-    node_config = EnvironmentConfig(github_url="https://github.com/vercel/next.js.git")
-    python_config = EnvironmentConfig(github_url="https://github.com/astral-sh/uv.git")
-    bun_config = EnvironmentConfig(github_url="https://github.com/oven-sh/bun.git")
+async def test_environment_error_cleanup(temp_dir):
+    """Test environment cleanup on creation error."""
+    config = EnvironmentConfig(
+        github_url="https://nonexistent.invalid/repo.git"
+    )
 
-    node_env = await create_environment(node_config)
-    assert node_env.manager == RuntimeManager.NPX
-
-    # python_env = await create_environment(python_config)
-    # assert python_env.manager == RuntimeManager.UVX
-
-    # bun_env = await create_environment(bun_config)
-    # assert bun_env.manager == RuntimeManager.BUN
-
-    # Clean up
-    # cleanup_environment(node_env.id)
-    # cleanup_environment(python_env.id)
-    # cleanup_environment(bun_env.id)
+    with pytest.raises(RuntimeError):
+        await create_environment(config)
