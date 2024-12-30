@@ -8,45 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-from mcp_runtime_server.sandbox.security import apply_restrictions, remove_restrictions
 from mcp_runtime_server.types import RuntimeConfig, Environment
+from mcp_runtime_server.logging import log_with_data
 
 logger = logging.getLogger(__name__)
 
 # Active environments
 ENVIRONMENTS: Dict[str, Environment] = {}
-
-
-def _create_dir_structure(root: Path) -> Dict[str, Path]:
-    """Create environment directory structure."""
-    dirs = {
-        "bin": root / "bin",
-        "tmp": root / "tmp",
-        "work": root / "work"
-    }
-    
-    for path in dirs.values():
-        path.mkdir(parents=True, exist_ok=True)
-        
-    return dirs
-
-
-def _prepare_env_vars(dirs: Dict[str, Path]) -> Dict[str, str]:
-    """Prepare environment variables."""
-    env = os.environ.copy()
-    
-    # Set up basic environment
-    env.update({
-        "HOME": str(dirs["work"]),
-        "TMPDIR": str(dirs["tmp"]),
-        "PATH": f"{dirs['bin']}:{env.get('PATH', '')}"
-    })
-    
-    # Remove potentially dangerous variables
-    for var in ["PYTHONPATH", "NODE_PATH", "LD_PRELOAD", "LD_LIBRARY_PATH"]:
-        env.pop(var, None)
-        
-    return env
 
 
 async def create_environment(config: RuntimeConfig) -> Environment:
@@ -56,28 +24,40 @@ async def create_environment(config: RuntimeConfig) -> Environment:
         env_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         root_dir = Path(appdirs.user_cache_dir("mcp-runtime-server")) / "envs" / env_id
         
-        # Create directories
-        dirs = _create_dir_structure(root_dir)
-        env_vars = _prepare_env_vars(dirs)
+        # Create directory structure
+        bin_dir = root_dir / "bin"
+        tmp_dir = root_dir / "tmp"
+        work_dir = root_dir / "work"
         
-        # Apply security restrictions
-        apply_restrictions(root_dir)
+        for d in [bin_dir, tmp_dir, work_dir]:
+            d.mkdir(parents=True)
         
-        # Create environment instance
+        # Set up environment variables
+        env_vars = os.environ.copy()
+        env_vars.update({
+            "HOME": str(work_dir),
+            "TMPDIR": str(tmp_dir),
+            "PATH": f"{bin_dir}:{env_vars.get('PATH', '')}"
+        })
+        
+        for var in ["PYTHONPATH", "NODE_PATH", "LD_PRELOAD", "LD_LIBRARY_PATH"]:
+            env_vars.pop(var, None)
+        
+        # Create environment
         env = Environment(
             id=env_id,
             config=config,
             created_at=datetime.utcnow(),
             root_dir=root_dir,
-            bin_dir=dirs["bin"],
-            work_dir=dirs["work"],
-            tmp_dir=dirs["tmp"],
+            bin_dir=bin_dir,
+            work_dir=work_dir,
+            tmp_dir=tmp_dir,
             env_vars=env_vars
         )
         
         # Clone repository
         process = await asyncio.create_subprocess_exec(
-            "git", "clone", config.github_url, str(env.work_dir),
+            "git", "clone", config.github_url, str(work_dir),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env.env_vars
@@ -92,8 +72,7 @@ async def create_environment(config: RuntimeConfig) -> Environment:
         
     except Exception as e:
         if 'root_dir' in locals() and root_dir.exists():
-            remove_restrictions(root_dir)
-            shutil.rmtree(root_dir)
+            shutil.rmtree(str(root_dir))
         raise ValueError(f"Failed to create environment: {e}") from e
 
 
@@ -104,9 +83,8 @@ async def cleanup_environment(env_id: str) -> None:
         
     env = ENVIRONMENTS[env_id]
     try:
-        remove_restrictions(env.root_dir)
         if env.root_dir.exists():
-            shutil.rmtree(env.root_dir)
+            shutil.rmtree(str(env.root_dir))
     finally:
         del ENVIRONMENTS[env_id]
 
