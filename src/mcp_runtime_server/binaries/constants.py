@@ -11,7 +11,7 @@ RUNTIME_BINARIES = {
     "bun": {
         "version": "1.0.21",
         "url_template": "https://github.com/oven-sh/bun/releases/download/bun-v{version}/bun-{platform}-{arch}.zip",
-        "checksum_template": "https://github.com/oven-sh/bun/releases/download/bun-v{version}/SHASUMS256.txt",
+        "checksum_template": "https://github.com/oven-sh/bun/releases/download/bun-v{version}/SHASUMS.txt",
         "binary_path": "bun"
     },
     "uv": {
