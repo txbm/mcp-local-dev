@@ -1,7 +1,7 @@
 """Runtime server type definitions."""
 from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum, EnumMeta
+from datetime import datetime 
+from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -27,8 +27,8 @@ class Environment:
     config: EnvironmentConfig
     created_at: datetime
     root_dir: Path
-    bin_dir: Path
+    bin_dir: Path 
     work_dir: Path
     tmp_dir: Path
-    manager: Optional[RuntimeManager]
+    manager: Optional[RuntimeManager] 
     env_vars: Dict[str, str]
