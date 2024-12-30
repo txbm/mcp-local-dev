@@ -4,13 +4,13 @@ import json
 import logging
 import signal
 import sys
+import traceback
 from typing import Dict, Any, List, Union
 
 from mcp.server.lowlevel import Server
 from mcp.types import Tool, TextContent
 from mcp.server import stdio
 
-from mcp_runtime_server.errors import log_error
 from mcp_runtime_server.runtime import create_environment, cleanup_environment, run_command, ENVIRONMENTS
 from mcp_runtime_server.testing import auto_run_tests
 from mcp_runtime_server.types import RuntimeConfig
@@ -110,11 +110,11 @@ def init_server() -> Server:
             elif name == "run_tests":
                 if "env_id" not in arguments:
                     logger.error("Missing env_id parameter")
-                    raise ValueError("Missing env_id parameter")
+                    raise RuntimeError("Missing env_id parameter")
 
                 if arguments["env_id"] not in ENVIRONMENTS:
                     logger.error(f"Unknown environment: {arguments['env_id']}")
-                    raise ValueError(f"Unknown environment: {arguments['env_id']}")
+                    raise RuntimeError(f"Unknown environment: {arguments['env_id']}")
 
                 log_with_data(logger, logging.DEBUG, "Running tests", {"env_id": arguments["env_id"]})
 
@@ -126,7 +126,7 @@ def init_server() -> Server:
             elif name == "cleanup":
                 if "env_id" not in arguments:
                     logger.error("Missing env_id parameter")
-                    raise ValueError("Missing env_id parameter")
+                    raise RuntimeError("Missing env_id parameter")
                 
                 log_with_data(logger, logging.DEBUG, "Cleaning up environment", {
                     "env_id": arguments["env_id"]
@@ -136,10 +136,19 @@ def init_server() -> Server:
                 return [TextContent(type="text", text=json.dumps({"status": "success"}))]
 
             logger.error(f"Unknown tool requested: {name}")
-            raise ValueError(f"Unknown tool: {name}")
+            raise RuntimeError(f"Unknown tool: {name}")
             
         except Exception as e:
-            log_error(e, {"tool": name, "arguments": arguments}, logger)
+            logger.error(
+                "Error occurred",
+                extra={
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "traceback": traceback.format_exc(),
+                    "tool": name,
+                    "arguments": arguments
+                }
+            )
             logger.error("Tool invocation failed", exc_info=True)
             return [TextContent(type="text", text=str(e))]
 
@@ -160,7 +169,15 @@ def setup_handlers() -> None:
                 })
                 asyncio.create_task(cleanup_environment(env_id))
             except Exception as e:
-                log_error(e, {"env_id": env_id}, logger)
+                logger.error(
+                    "Error occurred",
+                    extra={
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                        "traceback": traceback.format_exc(),
+                        "env_id": env_id
+                    }
+                )
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_shutdown)
