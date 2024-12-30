@@ -1,7 +1,11 @@
 """Release version management for runtime binaries."""
 import aiohttp
 from typing import Dict, Any
-from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
+from mcp_runtime_server.binaries.constants import (
+    UV_API_BASE,
+    RELEASES_PATH,
+    LATEST_PATH
+)
 
 async def get_latest_uv_release() -> str:
     """Get the latest UV release version.
@@ -12,9 +16,8 @@ async def get_latest_uv_release() -> str:
     Raises:
         RuntimeError: If unable to fetch release info
     """
-    spec = RUNTIME_BINARIES["uv"]
+    url = f"{UV_API_BASE}/{RELEASES_PATH}/{LATEST_PATH}"
     async with aiohttp.ClientSession() as session:
-        url = f"{spec['api_url']}/releases/latest"
         async with session.get(url) as response:
             if response.status != 200:
                 raise RuntimeError(

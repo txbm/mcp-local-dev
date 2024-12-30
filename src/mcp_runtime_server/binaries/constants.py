@@ -1,4 +1,16 @@
-"""Runtime binary specifications."""
+"""Runtime binary specifications and API constants."""
+
+# GitHub API URL structure
+GITHUB_API_BASE = "https://api.github.com"
+GITHUB_REPOS_PATH = "repos"
+RELEASES_PATH = "releases"
+ASSETS_PATH = "assets"
+LATEST_PATH = "latest"
+
+# UV repository constants
+UV_OWNER = "astral-sh"
+UV_REPO = "uv"
+UV_API_BASE = f"{GITHUB_API_BASE}/{GITHUB_REPOS_PATH}/{UV_OWNER}/{UV_REPO}"
 
 RUNTIME_BINARIES = {
     "node": {
@@ -16,7 +28,6 @@ RUNTIME_BINARIES = {
     },
     "uv": {
         "version": None,  # Will be fetched dynamically
-        "api_url": "https://api.github.com/repos/astral-sh/uv",
         "binary_path": "uv"
     }
 }
