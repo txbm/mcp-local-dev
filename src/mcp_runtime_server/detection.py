@@ -15,38 +15,25 @@ class RuntimeSignature:
 
 
 SIGNATURES = {
-    RuntimeManager.NPX: RuntimeSignature(
-        manager=RuntimeManager.NPX,
-        config_files=["package.json", "package-lock.json", "yarn.lock"],
+    RuntimeManager.NODE: RuntimeSignature(
+        manager=RuntimeManager.NODE,
+        config_files=["package.json"],
         env_vars={
-            "NPX_NO_UPDATE_NOTIFIER": "1",
-            "NO_UPDATE_NOTIFIER": "1",
-            "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+            "NODE_NO_WARNINGS": "1"
         }
     ),
     RuntimeManager.BUN: RuntimeSignature(
         manager=RuntimeManager.BUN,
         config_files=["bun.lockb", "package.json"],
         env_vars={
-            "BUNX_CACHE": "/tmp/bunx-cache",
             "NO_INSTALL_HINTS": "1"
         }
     ),
-    RuntimeManager.UVX: RuntimeSignature(
-        manager=RuntimeManager.UVX,
-        config_files=["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt"],
+    RuntimeManager.UV: RuntimeSignature(
+        manager=RuntimeManager.UV,
+        config_files=["pyproject.toml", "setup.py"],
         env_vars={
             "VIRTUAL_ENV": "",
-            "PIP_NO_CACHE_DIR": "1",
-            "PIP_NO_WARN_SCRIPT_LOCATION": "1"
-        }
-    ),
-    RuntimeManager.PIPX: RuntimeSignature(
-        manager=RuntimeManager.PIPX,
-        config_files=["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt"],
-        env_vars={
-            "PIPX_HOME": "/tmp/pipx",
-            "PIPX_BIN_DIR": "/tmp/pipx/bin",
             "PIP_NO_CACHE_DIR": "1"
         }
     )
@@ -64,15 +51,22 @@ def detect_runtime(project_dir: str) -> Optional[RuntimeSignature]:
     """
     try:
         path = Path(project_dir)
-        all_files = set(str(p) for p in path.rglob("*"))
+        files = set(str(p) for p in path.rglob("*"))
 
-        # BUN gets priority over NPX for JS projects
-        for manager in [RuntimeManager.BUN, RuntimeManager.NPX, RuntimeManager.UVX, RuntimeManager.PIPX]:
-            sig = SIGNATURES[manager]
-            if any(any(f.endswith(c) for f in all_files) for c in sig.config_files):
-                return sig
-                    
+        # First check for Bun since it requires both bun.lockb and package.json
+        bun_sig = SIGNATURES[RuntimeManager.BUN]
+        if all(any(f.endswith(c) for f in files) for c in bun_sig.config_files):
+            return bun_sig
+
+        # Then check Node (package.json)
+        if any(f.endswith("package.json") for f in files):
+            return SIGNATURES[RuntimeManager.NODE]
+
+        # Finally check for Python
+        if any(any(f.endswith(c) for f in files) for c in SIGNATURES[RuntimeManager.UV].config_files):
+            return SIGNATURES[RuntimeManager.UV]
+
         return None
-        
+
     except Exception as e:
         raise RuntimeError(f"Failed to detect runtime: {e}")
