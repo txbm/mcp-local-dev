@@ -8,13 +8,6 @@ from typing import Any, Dict, List
 
 from mcp.server.lowlevel import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
-from mcp.types import (
-    Tool, 
-    CallToolResult,
-    TextContent,
-    ServerResult,
-    EnvironmentError as McpEnvironmentError
-)
 import mcp.types as types
 from mcp.server import stdio
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
@@ -49,10 +42,10 @@ def init_server() -> Server:
     server = Server("mcp-runtime-server")
 
     @server.list_tools() 
-    async def list_tools() -> List[Tool]:
+    async def list_tools() -> List[types.Tool]:
         """List available runtime management tools."""
         return [
-            Tool(
+            types.Tool(
                 name="create_environment",
                 description="Create a new runtime environment with sandbox isolation",
                 inputSchema={
@@ -97,7 +90,7 @@ def init_server() -> Server:
                     "required": ["manager", "package_name"]
                 }
             ),
-            Tool(
+            types.Tool(
                 name="run_command",
                 description="Run a command in an isolated sandbox environment",
                 inputSchema={
@@ -127,7 +120,7 @@ def init_server() -> Server:
                     "required": ["env_id", "command"]
                 }
             ),
-            Tool(
+            types.Tool(
                 name="run_tests",
                 description="Auto-detect and run tests in a sandboxed environment",
                 inputSchema={
@@ -149,7 +142,7 @@ def init_server() -> Server:
                     "required": ["env_id"]
                 }
             ),
-            Tool(
+            types.Tool(
                 name="cleanup",
                 description="Clean up a sandboxed environment",
                 inputSchema={
@@ -185,14 +178,16 @@ def init_server() -> Server:
                     if "resource_limits" in arguments else None
                 )
                 env = await create_environment(config)
-                response_text = json.dumps({
-                    "id": env.id,
-                    "working_dir": env.working_dir,
-                    "created_at": env.created_at.isoformat()
-                })
-                content = TextContent(type="text", text=response_text)
-                result = CallToolResult(content=[content], isError=False)
-                return ServerResult(result)
+                content = types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "id": env.id,
+                        "working_dir": env.working_dir,
+                        "created_at": env.created_at.isoformat()
+                    })
+                )
+                tool_result = types.CallToolResult(content=[content])
+                return types.ServerResult(tool_result)
 
             elif name == "run_command":
                 if "env_id" not in arguments:
@@ -208,17 +203,19 @@ def init_server() -> Server:
                 )
                 stdout, stderr = await process.communicate()
                 
-                response_text = json.dumps({
-                    "stdout": stdout.decode() if stdout else "",
-                    "stderr": stderr.decode() if stderr else "",
-                    "exit_code": process.returncode,
-                    "start_time": process.start_time.isoformat(),
-                    "end_time": process.end_time.isoformat(),
-                    "stats": process.stats if hasattr(process, "stats") else None
-                })
-                content = TextContent(type="text", text=response_text)
-                result = CallToolResult(content=[content], isError=False)
-                return ServerResult(result)
+                content = types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "stdout": stdout.decode() if stdout else "",
+                        "stderr": stderr.decode() if stderr else "",
+                        "exit_code": process.returncode,
+                        "start_time": process.start_time.isoformat(),
+                        "end_time": process.end_time.isoformat(),
+                        "stats": process.stats if hasattr(process, "stats") else None
+                    })
+                )
+                tool_result = types.CallToolResult(content=[content])
+                return types.ServerResult(tool_result)
 
             elif name == "run_tests":
                 if "env_id" not in arguments:
@@ -232,9 +229,12 @@ def init_server() -> Server:
                     include_coverage=arguments.get("include_coverage", True),
                     parallel=arguments.get("parallel", False)
                 )
-                content = TextContent(type="text", text=json.dumps(results))
-                result = CallToolResult(content=[content], isError=False)
-                return ServerResult(result)
+                content = types.TextContent(
+                    type="text", 
+                    text=json.dumps(results)
+                )
+                tool_result = types.CallToolResult(content=[content])
+                return types.ServerResult(tool_result)
 
             elif name == "cleanup":
                 if "env_id" not in arguments:
@@ -244,22 +244,31 @@ def init_server() -> Server:
                     arguments["env_id"],
                     force=arguments.get("force", False)
                 )
-                content = TextContent(type="text", text=json.dumps({"status": "success"}))
-                result = CallToolResult(content=[content], isError=False)
-                return ServerResult(result)
+                content = types.TextContent(
+                    type="text",
+                    text=json.dumps({"status": "success"})
+                )
+                tool_result = types.CallToolResult(content=[content])
+                return types.ServerResult(tool_result)
 
             raise RuntimeServerError(f"Unknown tool: {name}", INVALID_PARAMS)
             
         except Exception as e:
             if isinstance(e, RuntimeServerError):
                 log_error(e, {"tool": name, "arguments": arguments}, logger)
-                content = TextContent(type="text", text=str(e))
-                result = CallToolResult(content=[content], isError=True)
-                return ServerResult(result)
+                content = types.TextContent(
+                    type="text",
+                    text=str(e)
+                )
+                tool_result = types.CallToolResult(content=[content], isError=True)
+                return types.ServerResult(tool_result)
             log_error(e, {"tool": name, "arguments": arguments}, logger)
-            content = TextContent(type="text", text=str(e))
-            result = CallToolResult(content=[content], isError=True)
-            return ServerResult(result)
+            content = types.TextContent(
+                type="text",
+                text=str(e)
+            )
+            tool_result = types.CallToolResult(content=[content], isError=True)
+            return types.ServerResult(tool_result)
 
     return server
 
