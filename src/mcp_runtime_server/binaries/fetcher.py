@@ -80,7 +80,7 @@ async def fetch_binary(
     version: Optional[str] = None
 ) -> Path:
     """Fetch a binary with unified strategy."""
-    download_url, version, binary_path = get_binary_download_info(name, version)
+    download_url, version, binary_path = await get_binary_download_info(name, version)
     
     # Check cache
     cached = get_binary_path(name, version)
