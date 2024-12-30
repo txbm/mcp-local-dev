@@ -3,15 +3,21 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
-from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.sandbox.environment import create_sandbox, cleanup_sandbox, Sandbox
 from mcp_runtime_server.types import RuntimeConfig, Environment
 
 logger = logging.getLogger(__name__)
 
-# Active environments
+# Active environments and their sandboxes
 ENVIRONMENTS: Dict[str, Environment] = {}
+SANDBOXES: Dict[str, Sandbox] = {}
+
+
+def _get_sandbox_for_env(env_id: str) -> Optional[Sandbox]:
+    """Get sandbox associated with an environment."""
+    return SANDBOXES.get(env_id)
 
 
 async def create_environment(config: RuntimeConfig) -> Environment:
@@ -44,7 +50,9 @@ async def create_environment(config: RuntimeConfig) -> Environment:
             working_dir=str(work_dir)
         )
         
+        # Store both environment and sandbox
         ENVIRONMENTS[env.id] = env
+        SANDBOXES[env.id] = sandbox
         return env
         
     except Exception as e:
@@ -58,19 +66,15 @@ async def cleanup_environment(env_id: str) -> None:
     if env_id not in ENVIRONMENTS:
         return
         
-    env = ENVIRONMENTS[env_id]
-    work_dir = Path(env.working_dir)
-    sandbox_root = work_dir.parent.parent  # Get sandbox root from work dir
-    
     try:
-        # Find and clean up the sandbox
-        sandbox = next(
-            sb for sb in get_active_sandboxes()
-            if sb.root == sandbox_root
-        )
-        cleanup_sandbox(sandbox)
+        # Clean up sandbox if it exists
+        sandbox = SANDBOXES.get(env_id)
+        if sandbox:
+            cleanup_sandbox(sandbox)
+            del SANDBOXES[env_id]
             
     finally:
+        # Always clean up environment
         del ENVIRONMENTS[env_id]
 
 
@@ -80,16 +84,11 @@ async def run_command(env_id: str, command: str) -> asyncio.subprocess.Process:
         raise ValueError(f"Unknown environment: {env_id}")
         
     env = ENVIRONMENTS[env_id]
-    work_dir = Path(env.working_dir)
-    sandbox_root = work_dir.parent.parent
+    sandbox = SANDBOXES.get(env_id)
+    if not sandbox:
+        raise ValueError(f"No sandbox found for environment: {env_id}")
     
     try:
-        # Find associated sandbox
-        sandbox = next(
-            sb for sb in get_active_sandboxes()
-            if sb.root == sandbox_root
-        )
-        
         # Run command in sandbox environment
         process = await asyncio.create_subprocess_shell(
             command,
