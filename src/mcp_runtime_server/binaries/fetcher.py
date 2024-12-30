@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 from mcp_runtime_server.binaries.constants import RUNTIME_BINARIES
 from mcp_runtime_server.binaries.platforms import get_platform_info
+from mcp_runtime_server.binaries.releases import get_latest_uv_release
 from mcp_runtime_server.binaries.cache import (
     get_binary_path,
     cache_binary,
@@ -141,8 +142,15 @@ async def fetch_binary(name: str) -> Path:
     if name not in RUNTIME_BINARIES:
         raise ValueError(f"Unknown binary: {name}")
         
-    spec = RUNTIME_BINARIES[name]
+    spec = RUNTIME_BINARIES[name].copy()
+    
+    # Handle dynamic version for UV
+    if name == "uv" and spec["version"] is None:
+        spec["version"] = await get_latest_uv_release()
+    
     version = spec["version"]
+    if not version:
+        raise RuntimeError(f"Version not available for {name}")
     
     # Check cache first
     cached = get_binary_path(name, version)
