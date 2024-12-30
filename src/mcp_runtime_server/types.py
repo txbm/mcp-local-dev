@@ -1,5 +1,5 @@
 """Runtime server type definitions."""
-from typing import Optional
+from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -17,6 +17,14 @@ RunResult = Enum('RunResult', [
     'FAIL',
     'ERROR',
     'TIMEOUT'
+])
+
+
+CaptureMode = Enum('CaptureMode', [
+    'FULL',
+    'STDOUT_ONLY',
+    'STDERR_ONLY',
+    'NONE'
 ])
 
 
@@ -44,3 +52,30 @@ class TestConfig:
     timeout_seconds: int = 30
     expected_exit_code: int = 0
     expected_output: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CaptureConfig:
+    """Output capture configuration."""
+    mode: CaptureMode = CaptureMode.FULL
+    max_size: int = 1024 * 1024  # 1MB default
+
+
+@dataclass(frozen=True)
+class CapturedOutput:
+    """Captured process output."""
+    stdout: str
+    stderr: str
+    exit_code: int
+    start_time: datetime
+    end_time: datetime
+
+
+@dataclass(frozen=True)
+class TestRun:
+    """Test execution results."""
+    config: TestConfig
+    result: RunResult
+    captured: CapturedOutput
+    error_message: Optional[str] = None
+    failure_details: Optional[Dict[str, Any]] = None
