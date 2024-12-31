@@ -1,9 +1,9 @@
 """Test framework utilities."""
 import logging
+import re
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-import re
+from typing import List, Dict, Any
 
 from mcp_runtime_server.commands import run_command
 from mcp_runtime_server.types import Environment
@@ -30,47 +30,64 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
 
 def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
     """Parse pytest output into structured results."""
-    summary = {
+    result = {
         "passed": 0,
         "failed": 0,
+        "skipped": 0,
         "total": 0,
         "failures": [],
-        "errors": errors if errors else None
+        "stdout": output,
+        "stderr": errors,
+        "warnings": [],
+        "test_cases": []
     }
 
-    # Count test results
+    current_test = None
+    current_failure = None
+    test_details = []
+
     for line in output.split('\n'):
         line = line.strip()
-        if "PASSED" in line:
-            summary["passed"] += 1
-        elif "FAILED" in line:
-            summary["failed"] += 1
-            # Extract test name and failure message
-            if "::" in line:
-                test_info = line.split("[")[0].strip()
-                summary["failures"].append({
-                    "test": test_info,
-                    "message": None  # Will be populated from error traces
-                })
-    
-    # Extract detailed error messages
-    error_details = []
-    current_error = None
-    for line in output.split('\n'):
-        if line.startswith("tests/"):
-            current_error = line
-        elif current_error and line.strip().startswith("E "):
-            error_details.append({
-                "test": current_error,
-                "message": line.strip()[2:]  # Remove "E " prefix
-            })
-            current_error = None
+        
+        # Parse test summary
+        if "collected" in line and "item" in line:
+            match = re.search(r"collected\s+(\d+)\s+item", line)
+            if match:
+                result["total"] = int(match.group(1))
+                
+        # Track test cases
+        elif "::" in line and any(status in line for status in ["PASSED", "FAILED", "SKIPPED"]):
+            test_name = line.split("[")[0].strip()
+            status = "passed" if "PASSED" in line else "failed" if "FAILED" in line else "skipped"
+            current_test = {
+                "name": test_name,
+                "status": status,
+                "output": [],
+                "failureMessage": None if status != "failed" else ""
+            }
+            test_details.append(current_test)
+            
+            if status == "passed":
+                result["passed"] += 1
+            elif status == "failed":
+                result["failed"] += 1
+            elif status == "skipped":
+                result["skipped"] += 1
 
-    summary["total"] = summary["passed"] + summary["failed"]
-    if summary["failed"] > 0:
-        summary["failures"] = error_details
+        # Capture failure details
+        elif current_test and current_test["status"] == "failed":
+            if line.startswith(("E ", ">")):
+                if current_test["failureMessage"] is None:
+                    current_test["failureMessage"] = ""
+                current_test["failureMessage"] += line[2:] + "\n"
+                current_test["output"].append(line)
 
-    return summary
+        # Capture warnings
+        elif "warning" in line.lower() and not line.startswith(("E ", ">")):
+            result["warnings"].append(line)
+
+    result["test_cases"] = test_details
+    return result
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     result = {
@@ -80,7 +97,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     
     try:
         process = await run_command(
-            "uv run python -m pytest -v tests/",
+            "uv run pytest -v --capture=tee-sys tests/",
             str(env.work_dir),
             env.env_vars
         )
@@ -97,7 +114,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         logger.debug("Pytest execution completed", extra={
             "output": output,
             "errors": errors,
-            "summary": summary
+            "results": result
         })
         
     except Exception as e:
