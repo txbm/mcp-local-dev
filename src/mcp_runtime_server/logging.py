@@ -1,62 +1,121 @@
-"""MCP Runtime Server logging configuration."""
-import json
+"""Logging configuration and test output formatting."""
 import logging
+import re
 import sys
-from datetime import datetime
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, TextIO
 
-class JsonFormatter(logging.Formatter):
-    COLORS = {
-        'DEBUG': '\033[36m', 
-        'INFO': '\033[32m',
-        'WARNING': '\033[33m',
-        'ERROR': '\033[31m',
-        'CRITICAL': '\033[35m',
-        'RESET': '\033[0m'
-    }
+import structlog
 
-    def format(self, record):
-        message_dict = {
-            'time': self.formatTime(record),
-            'level': record.levelname,
-            'source': f"{record.module}:{record.lineno}",
-            'message': record.getMessage()
-        }
-        if hasattr(record, 'data'):
-            message_dict['data'] = record.data
-        if record.exc_info:
-            message_dict['exc_info'] = self.formatException(record.exc_info)
-        if hasattr(record, 'test_info'):
-            message_dict['test_info'] = record.test_info
-        if hasattr(record, 'command'):
-            message_dict['command'] = record.command
-            if hasattr(record, 'cwd'):
-                message_dict['cwd'] = record.cwd
-            if hasattr(record, 'env'):
-                message_dict['env'] = {k: v for k, v in record.env.items() if not k.startswith('_')}
-        if hasattr(record, 'stdout'):
-            message_dict['stdout'] = record.stdout
-        if hasattr(record, 'stderr'):
-            message_dict['stderr'] = record.stderr
-        if hasattr(record, 'exit_code'):
-            message_dict['exit_code'] = record.exit_code
+@dataclass
+class TestCase:
+    name: str
+    status: str
+    output: List[str]
+    failure_message: Optional[str] = None
+
+def configure_logging(level: str = "INFO") -> None:
+    """Configure structured logging for the application."""
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.EventRenamer("event"),
+            structlog.processors.JSONRenderer(),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(sys.stderr),
+        cache_logger_on_first_use=True,
+    )
+
+def get_logger(name: str) -> structlog.BoundLogger:
+    """Get a structured logger instance."""
+    return structlog.get_logger(name)
+
+def parse_pytest_output(stdout: str, stderr: str) -> Dict[str, Any]:
+    """Parse pytest output into structured format."""
+    test_cases = []
+    current_test = None
+    output_buffer = []
+
+    for line in stdout.splitlines():
+        test_match = re.match(r"^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR|XFAIL|XPASS)", line)
+        if test_match:
+            if current_test:
+                current_test.output = output_buffer
+                test_cases.append(current_test)
             
-        return f"{self.COLORS.get(record.levelname, '')}{json.dumps(message_dict)}{self.COLORS['RESET']}"
+            name, status = test_match.groups()
+            current_test = TestCase(
+                name=name.strip(),
+                status=status.lower(),
+                output=[],
+                failure_message=None
+            )
+            output_buffer = []
+            continue
 
-class MessageFilter(logging.Filter):
-    def filter(self, record):
-        if record.name.startswith('mcp.server.lowlevel'):
-            return False
-        skip_messages = ['ListResourcesRequest', 'ListPromptsRequest']
-        return not any(msg in record.getMessage() for msg in skip_messages)
+        if current_test:
+            if "E   " in line:
+                current_test.failure_message = line.split("E   ", 1)[1]
+            elif line.strip():
+                output_buffer.append(line)
 
-def configure_logging():
-    root = logging.getLogger()
-    root.handlers.clear()
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(JsonFormatter())
-    handler.addFilter(MessageFilter())
-    root.addHandler(handler)
-    root.setLevel(logging.DEBUG)
+    if current_test:
+        current_test.output = output_buffer
+        test_cases.append(current_test)
 
-def get_logger(name):
-    return logging.getLogger(f"mcp_runtime_server.{name}")
+    summary_match = re.search(
+        r"=+ (\d+) passed,? (\d+) failed,? (\d+) skipped",
+        stdout
+    )
+    if summary_match:
+        passed, failed, skipped = map(int, summary_match.groups())
+    else:
+        passed = len([t for t in test_cases if t.status == "passed"])
+        failed = len([t for t in test_cases if t.status == "failed"])
+        skipped = len([t for t in test_cases if t.status == "skipped"])
+
+    total = passed + failed + skipped
+    
+    # Extract warnings from stderr
+    warnings = []
+    warning_buffer = []
+    in_warning = False
+    
+    for line in stderr.splitlines():
+        if line.startswith("Warning"):
+            if warning_buffer:
+                warnings.append(" ".join(warning_buffer))
+            warning_buffer = [line]
+            in_warning = True
+        elif in_warning and line.strip():
+            warning_buffer.append(line.strip())
+        else:
+            in_warning = False
+            
+    if warning_buffer:
+        warnings.append(" ".join(warning_buffer))
+
+    return {
+        "success": failed == 0,
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "total": total,
+        "failures": [t.failure_message for t in test_cases if t.failure_message],
+        "stdout": stdout,
+        "stderr": stderr,
+        "warnings": warnings,
+        "test_cases": [
+            {
+                "name": t.name,
+                "status": t.status,
+                "output": t.output,
+                "failureMessage": t.failure_message
+            }
+            for t in test_cases
+        ]
+    }
