@@ -8,7 +8,8 @@ from typing import List, Optional, Union
 
 import mcp.types as types
 from mcp_runtime_server.environments import Environment
-from mcp_runtime_server.managers import detect_manager, prepare_environment
+from mcp_runtime_server.managers import prepare_environment
+from mcp_runtime_server.detection import detect_runtime
 from mcp_runtime_server.testing.validation import validate_test_results
 from mcp_runtime_server.testing.frameworks import TestFramework
 from mcp_runtime_server.logging import get_logger, parse_pytest_output
@@ -19,8 +20,8 @@ logger = get_logger("testing.execution")
 async def auto_run_tests(env: Environment) -> List[types.TextContent]:
     """Auto-detect and run tests in the environment."""
     try:
-        manager = detect_manager(env.manager)
-        if not manager:
+        runtime = detect_runtime(str(env.work_dir))
+        if not runtime:
             return [types.TextContent(
                 text=json.dumps({
                     "success": False,
