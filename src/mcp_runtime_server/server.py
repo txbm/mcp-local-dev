@@ -4,10 +4,10 @@ import json
 import logging
 import signal
 import sys
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List
 
 from mcp.server.lowlevel import Server
-from mcp.types import Tool, TextContent
+from mcp.types import Tool, TextContent, CallToolResult, EmbeddedResource
 from mcp.server import stdio
 
 from mcp_runtime_server.environments import (
@@ -17,7 +17,6 @@ from mcp_runtime_server.environments import (
 )
 from mcp_runtime_server.testing.execution import auto_run_tests
 from mcp_runtime_server.types import EnvironmentConfig
-from mcp_runtime_server.testing.validation import RunTestResult
 from mcp_runtime_server.logging import configure_logging, get_logger
 
 logger = get_logger("server")
@@ -77,7 +76,7 @@ def init_server() -> Server:
     @server.call_tool()
     async def call_tool(
         name: str, arguments: Dict[str, Any]
-    ) -> List[Union[TextContent]]:
+    ) -> CallToolResult:
         try:
             if name == "create_environment":
                 config = EnvironmentConfig(github_url=arguments["github_url"])
@@ -88,7 +87,9 @@ def init_server() -> Server:
                     "created_at": env.created_at.isoformat(),
                     "runtime": env.manager.value if env.manager else None,
                 }
-                return [TextContent(type="text", text=json.dumps(result))]
+                return CallToolResult(
+                    content=[TextContent(type="text", text=json.dumps(result))]
+                )
 
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
@@ -99,25 +100,27 @@ def init_server() -> Server:
                     raise RuntimeError("Runtime not detected for environment")
 
                 test_results = await auto_run_tests(env)
-                # Validate results against schema
-                if "frameworks" in test_results:
-                    validated_results = []
-                    for result in test_results["frameworks"]:
-                        validated_result = RunTestResult(**result)
-                        validated_results.append(validated_result.model_dump())
-                    test_results["frameworks"] = validated_results
-                test_results = {"success": test_results.get("success", False), "frameworks": validated_results}
-                return [TextContent(type="text", text=json.dumps(test_results))]
+                if not isinstance(test_results, dict):
+                    raise RuntimeError("Invalid test results")
+
+                return CallToolResult(
+                    content=[TextContent(type="text", text=json.dumps(test_results))]
+                )
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
-                return [TextContent(type="text", text=json.dumps({"status": "success"}))]
+                return CallToolResult(
+                    content=[TextContent(type="text", text=json.dumps({"status": "success"}))]
+                )
 
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
             logger.exception(f"Tool invocation failed: {str(e)}")
-            return [TextContent(type="text", text=str(e))]
+            return CallToolResult(
+                content=[TextContent(type="text", text=str(e))],
+                isError=True
+            )
 
     return server
 
