@@ -1,165 +1,96 @@
 """Logging configuration for MCP Runtime Server."""
 import json
 import logging
-import logging.config
 import sys
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
-import os
 
-# ANSI color codes
 COLORS = {
-    'DEBUG': '\033[36m',     # Cyan
-    'INFO': '\033[32m',      # Green
-    'WARNING': '\033[33m',   # Yellow
-    'ERROR': '\033[31m',     # Red
-    'CRITICAL': '\033[35m',  # Magenta
-    'RESET': '\033[0m'       # Reset
+    'DEBUG': '\033[36m',     
+    'INFO': '\033[32m',      
+    'WARNING': '\033[33m',   
+    'ERROR': '\033[31m',     
+    'CRITICAL': '\033[35m',  
+    'RESET': '\033[0m'       
 }
 
-class CallerPathFilter(logging.Filter):
-    """Filter that adds caller information to the log record."""
-    def filter(self, record):
-        # Get the caller's location, skipping logging framework frames
-        try:
-            fn, lno, func, sinfo = record.findCaller(stack_info=True)
-            record.filename = os.path.basename(fn)
-            record.lineno = lno
-            record.funcName = func
-            record.sinfo = sinfo
-        except ValueError:
-            record.filename = record.filename
-            record.lineno = record.lineno
-            record.funcName = record.funcName
-            record.sinfo = None
-        return True
-
 class JsonFormatter(logging.Formatter):
-    """JSON formatter for structured logging to stderr."""
+    """Formats log records as colored JSON with source info."""
     
-    def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
-        # Add source file info using the filtered record info
-        record.source_info = f"{record.filename}:{record.lineno}"
-        
-        # Create the base log object with more detailed information
-        log_object = {
-            'timestamp': datetime.fromtimestamp(record.created).isoformat(),
+    def __init__(self):
+        super().__init__()
+        self.default_msec_format = '%s.%03d'
+
+    def format(self, record):
+        log_obj = {
+            'timestamp': self.formatTime(record, self.default_msec_format),
             'logger': record.name,
             'level': record.levelname,
-            'source': record.source_info,
+            'source': f"{record.module}:{record.lineno}",
             'message': record.getMessage(),
             'thread': record.threadName,
             'process': record.processName
         }
-        
-        # Add exception info if present
+
         if record.exc_info:
-            exception_type, exception_value = record.exc_info[:2]
-            log_object['exception'] = {
-                'type': exception_type.__name__,
-                'message': str(exception_value),
+            log_obj['exception'] = {
+                'type': record.exc_info[0].__name__,
+                'message': str(record.exc_info[1]),
                 'traceback': self.formatException(record.exc_info)
             }
 
-        # Add any extra fields
         if hasattr(record, 'data'):
-            try:
-                json.dumps(record.data)
-                log_object['data'] = record.data
-            except (TypeError, ValueError):
-                log_object['data'] = self._sanitize_data(record.data)
-        
-        # Format as compact JSON and add color
+            log_obj['data'] = record.data
+
         color = COLORS.get(record.levelname, '')
         reset = COLORS['RESET'] if color else ''
-        return f"{color}{json.dumps(log_object)}{reset}"
-    
-    def _sanitize_data(self, data: Any) -> Any:
-        """Recursively sanitize data to ensure JSON serialization is possible."""
-        if isinstance(data, (str, int, float, bool, type(None))):
-            return data
-        elif isinstance(data, (list, tuple)):
-            return [self._sanitize_data(item) for item in data]
-        elif isinstance(data, dict):
-            return {
-                str(key): self._sanitize_data(value) 
-                for key, value in data.items()
-            }
-        elif hasattr(data, '__dict__'):
-            return self._sanitize_data(data.__dict__)
-        else:
-            return str(data)
+        return f"{color}{json.dumps(log_obj)}{reset}"
 
+def configure_logging():
+    """Configure JSON formatted logging to stderr."""
+    # Remove existing handlers
+    root = logging.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            root.removeHandler(handler)
 
-def configure_logging() -> None:
-    """Configure logging to send structured logs to stderr."""
-    config = {
-        'version': 1,
-        'disable_existing_loggers': True,  # Disable existing loggers to prevent stdout usage
-        'formatters': {
-            'json': {
-                '()': JsonFormatter
-            }
-        },
-        'filters': {
-            'caller_info': {
-                '()': CallerPathFilter
-            }
-        },
-        'handlers': {
-            'stderr': {
-                'class': 'logging.StreamHandler',
-                'formatter': 'json',
-                'stream': sys.stderr,
-                'filters': ['caller_info'],
-                'level': 'DEBUG'
-            }
-        },
-        'loggers': {
-            'mcp_runtime_server': {
-                'handlers': ['stderr'],
-                'level': 'DEBUG',
-                'propagate': False
-            }
-        },
-        'root': {
-            'handlers': ['stderr'],
-            'level': 'DEBUG'
-        }
-    }
-    
-    # Clear any existing handlers to ensure clean configuration
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-        
-    logging.config.dictConfig(config)
+    # Create handler
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(JsonFormatter())
+    handler.setLevel(logging.DEBUG)
 
+    # Configure root logger
+    root.setLevel(logging.DEBUG)
+    root.addHandler(handler)
+
+    # Configure package logger
+    logger = logging.getLogger('mcp_runtime_server')
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    logger.addHandler(handler)
 
 def log_with_data(
-    logger: logging.Logger, 
-    level: int, 
-    msg: str, 
+    logger: logging.Logger,
+    level: int,
+    msg: str,
     data: Optional[Dict[str, Any]] = None,
-    exc_info: Union[bool, Tuple[Any, BaseException, Any]] = None
+    exc_info: Optional[Union[bool, Tuple[type, Exception, Any]]] = None
 ) -> None:
-    """Enhanced helper to log messages with structured data and optional exception info."""
-    extra = {'data': data} if data else {}
-    logger.log(level, msg, extra=extra, exc_info=exc_info)
+    """Log a message with optional structured data and exception info."""
+    extra = {'data': data} if data else None
+    logger.log(level, msg, exc_info=exc_info, extra=extra)
 
-
-# Add convenience methods for common logging patterns
+# Convenience methods
 def log_request_start(logger: logging.Logger, tool: str, **kwargs) -> None:
-    """Log the start of a tool request with context."""
+    """Log tool request start."""
     log_with_data(logger, logging.DEBUG, f"Tool request started: {tool}", {
         "tool": tool,
         "arguments": kwargs,
         "event": "request_start"
     })
 
-
 def log_request_end(logger: logging.Logger, tool: str, result: Any, **kwargs) -> None:
-    """Log the successful completion of a tool request."""
+    """Log tool request completion."""
     log_with_data(logger, logging.DEBUG, f"Tool request completed: {tool}", {
         "tool": tool,
         "result": result,
@@ -167,14 +98,8 @@ def log_request_end(logger: logging.Logger, tool: str, result: Any, **kwargs) ->
         "event": "request_end"
     })
 
-
-def log_request_error(
-    logger: logging.Logger,
-    tool: str,
-    error: Exception,
-    **kwargs
-) -> None:
-    """Log a tool request error with full context."""
+def log_request_error(logger: logging.Logger, tool: str, error: Exception, **kwargs) -> None:
+    """Log tool request error."""
     log_with_data(
         logger,
         logging.ERROR,
