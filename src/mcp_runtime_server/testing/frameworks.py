@@ -50,8 +50,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             str(env.work_dir),
             env.env_vars
         )
+        stdout, stderr = await process.communicate()
         if process.returncode != 0:
-            stdout, stderr = await process.communicate()
             error = stderr.decode() if stderr else "Unknown error"
             result["error"] = f"Failed to install pytest-json-report: {error}"
             return result
