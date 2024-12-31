@@ -67,15 +67,8 @@ async def init_server() -> Server:
         logger.debug("Tools requested")
         return tools
 
-    async def send_initialized_notification(server: Server) -> None:
-        notification = types.InitializedNotification(
-            jsonrpc="2.0",
-            method="notifications/initialized"
-        )
-        await server.send_notification(notification)
-
-    # Updated initialization handler to use initialize() method directly
-    async def handle_initialize(request: types.InitializeRequest) -> types.InitializeResult:
+    @server.initialize()
+    async def initialize(request: types.InitializeRequest) -> types.InitializeResult:
         result = types.InitializeResult(
             protocolVersion=request.params.protocolVersion,
             capabilities=types.ServerCapabilities(
@@ -89,7 +82,12 @@ async def init_server() -> Server:
         await send_initialized_notification(server)
         return result
 
-    server.initialize(handle_initialize)
+    async def send_initialized_notification(server: Server) -> None:
+        notification = types.InitializedNotification(
+            jsonrpc="2.0",
+            method="notifications/initialized"
+        )
+        await server.send_notification(notification)
 
     @server.call_tool()
     async def call_tool(
