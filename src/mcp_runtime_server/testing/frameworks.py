@@ -1,7 +1,5 @@
 """Test framework utilities."""
-
 import logging
-import os
 from enum import Enum
 from pathlib import Path
 from typing import List, Dict, Any
@@ -12,16 +10,13 @@ from mcp_runtime_server.types import Environment
 logger = logging.getLogger(__name__)
 
 class TestFramework(str, Enum):
-    """Test framework types."""
     UNITTEST = "unittest"
     PYTEST = "pytest"
 
 def detect_frameworks(project_dir: str) -> List[TestFramework]:
-    """Detect test frameworks used in project."""
     path = Path(project_dir)
     frameworks = set()
     
-    # Check for /tests directory
     tests_dir = path / 'tests'
     if tests_dir.exists():
         logger.debug(f"Found tests directory: {tests_dir}")
@@ -39,7 +34,6 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
     return list(frameworks)
 
 async def run_unittest(env: Environment) -> Dict[str, Any]:
-    """Run Python unittest tests."""
     result = {
         "framework": TestFramework.UNITTEST.value,
         "success": False
@@ -47,7 +41,7 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     
     try:
         process = await run_command(
-            "python -m unittest discover -v",
+            "uv run python -m unittest discover -v",
             str(env.work_dir),
             env.env_vars
         )
@@ -70,7 +64,6 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     return result
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
-    """Run pytest tests."""
     result = {
         "framework": TestFramework.PYTEST.value,
         "passed": 0,
@@ -82,7 +75,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     
     try:
         process = await run_command(
-            "python -m pytest -v tests/",
+            "uv run python -m pytest -v tests/",
             str(env.work_dir),
             env.env_vars
         )
@@ -91,10 +84,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         output = stdout.decode() if stdout else ""
         errors = stderr.decode() if stderr else ""
         
-        # Parse test results
         result["success"] = process.returncode == 0
         
-        # Basic result parsing
         for line in output.split('\n'):
             if 'passed' in line.lower():
                 result["passed"] += 1
@@ -118,7 +109,6 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     return result
 
 async def run_framework_tests(framework: TestFramework, env: Environment) -> Dict[str, Any]:
-    """Run tests for a specific framework."""
     logger.debug(f"Running tests for framework: {framework}")
     if framework == TestFramework.UNITTEST:
         return await run_unittest(env)
