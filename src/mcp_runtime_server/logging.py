@@ -7,9 +7,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, TextIO, Union
 
 import structlog
-from structlog.processors import TimeStamper, StackInfoRenderer, format_exc_info, EventRenamer
-from structlog.stdlib import LoggerFactory, BoundLogger
-import mcp.types as types
 
 @dataclass
 class TestCase:
@@ -20,32 +17,29 @@ class TestCase:
 
 def configure_logging(level: str = "INFO") -> None:
     """Configure structured logging for the application."""
-    # Set up standard logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stderr,
         level=getattr(logging, level)
     )
 
-    # Configure structlog
+    renderer = structlog.processors.JSONRenderer() if sys.stderr.isatty() else structlog.dev.ConsoleRenderer(colors=True)
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            TimeStamper(fmt="iso"),
-            StackInfoRenderer(),
-            format_exc_info,
-            structlog.dev.ConsoleRenderer(colors=True)
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            renderer,
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(sys.stderr),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
-def get_logger(name: str) -> BoundLogger:
+def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Get a structured logger instance."""
     return structlog.get_logger(name)
 
@@ -137,7 +131,8 @@ def parse_pytest_output(stdout: str, stderr: str) -> Dict[str, Any]:
 
 def format_test_results(framework: str, results: Dict[str, Any]) -> List[types.TextContent]:
     """Convert parsed test results into MCP-compatible format."""
-    return [types.TextContent(
+    from mcp.types import TextContent
+    return [TextContent(
         text=json.dumps({
             "success": True,
             "frameworks": [{
