@@ -10,7 +10,7 @@ from mcp_runtime_server.testing.frameworks import (
     run_framework_tests,
     TestFramework
 )
-from mcp_runtime_server.logging import get_logger
+from mcp_runtime_server.logging import get_logger, format_test_results
 
 logger = get_logger("testing.execution")
 
@@ -29,19 +29,8 @@ async def auto_run_tests(env: Environment) -> List[types.TextContent]:
         
         results = []
         for framework in frameworks:
-            results.append(await run_framework_tests(framework, env))
+            result = await run_framework_tests(framework, env)
+            results.append(result)
         
-        return [types.TextContent(
-            text=json.dumps({"success": True, "frameworks": results}),
-            type="text"
-        )]
-
-    except Exception as e:
-        logger.exception("Test execution failed")
-        return [types.TextContent(
-            text=json.dumps({
-                "success": False,
-                "error": str(e)
-            }),
-            type="text"
-        )]
+        all_passed = all(r.get("success", False) for r in results)
+        return format_test_results(frameworks[0].value, results[0] if results else {})
