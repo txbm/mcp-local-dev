@@ -74,8 +74,8 @@ async def init_server() -> Server:
         )
         await server.send_notification(notification)
 
-    @server.initialize_handler()
-    async def initialize(request: types.InitializeRequest) -> types.InitializeResult:
+    # Updated initialization handler to use initialize() method directly
+    async def handle_initialize(request: types.InitializeRequest) -> types.InitializeResult:
         result = types.InitializeResult(
             protocolVersion=request.params.protocolVersion,
             capabilities=types.ServerCapabilities(
@@ -88,6 +88,8 @@ async def init_server() -> Server:
         )
         await send_initialized_notification(server)
         return result
+
+    server.initialize(handle_initialize)
 
     @server.call_tool()
     async def call_tool(
