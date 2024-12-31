@@ -19,18 +19,24 @@ class TestFramework(str, Enum):
 def detect_frameworks(project_dir: str) -> List[TestFramework]:
     """Detect test frameworks used in project."""
     path = Path(project_dir)
-    frameworks = []
+    frameworks = set()
     
-    # Look for unit test files
-    if any(str(f).endswith('_test.py') or str(f).startswith('test_') for f in path.rglob('*.py')):
-        frameworks.append(TestFramework.UNITTEST)
-    
-    # Look for pytest files and configuration
-    if any(str(f).endswith('_test.py') or str(f).startswith('test_') for f in path.rglob('*.py')):
-        if any(str(f).endswith(('pytest.ini', 'conftest.py', 'tox.ini')) for f in path.rglob('*')):
-            frameworks.append(TestFramework.PYTEST)
-    
-    return frameworks
+    # Check for /tests directory
+    tests_dir = path / 'tests'
+    if tests_dir.exists():
+        logger.debug(f"Found tests directory: {tests_dir}")
+        test_files = list(tests_dir.glob('test_*.py')) + list(tests_dir.glob('*_test.py'))
+        if test_files:
+            frameworks.add(TestFramework.UNITTEST)
+            logger.debug(f"Found unittest files: {test_files}")
+        
+        conftest_path = tests_dir / 'conftest.py'
+        if conftest_path.exists():
+            frameworks.add(TestFramework.PYTEST)
+            logger.debug(f"Found pytest config: {conftest_path}")
+
+    logger.debug(f"Detected frameworks: {frameworks}")
+    return list(frameworks)
 
 async def run_unittest(env: Environment) -> Dict[str, Any]:
     """Run Python unittest tests."""
@@ -51,8 +57,15 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
         result["errors"] = stderr.decode() if stderr else ""
         result["success"] = process.returncode == 0
         
+        logger.debug("Unittest execution completed", extra={
+            "stdout": result["output"],
+            "stderr": result["errors"],
+            "success": result["success"]
+        })
+        
     except Exception as e:
         result["errors"] = str(e)
+        logger.error("Unittest execution failed", extra={"error": str(e)})
         
     return result
 
@@ -69,7 +82,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     
     try:
         process = await run_command(
-            "python -m pytest -v",
+            "python -m pytest -v tests/",
             str(env.work_dir),
             env.env_vars
         )
@@ -81,7 +94,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         # Parse test results
         result["success"] = process.returncode == 0
         
-        # Basic result parsing (could be enhanced)
+        # Basic result parsing
         for line in output.split('\n'):
             if 'passed' in line.lower():
                 result["passed"] += 1
@@ -91,14 +104,22 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         
         result["total"] = result["passed"] + result["failed"]
         
+        logger.debug("Pytest execution completed", extra={
+            "stdout": output,
+            "stderr": errors,
+            "results": result
+        })
+        
     except Exception as e:
         result["errors"] = str(e)
         result["success"] = False
+        logger.error("Pytest execution failed", extra={"error": str(e)})
         
     return result
 
 async def run_framework_tests(framework: TestFramework, env: Environment) -> Dict[str, Any]:
     """Run tests for a specific framework."""
+    logger.debug(f"Running tests for framework: {framework}")
     if framework == TestFramework.UNITTEST:
         return await run_unittest(env)
     elif framework == TestFramework.PYTEST:
