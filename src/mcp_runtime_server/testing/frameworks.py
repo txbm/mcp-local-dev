@@ -1,4 +1,5 @@
 """Test framework utilities."""
+import json
 import logging
 import re
 from enum import Enum
@@ -21,13 +22,22 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
     
     tests_dir = path / 'tests'
     if tests_dir.exists():
-        logger.debug("Found tests directory", extra={'data': {'path': str(tests_dir)}})
+        logger.info(json.dumps({
+            "event": "test_directory_found",
+            "path": str(tests_dir)
+        }))
         conftest_path = tests_dir / 'conftest.py'
         if conftest_path.exists():
             frameworks.add(TestFramework.PYTEST)
-            logger.debug("Found pytest config", extra={'data': {'path': str(conftest_path)}})
+            logger.info(json.dumps({
+                "event": "pytest_config_found",
+                "path": str(conftest_path)
+            }))
 
-    logger.debug("Framework detection complete", extra={'data': {'frameworks': [f.value for f in frameworks]}})
+    logger.info(json.dumps({
+        "event": "frameworks_detected",
+        "frameworks": [f.value for f in frameworks]
+    }))
     return list(frameworks)
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
@@ -38,26 +48,26 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     }
     
     try:
-        command = "uv pip install pytest pytest-asyncio pytest-mock pytest-cov"
+        command = "uv pip install pytest pytest-asyncio pytest-mock pytest-cov pytest-json"
         process = await run_command(command, str(env.work_dir), env.env_vars)
         stdout, stderr = await process.communicate()
 
         if process.returncode != 0:
-            result["error"] = f"Failed to install pytest: {stderr.decode() if stderr else ''}"
+            error = stderr.decode() if stderr else ''
+            result["error"] = f"Failed to install pytest: {error}"
+            logger.error(json.dumps({
+                "event": "pytest_install_failed",
+                "error": error
+            }))
             return result
 
+        logger.info(json.dumps({
+            "event": "pytest_starting",
+            "working_dir": str(env.work_dir)
+        }))
+        
         process = await run_command(
-            "uv pip freeze",
-            str(env.work_dir),
-            env.env_vars
-        )
-        stdout, stderr = await process.communicate()
-        logger.debug("Installed packages", extra={
-            'data': {'packages': stdout.decode() if stdout else ""}
-        })
-
-        process = await run_command(
-            "uv run pytest --color=yes -v tests/",
+            "uv run pytest",
             str(env.work_dir),
             env.env_vars
         )
@@ -71,26 +81,43 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         result.update(summary)
         result["success"] = summary["failed"] == 0
         
-        logger.debug("Pytest execution complete", extra={
-            'data': {
-                'stdout': output,
-                'stderr': errors,
-                'results': result
-            }
-        })
+        logger.info(json.dumps({
+            "event": "pytest_complete",
+            "total": summary["total"],
+            "passed": summary["passed"], 
+            "failed": summary["failed"],
+            "skipped": summary["skipped"]
+        }))
         
     except Exception as e:
         result["error"] = str(e)
-        logger.error("Pytest execution failed", extra={
-            'data': {'error': str(e)}
-        })
+        logger.error(json.dumps({
+            "event": "pytest_error",
+            "error": str(e)
+        }))
         
     return result
 
 async def run_framework_tests(framework: TestFramework, env: Environment) -> Dict[str, Any]:
     """Run tests for a specific framework in the environment."""
-    logger.debug("Running framework tests", extra={'data': {'framework': framework.value}})
+    logger.info(json.dumps({
+        "event": "framework_test_start",
+        "framework": framework.value,
+        "working_dir": str(env.work_dir)
+    }))
+    
     if framework == TestFramework.PYTEST:
-        return await run_pytest(env)
+        result = await run_pytest(env)
+        logger.info(json.dumps({
+            "event": "framework_test_complete",
+            "framework": framework.value,
+            "success": result["success"]
+        }))
+        return result
     else:
-        raise ValueError(f"Unsupported framework: {framework}")
+        error = f"Unsupported framework: {framework}"
+        logger.error(json.dumps({
+            "event": "framework_test_error", 
+            "error": error
+        }))
+        raise ValueError(error)
