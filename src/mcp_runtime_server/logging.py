@@ -2,10 +2,10 @@
 import json
 import logging
 import logging.config
-import inspect
 import sys
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
+import os
 
 # ANSI color codes
 COLORS = {
@@ -17,29 +17,29 @@ COLORS = {
     'RESET': '\033[0m'       # Reset
 }
 
+class CallerPathFilter(logging.Filter):
+    """Filter that adds caller information to the log record."""
+    def filter(self, record):
+        # Get the caller's location, skipping logging framework frames
+        try:
+            fn, lno, func, sinfo = record.findCaller(stack_info=True)
+            record.filename = os.path.basename(fn)
+            record.lineno = lno
+            record.funcName = func
+            record.sinfo = sinfo
+        except ValueError:
+            record.filename = record.filename
+            record.lineno = record.lineno
+            record.funcName = record.funcName
+            record.sinfo = None
+        return True
+
 class JsonFormatter(logging.Formatter):
     """JSON formatter for structured logging to stderr."""
     
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
-        # Get the caller's frame info
-        frame = inspect.currentframe()
-        calling_frame = None
-        try:
-            while frame:
-                if frame.f_code.co_filename != __file__:
-                    calling_frame = frame
-                    break
-                frame = frame.f_back
-        finally:
-            del frame
-        
-        if calling_frame:
-            record.filename = calling_frame.f_code.co_filename.split('/')[-1]
-            record.lineno = calling_frame.f_lineno
-            record.module = calling_frame.f_code.co_name
-
-        # Add source file info
+        # Add source file info using the filtered record info
         record.source_info = f"{record.filename}:{record.lineno}"
         
         # Create the base log object with more detailed information
@@ -92,14 +92,6 @@ class JsonFormatter(logging.Formatter):
             return str(data)
 
 
-class StderrFilter(logging.Filter):
-    """Filter to control which messages go to stderr."""
-    
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Allow DEBUG level and above messages for better visibility during development."""
-        return True
-
-
 def configure_logging() -> None:
     """Configure logging to send structured logs to stderr."""
     config = {
@@ -111,8 +103,8 @@ def configure_logging() -> None:
             }
         },
         'filters': {
-            'stderr_filter': {
-                '()': StderrFilter
+            'caller_info': {
+                '()': CallerPathFilter
             }
         },
         'handlers': {
@@ -120,7 +112,7 @@ def configure_logging() -> None:
                 'class': 'logging.StreamHandler',
                 'formatter': 'json',
                 'stream': sys.stderr,
-                'filters': ['stderr_filter'],
+                'filters': ['caller_info'],
                 'level': 'DEBUG'
             }
         },
@@ -153,7 +145,6 @@ def log_with_data(
 ) -> None:
     """Enhanced helper to log messages with structured data and optional exception info."""
     extra = {'data': data} if data else {}
-    extra['_frame'] = inspect.currentframe().f_back
     logger.log(level, msg, extra=extra, exc_info=exc_info)
 
 
