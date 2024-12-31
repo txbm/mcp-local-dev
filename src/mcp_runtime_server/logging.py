@@ -25,6 +25,21 @@ class JsonFormatter(logging.Formatter):
             message_dict['data'] = record.data
         if record.exc_info:
             message_dict['exc_info'] = self.formatException(record.exc_info)
+        if hasattr(record, 'test_info'):
+            message_dict['test_info'] = record.test_info
+        if hasattr(record, 'command'):
+            message_dict['command'] = record.command
+            if hasattr(record, 'cwd'):
+                message_dict['cwd'] = record.cwd
+            if hasattr(record, 'env'):
+                message_dict['env'] = {k: v for k, v in record.env.items() if not k.startswith('_')}
+        if hasattr(record, 'stdout'):
+            message_dict['stdout'] = record.stdout
+        if hasattr(record, 'stderr'):
+            message_dict['stderr'] = record.stderr
+        if hasattr(record, 'exit_code'):
+            message_dict['exit_code'] = record.exit_code
+            
         return f"{self.COLORS.get(record.levelname, '')}{json.dumps(message_dict)}{self.COLORS['RESET']}"
 
 class MessageFilter(logging.Filter):
