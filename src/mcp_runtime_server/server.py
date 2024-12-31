@@ -6,8 +6,8 @@ import signal
 import sys
 from typing import Dict, Any, List, Union
 
+import mcp.types as types
 from mcp.server.lowlevel import Server
-from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 from mcp.server import stdio
 
 from mcp_runtime_server.environments import (
@@ -22,7 +22,7 @@ from mcp_runtime_server.logging import configure_logging, get_logger
 logger = get_logger("server")
 
 tools = [
-    Tool(
+    types.Tool(
         name="create_environment",
         description="Create a new runtime environment with sandbox isolation",
         inputSchema={
@@ -33,7 +33,7 @@ tools = [
             "required": ["github_url"],
         },
     ),
-    Tool(
+    types.Tool(
         name="run_tests",
         description="Auto-detect and run tests in a sandboxed environment",
         inputSchema={
@@ -44,7 +44,7 @@ tools = [
             "required": ["env_id"],
         },
     ),
-    Tool(
+    types.Tool(
         name="cleanup",
         description="Clean up a sandboxed environment",
         inputSchema={
@@ -63,14 +63,14 @@ async def init_server() -> Server:
     server = Server("mcp-runtime-server")
 
     @server.list_tools()
-    async def list_tools() -> List[Tool]:
+    async def list_tools() -> List[types.Tool]:
         logger.debug("Tools requested")
         return tools
 
     @server.call_tool()
     async def call_tool(
         name: str, arguments: Dict[str, Any]
-    ) -> List[Union[TextContent, ImageContent, EmbeddedResource]]:
+    ) -> List[Union[types.TextContent, types.ImageContent, types.EmbeddedResource]]:
         try:
             logger.debug(f"Tool called: {name} with args: {arguments}")
             
@@ -83,31 +83,54 @@ async def init_server() -> Server:
                     "created_at": env.created_at.isoformat(),
                     "runtime": env.manager.value if env.manager else None,
                 }
-                return [TextContent(text=json.dumps(result), type="text")]
+                return [types.TextContent(text=json.dumps(result), type="text")]
 
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
-                    raise RuntimeError(f"Unknown environment: {arguments['env_id']}")
+                    return [types.TextContent(
+                        text=json.dumps({
+                            "success": False,
+                            "error": f"Unknown environment: {arguments['env_id']}"
+                        }),
+                        type="text"
+                    )]
 
                 env = ENVIRONMENTS[arguments["env_id"]]
                 if not env.manager:
-                    raise RuntimeError("Runtime not detected for environment")
+                    return [types.TextContent(
+                        text=json.dumps({
+                            "success": False,
+                            "error": "Runtime not detected for environment"
+                        }),
+                        type="text"
+                    )]
 
-                test_results = await auto_run_tests(env)
-                if not isinstance(test_results, dict):
-                    raise RuntimeError("Invalid test results")
-
-                return [TextContent(text=json.dumps(test_results), type="text")]
+                return await auto_run_tests(env)
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
-                return [TextContent(text=json.dumps({"status": "success"}), type="text")]
+                return [types.TextContent(
+                    text=json.dumps({"success": True}),
+                    type="text"
+                )]
 
-            raise RuntimeError(f"Unknown tool: {name}")
+            return [types.TextContent(
+                text=json.dumps({
+                    "success": False,
+                    "error": f"Unknown tool: {name}"
+                }),
+                type="text"
+            )]
 
         except Exception as e:
             logger.exception(f"Tool invocation failed: {str(e)}")
-            return [TextContent(text=str(e), type="text")]
+            return [types.TextContent(
+                text=json.dumps({
+                    "success": False,
+                    "error": str(e)
+                }),
+                type="text"
+            )]
 
     return server
 
