@@ -44,8 +44,21 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     result = {"framework": TestFramework.PYTEST.value, "success": False}
     
     try:
+        # Install pytest-json-report
         process = await run_command(
-            "pytest -vv --no-header --json-report-file=- tests/ 2>/dev/stderr",
+            "uv pip install pytest-json-report",
+            str(env.work_dir),
+            env.env_vars
+        )
+        if process.returncode != 0:
+            stdout, stderr = await process.communicate()
+            error = stderr.decode() if stderr else "Unknown error"
+            result["error"] = f"Failed to install pytest-json-report: {error}"
+            return result
+
+        # Run tests with JSON output
+        process = await run_command(
+            "pytest -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
             str(env.work_dir),
             env.env_vars
         )
