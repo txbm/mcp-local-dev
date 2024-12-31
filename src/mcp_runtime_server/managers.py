@@ -31,7 +31,7 @@ def build_install_command(
         cmd = shutil.which("npm")
         if not cmd:
             raise RuntimeError("npm not found in PATH")
-        return cmd, ["install", *args]
+        return cmd, ["install", "--include=dev", *args]
 
     elif manager == RuntimeManager.BUN:
         cmd = get_manager_binary(manager)
@@ -39,7 +39,7 @@ def build_install_command(
 
     elif manager == RuntimeManager.UV:
         cmd = get_manager_binary(manager)
-        return cmd, ["sync", *args]
+        return cmd, ["sync", "--all-extras", *args]
 
     raise RuntimeError(f"Unsupported runtime: {manager}")
 
