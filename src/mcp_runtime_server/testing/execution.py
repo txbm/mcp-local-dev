@@ -19,9 +19,10 @@ async def auto_run_tests(env: Environment) -> List[types.TextContent]:
     try:
         frameworks = detect_frameworks(str(env.work_dir))
         if not frameworks:
-            logger.info("No test frameworks detected", extra={
-                'data': {'work_dir': str(env.work_dir)}
-            })
+            logger.info(json.dumps({
+                "event": "no_frameworks_detected",
+                "working_dir": str(env.work_dir)
+            }))
             return [types.TextContent(
                 text=json.dumps({
                     "success": False,
@@ -32,31 +33,22 @@ async def auto_run_tests(env: Environment) -> List[types.TextContent]:
         
         results = []
         for framework in frameworks:
-            logger.info("Running tests", extra={
-                'data': {
-                    'framework': framework.value,
-                    'work_dir': str(env.work_dir)
-                }
-            })
             result = await run_framework_tests(framework, env)
             results.append(result)
             
         all_passed = all(r.get("success", False) for r in results)
-        logger.info("Test execution complete", extra={
-            'data': {
-                'all_passed': all_passed,
-                'total_frameworks': len(frameworks)
-            }
-        })
+        logger.info(json.dumps({
+            "event": "test_run_complete",
+            "all_passed": all_passed,
+            "framework_count": len(frameworks)
+        }))
         return format_test_results(frameworks[0].value, results[0] if results else {})
 
     except Exception as e:
-        logger.error("Test execution failed", extra={
-            'data': {
-                'error': str(e),
-                'work_dir': str(env.work_dir)
-            }
-        })
+        logger.error(json.dumps({
+            "event": "test_run_error",
+            "error": str(e)
+        }))
         return [types.TextContent(
             text=json.dumps({
                 "success": False,
