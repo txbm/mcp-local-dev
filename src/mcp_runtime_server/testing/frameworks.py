@@ -7,81 +7,31 @@ from typing import List, Dict, Any, Optional
 
 from mcp_runtime_server.commands import run_command
 from mcp_runtime_server.types import Environment
+from mcp_runtime_server.testing.results import parse_pytest_output
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("mcp_runtime_server.testing.frameworks")
 
 class TestFramework(str, Enum):
     PYTEST = "pytest"
 
 def detect_frameworks(project_dir: str) -> List[TestFramework]:
+    """Detect test frameworks in a project directory."""
     path = Path(project_dir)
     frameworks = set()
     
     tests_dir = path / 'tests'
     if tests_dir.exists():
-        logger.debug(f"Found tests directory: {tests_dir}")
+        logger.debug("Found tests directory", extra={'data': {'path': str(tests_dir)}})
         conftest_path = tests_dir / 'conftest.py'
         if conftest_path.exists():
             frameworks.add(TestFramework.PYTEST)
-            logger.debug(f"Found pytest config: {conftest_path}")
+            logger.debug("Found pytest config", extra={'data': {'path': str(conftest_path)}})
 
-    logger.debug(f"Detected frameworks: {frameworks}")
+    logger.debug("Framework detection complete", extra={'data': {'frameworks': [f.value for f in frameworks]}})
     return list(frameworks)
 
-def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
-    result = {
-        "passed": 0,
-        "failed": 0,
-        "skipped": 0,
-        "total": 0,
-        "failures": [],
-        "stdout": output,
-        "stderr": errors,
-        "warnings": [],
-        "test_cases": []
-    }
-
-    current_test = None
-
-    for line in output.split('\n'):
-        line = line.strip()
-        
-        if "collected" in line and "item" in line:
-            match = re.search(r"collected\s+(\d+)\s+item", line)
-            if match:
-                result["total"] = int(match.group(1))
-                
-        elif "::" in line and any(status in line for status in ["PASSED", "FAILED", "SKIPPED"]):
-            test_name = line.split("[")[0].strip()
-            status = "passed" if "PASSED" in line else "failed" if "FAILED" in line else "skipped"
-            current_test = {
-                "name": test_name,
-                "status": status,
-                "output": [],
-                "failureMessage": None if status != "failed" else ""
-            }
-            result["test_cases"].append(current_test)
-            
-            if status == "passed":
-                result["passed"] += 1
-            elif status == "failed":
-                result["failed"] += 1
-            elif status == "skipped":
-                result["skipped"] += 1
-
-        elif current_test is not None and current_test["status"] == "failed":
-            if line.startswith(("E ", ">")):
-                if current_test["failureMessage"] is None:
-                    current_test["failureMessage"] = ""
-                current_test["failureMessage"] += line[2:] + "\n"
-                current_test["output"].append(line)
-
-        elif "warning" in line.lower() and not line.startswith(("E ", ">")):
-            result["warnings"].append(line)
-
-    return result
-
 async def run_pytest(env: Environment) -> Dict[str, Any]:
+    """Run pytest in the environment."""
     result = {
         "framework": TestFramework.PYTEST.value,
         "success": False
@@ -102,7 +52,9 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             env.env_vars
         )
         stdout, stderr = await process.communicate()
-        logger.debug("Installed packages", extra={"packages": stdout.decode() if stdout else ""})
+        logger.debug("Installed packages", extra={
+            'data': {'packages': stdout.decode() if stdout else ""}
+        })
 
         process = await run_command(
             "uv run pytest --color=yes -v tests/",
@@ -119,20 +71,25 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         result.update(summary)
         result["success"] = summary["failed"] == 0
         
-        logger.debug("Pytest execution completed", extra={
-            "stdout": output,
-            "stderr": errors,
-            "results": result
+        logger.debug("Pytest execution complete", extra={
+            'data': {
+                'stdout': output,
+                'stderr': errors,
+                'results': result
+            }
         })
         
     except Exception as e:
         result["error"] = str(e)
-        logger.error("Pytest execution failed", extra={"error": str(e)})
+        logger.error("Pytest execution failed", extra={
+            'data': {'error': str(e)}
+        })
         
     return result
 
 async def run_framework_tests(framework: TestFramework, env: Environment) -> Dict[str, Any]:
-    logger.debug(f"Running tests for framework: {framework}")
+    """Run tests for a specific framework in the environment."""
+    logger.debug("Running framework tests", extra={'data': {'framework': framework.value}})
     if framework == TestFramework.PYTEST:
         return await run_pytest(env)
     else:
