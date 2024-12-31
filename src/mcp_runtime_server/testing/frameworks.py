@@ -41,45 +41,33 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     """Run pytest in the environment."""
-    result = {"framework": TestFramework.PYTEST.value, "success": False}
+    result = {"framework": TestFramework.PYTEST.value}
     
     try:
-        # Install pytest-json-report
         process = await run_command(
-            "uv pip install pytest-json-report",
+            "pytest -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
             str(env.work_dir),
             env.env_vars
         )
         stdout, stderr = await process.communicate()
-        if process.returncode != 0:
-            error = stderr.decode() if stderr else "Unknown error"
-            result["error"] = f"Failed to install pytest-json-report: {error}"
-            return result
-
-        # Run tests with JSON output redirected to stdout
-        process = await run_command(
-            "pytest -vv --no-header --json-report --json-report-file=- tests/",
-            str(env.work_dir),
-            env.env_vars
-        )
-        stdout, stderr = await process.communicate()
-        if not stdout:
-            result["error"] = "No JSON report generated"
-            return result
-            
-        report = json.loads(stdout)
-        summary = parse_pytest_json(report)
-        result.update(summary)
-        result["success"] = summary["failed"] == 0
+        
+        try:
+            report = json.loads(stderr)
+            summary = parse_pytest_json(report)
+            result.update(summary)
+        except json.JSONDecodeError:
+            result.update({
+                "success": process.returncode == 0,
+                "error": "Failed to parse test output",
+                "stdout": stdout.decode() if stdout else "",
+                "stderr": stderr.decode() if stderr else ""
+            })
         
     except Exception as e:
-        result["error"] = str(e)
-        logger.error(json.dumps({
-            "event": "pytest_error",
-            "error": str(e),
-            "stdout": stdout.decode() if stdout else "",
-            "stderr": stderr.decode() if stderr else ""
-        }))
+        result.update({
+            "success": False,
+            "error": str(e)
+        })
         
     return result
 
