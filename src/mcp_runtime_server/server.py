@@ -62,7 +62,7 @@ async def init_server() -> Server:
         return tools
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
         try:
             logger.debug(f"Tool called: {name} with args: {arguments}")
             
@@ -75,7 +75,8 @@ async def init_server() -> Server:
                     "created_at": env.created_at.isoformat(),
                     "runtime": env.manager.value if env.manager else None,
                 }
-                return {"meta": None, "content": [TextContent(text=json.dumps(result), type="text")], "isError": False}
+                response = TextContent(text=json.dumps(result), type="text")
+                return CallToolResult(content=[response])
 
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
@@ -89,17 +90,20 @@ async def init_server() -> Server:
                 if not isinstance(test_results, dict):
                     raise RuntimeError("Invalid test results")
 
-                return {"meta": None, "content": [TextContent(text=json.dumps(test_results), type="text")], "isError": False}
+                response = TextContent(text=json.dumps(test_results), type="text")
+                return CallToolResult(content=[response])
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
-                return {"meta": None, "content": [TextContent(text=json.dumps({"status": "success"}), type="text")], "isError": False}
+                response = TextContent(text=json.dumps({"status": "success"}), type="text")
+                return CallToolResult(content=[response])
 
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
             logger.exception(f"Tool invocation failed: {str(e)}")
-            return {"meta": None, "content": [TextContent(text=str(e), type="text")], "isError": True}
+            response = TextContent(text=str(e), type="text")
+            return CallToolResult(content=[response], isError=True)
 
     return server
 
