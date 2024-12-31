@@ -147,7 +147,7 @@ def init_server() -> Server:
                     extra={"env_id": arguments["env_id"]}
                 )
 
-                await cleanup_environment(arguments["env_id"])
+                cleanup_environment(arguments["env_id"])
                 return [TextContent(type="text", text=json.dumps({"status": "success"}))]
 
             logger.error(f"Unknown tool requested: {name}")
@@ -179,7 +179,7 @@ def setup_handlers() -> None:
                     "Cleaning up environment during shutdown",
                     extra={"env_id": env_id}
                 )
-                asyncio.create_task(cleanup_environment(env_id))
+                cleanup_environment(env_id)
             except Exception as e:
                 logger.exception(
                     "Error during environment cleanup",
