@@ -1,5 +1,4 @@
 """MCP server implementation."""
-
 import asyncio
 import json
 import logging
@@ -72,7 +71,6 @@ def init_server() -> Server:
                 },
             ),
         ]
-        logger.debug(f"Found {len(tools)} available tools")
         return tools
 
     @server.call_tool()
@@ -80,11 +78,6 @@ def init_server() -> Server:
         name: str, arguments: Dict[str, Any]
     ) -> List[Union[TextContent]]:
         try:
-            logger.debug(
-                "Tool invocation started",
-                extra={"tool": name, "arguments": arguments}
-            )
-
             if name == "create_environment":
                 config = EnvironmentConfig(github_url=arguments["github_url"])
                 env = await create_environment(config)
@@ -114,46 +107,30 @@ def init_server() -> Server:
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
-            logger.exception(
-                "Tool invocation failed",
-                extra={
-                    "tool": name,
-                    "arguments": arguments,
-                    "error": str(e)
-                }
-            )
+            logger.exception(f"Tool invocation failed: {str(e)}")
             return [TextContent(type="text", text=str(e))]
 
     return server
 
 async def cleanup_all_environments():
-    """Clean up all environments."""
     for env_id in list(ENVIRONMENTS.keys()):
         try:
             cleanup_environment(env_id)
         except Exception as e:
             logger.error(f"Failed to cleanup environment {env_id}: {e}")
 
-def setup_handlers() -> None:
-    def handle_shutdown(signum, frame):
-        logger.info(f"Shutting down on signal {signum}")
-        cleanup_all_environments()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, handle_shutdown)
-    signal.signal(signal.SIGTERM, handle_shutdown)
-
 async def serve() -> None:
     configure_logging()
     logger.info("Starting MCP runtime server")
 
     server = init_server()
-    setup_handlers()
-
     try:
         async with stdio.stdio_server() as (read_stream, write_stream):
             options = server.create_initialization_options()
             await server.run(read_stream, write_stream, options)
+    except asyncio.CancelledError:
+        logger.info("Server shutdown initiated")
+        await cleanup_all_environments()
     except Exception as e:
         logger.exception("Server error")
         await cleanup_all_environments()
@@ -161,5 +138,20 @@ async def serve() -> None:
     finally:
         await cleanup_all_environments()
 
+def handle_shutdown(signum, frame):
+    logger.info(f"Shutting down on signal {signum}")
+    sys.exit(0)
+
+def setup_handlers() -> None:
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+
 def main() -> None:
-    asyncio.run(serve())
+    setup_handlers()
+    try:
+        asyncio.run(serve())
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt")
+    except Exception:
+        logger.exception("Fatal server error")
+        sys.exit(1)
