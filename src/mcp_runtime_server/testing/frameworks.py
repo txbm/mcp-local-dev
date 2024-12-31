@@ -88,7 +88,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     }
     
     try:
-        command = f"uv pip install pytest pytest-asyncio pytest-mock pytest-cov"
+        command = "uv pip install pytest pytest-asyncio pytest-mock pytest-cov"
         process = await run_command(command, str(env.work_dir), env.env_vars)
         stdout, stderr = await process.communicate()
 
@@ -105,7 +105,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         logger.debug("Installed packages", extra={"packages": stdout.decode() if stdout else ""})
 
         process = await run_command(
-            "uv run pytest -v tests/",
+            "uv run pytest --color=yes -v tests/",
             str(env.work_dir),
             env.env_vars
         )
