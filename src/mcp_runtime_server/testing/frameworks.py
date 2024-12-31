@@ -56,15 +56,18 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             result["error"] = f"Failed to install pytest-json-report: {error}"
             return result
 
-        # Run tests with JSON output
+        # Run tests with JSON output redirected to stdout
         process = await run_command(
-            "pytest -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
+            "pytest -vv --no-header --json-report --json-report-file=- tests/",
             str(env.work_dir),
             env.env_vars
         )
         stdout, stderr = await process.communicate()
-        
-        report = json.loads(stderr)
+        if not stdout:
+            result["error"] = "No JSON report generated"
+            return result
+            
+        report = json.loads(stdout)
         summary = parse_pytest_json(report)
         result.update(summary)
         result["success"] = summary["failed"] == 0
@@ -73,7 +76,9 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         result["error"] = str(e)
         logger.error(json.dumps({
             "event": "pytest_error",
-            "error": str(e)
+            "error": str(e),
+            "stdout": stdout.decode() if stdout else "",
+            "stderr": stderr.decode() if stderr else ""
         }))
         
     return result
