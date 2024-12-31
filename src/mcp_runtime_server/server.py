@@ -4,10 +4,10 @@ import json
 import logging
 import signal
 import sys
-from typing import Dict, Any, List, Union, Optional
+from typing import Dict, Any, List, Union
 
 import mcp.types as types
-from mcp.server.lowlevel import Server, NotificationRegistry
+from mcp.server.lowlevel import Server 
 from mcp.server.models import InitializationOptions
 from mcp.server import stdio
 
@@ -58,32 +58,10 @@ tools = [
     ),
 ]
 
-def initialize_notification_registry() -> NotificationRegistry:
-    """Initialize and configure the notification registry."""
-    registry = NotificationRegistry()
-
-    @registry.register("notifications/initialized")
-    async def handle_initialized(params: Dict[str, Any]) -> None:
-        logger.debug("Initialized notification")
-        # No response needed
-
-    @registry.register("notifications/progress")
-    async def handle_progress(params: Dict[str, Any]) -> None:
-        logger.debug("Progress notification")
-        # No response needed
-
-    @registry.register("notifications/roots/list_changed")
-    async def handle_roots_list_changed(params: Dict[str, Any]) -> None:
-        logger.debug("Roots list changed notification")
-        # No response needed
-
-    return registry
-
 async def init_server() -> Server:
     logger.info(f"Registered tools: {', '.join(t.name for t in tools)}")
     
     server = Server("mcp-runtime-server")
-    server.notification_registry = initialize_notification_registry()
 
     @server.list_tools()
     async def list_tools() -> List[types.Tool]:
@@ -154,7 +132,16 @@ async def init_server() -> Server:
                 }),
                 type="text"
             )]
-
+    
+    @server.progress_notification()
+    async def handle_progress(
+        progress_token: str | int,
+        progress: float,
+        total: float | None = None
+    ) -> None:
+        """Handle progress notifications."""
+        logger.debug(f"Progress notification: {progress}/{total if total else '?'}")
+        
     return server
 
 async def cleanup_all_environments():
@@ -176,11 +163,7 @@ async def serve() -> None:
                 server_version="0.1.0",
                 capabilities=types.ServerCapabilities(
                     tools=types.ToolsCapability(listChanged=False),
-                    notifications=types.NotificationsCapability(
-                        initialized=True,
-                        progress=True,
-                        roots=types.RootsCapability(listChanged=True)
-                    )
+                    logging=types.LoggingCapability()
                 )
             )
             await server.run(read_stream, write_stream, init_options)
