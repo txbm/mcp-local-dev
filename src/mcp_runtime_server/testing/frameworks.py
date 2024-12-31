@@ -3,7 +3,7 @@ import logging
 import re
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from mcp_runtime_server.commands import run_command
 from mcp_runtime_server.types import Environment
@@ -41,6 +41,8 @@ def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
         "test_cases": []
     }
 
+    current_test = None
+
     for line in output.split('\n'):
         line = line.strip()
         
@@ -67,7 +69,7 @@ def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
             elif status == "skipped":
                 result["skipped"] += 1
 
-        elif current_test and current_test["status"] == "failed":
+        elif current_test is not None and current_test["status"] == "failed":
             if line.startswith(("E ", ">")):
                 if current_test["failureMessage"] is None:
                     current_test["failureMessage"] = ""
