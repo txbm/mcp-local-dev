@@ -17,6 +17,7 @@ from mcp_runtime_server.environments import (
 )
 from mcp_runtime_server.testing.execution import auto_run_tests
 from mcp_runtime_server.types import EnvironmentConfig
+from mcp_runtime_server.testing.validation import RunTestResult
 from mcp_runtime_server.logging import configure_logging, get_logger
 
 logger = get_logger("server")
@@ -97,8 +98,16 @@ def init_server() -> Server:
                 if not env.manager:
                     raise RuntimeError("Runtime not detected for environment")
 
-                results = await auto_run_tests(env)
-                return [TextContent(type="text", text=json.dumps(results))]
+                test_results = await auto_run_tests(env)
+                # Validate results against schema
+                if "frameworks" in test_results:
+                    validated_results = []
+                    for result in test_results["frameworks"]:
+                        validated_result = RunTestResult(**result)
+                        validated_results.append(validated_result.model_dump())
+                    test_results["frameworks"] = validated_results
+                test_results = {"success": test_results.get("success", False), "frameworks": validated_results}
+                return [TextContent(type="text", text=json.dumps(test_results))]
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
