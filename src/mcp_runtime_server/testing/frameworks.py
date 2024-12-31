@@ -1,15 +1,15 @@
 """Test framework utilities."""
 import json
-import logging
 from enum import Enum
 from pathlib import Path
 from typing import List, Dict, Any
 
-from mcp_runtime_server.commands import run_command
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.environments.commands import run_command
+from mcp_runtime_server.environments.environment import Environment
 from mcp_runtime_server.testing.results import parse_pytest_json
+from mcp_runtime_server.logging import get_logger
 
-logger = logging.getLogger("mcp_runtime_server.testing.frameworks")
+logger = get_logger(__name__)
 
 class TestFramework(str, Enum):
     PYTEST = "pytest"
@@ -21,22 +21,12 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
     
     tests_dir = path / 'tests'
     if tests_dir.exists():
-        logger.info(json.dumps({
-            "event": "test_directory_found",
-            "path": str(tests_dir)
-        }))
+        logger.info({"event": "test_directory_found", "path": str(tests_dir)})
         conftest_path = tests_dir / 'conftest.py'
         if conftest_path.exists():
             frameworks.add(TestFramework.PYTEST)
-            logger.info(json.dumps({
-                "event": "pytest_config_found",
-                "path": str(conftest_path)
-            }))
-
-    logger.info(json.dumps({
-        "event": "frameworks_detected",
-        "frameworks": [f.value for f in frameworks]
-    }))
+            logger.info({"event": "pytest_config_found", "path": str(conftest_path)})
+    
     return list(frameworks)
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
@@ -44,8 +34,15 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     result = {"framework": TestFramework.PYTEST.value}
     
     try:
+        pytest_path = env.bin_dir / "pytest"
+        if not pytest_path.exists():
+            pytest_path = env.bin_dir / "pytest.exe"
+            
+        if not pytest_path.exists():
+            raise RuntimeError("pytest not found in environment")
+            
         process = await run_command(
-            "uv run pytest -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
+            f"{pytest_path} -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
             str(env.work_dir),
             env.env_vars
         )
@@ -62,7 +59,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
                 "stdout": stdout.decode() if stdout else "",
                 "stderr": stderr.decode() if stderr else ""
             })
-        
+            
     except Exception as e:
         result.update({
             "success": False,
@@ -70,27 +67,3 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         })
         
     return result
-
-async def run_framework_tests(framework: TestFramework, env: Environment) -> Dict[str, Any]:
-    """Run tests for a specific framework in the environment."""
-    logger.info(json.dumps({
-        "event": "framework_test_start",
-        "framework": framework.value,
-        "working_dir": str(env.work_dir)
-    }))
-    
-    if framework == TestFramework.PYTEST:
-        result = await run_pytest(env)
-        logger.info(json.dumps({
-            "event": "framework_test_complete",
-            "framework": framework.value,
-            "success": result["success"]
-        }))
-        return result
-        
-    error = f"Unsupported framework: {framework}"
-    logger.error(json.dumps({
-        "event": "framework_test_error", 
-        "error": error
-    }))
-    raise ValueError(error)
