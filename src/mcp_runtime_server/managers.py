@@ -9,13 +9,11 @@ from mcp_runtime_server.types import RuntimeManager
 
 logger = logging.getLogger(__name__)
 
-
 def get_manager_binary(manager: RuntimeManager) -> str:
     binary = shutil.which(manager.value)
     if not binary:
         raise RuntimeError(f"Runtime {manager.value} not found in PATH")
     return binary
-
 
 def build_install_command(
     manager: RuntimeManager,
@@ -34,14 +32,15 @@ def build_install_command(
 
     elif manager == RuntimeManager.BUN:
         cmd = get_manager_binary(manager)
-        return cmd, ["install"]
+        base_args = ["install"]
+        base_args.extend(args)
+        return cmd, base_args
 
     elif manager == RuntimeManager.UV:
         cmd = get_manager_binary(manager)
         return cmd, ["sync", "--all-extras"]
 
     raise RuntimeError(f"Unsupported runtime: {manager}")
-
 
 def prepare_env_vars(manager: RuntimeManager, base_env: Dict[str, str]) -> Dict[str, str]:
     env = base_env.copy()
@@ -64,7 +63,6 @@ def prepare_env_vars(manager: RuntimeManager, base_env: Dict[str, str]) -> Dict[
         })
 
     return env
-
 
 def cleanup_manager_artifacts(manager: RuntimeManager, working_dir: str) -> None:
     work_path = Path(working_dir)
