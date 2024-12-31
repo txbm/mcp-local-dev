@@ -29,7 +29,6 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
     return list(frameworks)
 
 def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
-    """Parse pytest output into structured results."""
     result = {
         "passed": 0,
         "failed": 0,
@@ -42,20 +41,14 @@ def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
         "test_cases": []
     }
 
-    current_test = None
-    current_failure = None
-    test_details = []
-
     for line in output.split('\n'):
         line = line.strip()
         
-        # Parse test summary
         if "collected" in line and "item" in line:
             match = re.search(r"collected\s+(\d+)\s+item", line)
             if match:
                 result["total"] = int(match.group(1))
                 
-        # Track test cases
         elif "::" in line and any(status in line for status in ["PASSED", "FAILED", "SKIPPED"]):
             test_name = line.split("[")[0].strip()
             status = "passed" if "PASSED" in line else "failed" if "FAILED" in line else "skipped"
@@ -65,7 +58,7 @@ def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
                 "output": [],
                 "failureMessage": None if status != "failed" else ""
             }
-            test_details.append(current_test)
+            result["test_cases"].append(current_test)
             
             if status == "passed":
                 result["passed"] += 1
@@ -74,7 +67,6 @@ def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
             elif status == "skipped":
                 result["skipped"] += 1
 
-        # Capture failure details
         elif current_test and current_test["status"] == "failed":
             if line.startswith(("E ", ">")):
                 if current_test["failureMessage"] is None:
@@ -82,11 +74,9 @@ def parse_pytest_output(output: str, errors: str) -> Dict[str, Any]:
                 current_test["failureMessage"] += line[2:] + "\n"
                 current_test["output"].append(line)
 
-        # Capture warnings
         elif "warning" in line.lower() and not line.startswith(("E ", ">")):
             result["warnings"].append(line)
 
-    result["test_cases"] = test_details
     return result
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
@@ -96,8 +86,24 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     }
     
     try:
+        command = f"uv pip install pytest pytest-asyncio pytest-mock pytest-cov"
+        process = await run_command(command, str(env.work_dir), env.env_vars)
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            result["error"] = f"Failed to install pytest: {stderr.decode() if stderr else ''}"
+            return result
+
         process = await run_command(
-            "uv run pytest -v --capture=tee-sys tests/",
+            "uv pip freeze",
+            str(env.work_dir),
+            env.env_vars
+        )
+        stdout, stderr = await process.communicate()
+        logger.debug("Installed packages", extra={"packages": stdout.decode() if stdout else ""})
+
+        process = await run_command(
+            "uv run pytest -v tests/",
             str(env.work_dir),
             env.env_vars
         )
@@ -112,8 +118,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         result["success"] = summary["failed"] == 0
         
         logger.debug("Pytest execution completed", extra={
-            "output": output,
-            "errors": errors,
+            "stdout": output,
+            "stderr": errors,
             "results": result
         })
         
