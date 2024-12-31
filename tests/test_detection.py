@@ -3,9 +3,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from mcp_runtime_server.types import RuntimeManager
-from mcp_runtime_server.detection import detect_runtime
-
+from mcp_runtime_server.environments.runtime import Runtime, detect_runtime
 
 def test_node_detection():
     """Test Node.js project detection."""
@@ -14,9 +12,7 @@ def test_node_detection():
         pkg_json.touch()
         
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.NODE
-
+        assert runtime == Runtime.NODE
 
 def test_bun_detection():
     """Test Bun project detection."""
@@ -24,15 +20,12 @@ def test_bun_detection():
         # Should not detect as Bun with just package.json
         Path(tmpdir, "package.json").touch()
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.NODE
+        assert runtime == Runtime.NODE
         
         # Should detect as Bun with both files
         Path(tmpdir, "bun.lockb").touch()
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.BUN
-
+        assert runtime == Runtime.BUN
 
 def test_python_detection():
     """Test Python project detection."""
@@ -42,24 +35,20 @@ def test_python_detection():
         project_toml.touch()
         
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.UV
+        assert runtime == Runtime.PYTHON
         
         # Test setup.py
         setup_py = Path(tmpdir) / "setup.py"  
         setup_py.touch()
         
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.UV
-
+        assert runtime == Runtime.PYTHON
 
 def test_unknown_project():
     """Test unrecognized project detection."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        runtime = detect_runtime(tmpdir)
-        assert runtime is None
-
+        with pytest.raises(ValueError, match="No supported runtime detected"):
+            detect_runtime(tmpdir)
 
 def test_nested_files():
     """Test detection with nested config files."""
@@ -71,13 +60,11 @@ def test_nested_files():
         pkg_json.touch()
         
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.NODE
+        assert runtime == Runtime.NODE
         
         # Add bun.lockb, should switch to Bun
         bun_lock = nested / "bun.lockb" 
         bun_lock.touch()
         
         runtime = detect_runtime(tmpdir)
-        assert runtime is not None
-        assert runtime.manager == RuntimeManager.BUN
+        assert runtime == Runtime.BUN
