@@ -5,7 +5,6 @@ import logging
 import signal
 import sys
 from typing import Dict, Any, List
-from urllib.parse import unquote
 
 from mcp.server.lowlevel import Server
 from mcp.types import Tool, TextContent, CallToolResult
@@ -93,7 +92,7 @@ async def init_server() -> Server:
                     "runtime": env.manager.value if env.manager else None,
                 }
                 return CallToolResult(
-                    content=[TextContent(text=json.dumps(result), type="text/plain")]
+                    content=[TextContent(text=json.dumps(result), type="text")]
                 )
 
             elif name == "run_tests":
@@ -109,13 +108,13 @@ async def init_server() -> Server:
                     raise RuntimeError("Invalid test results")
 
                 return CallToolResult(
-                    content=[TextContent(text=json.dumps(test_results), type="text/plain")]
+                    content=[TextContent(text=json.dumps(test_results), type="text")]
                 )
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
                 return CallToolResult(
-                    content=[TextContent(text=json.dumps({"status": "success"}), type="text/plain")]
+                    content=[TextContent(text=json.dumps({"status": "success"}), type="text")]
                 )
 
             raise RuntimeError(f"Unknown tool: {name}")
@@ -123,7 +122,7 @@ async def init_server() -> Server:
         except Exception as e:
             logger.exception(f"Tool invocation failed: {str(e)}")
             return CallToolResult(
-                content=[TextContent(text=str(e), type="text/plain")],
+                content=[TextContent(text=str(e), type="text")],
                 isError=True
             )
 
