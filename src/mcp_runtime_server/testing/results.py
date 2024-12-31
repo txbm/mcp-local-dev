@@ -1,12 +1,12 @@
 """Test result parsing and formatting."""
 import json
-import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import mcp.types as types
+from mcp_runtime_server.logging import get_logger
 
-logger = logging.getLogger("mcp_runtime_server.testing.results")
+logger = get_logger(__name__)
 
 @dataclass
 class TestCase:
@@ -68,7 +68,7 @@ def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
         "warnings": report.get("warnings", [])
     }
     
-    logger.info(json.dumps({
+    logger.info({
         "event": "test_summary",
         "data": {
             "total": result["total"],
@@ -76,7 +76,7 @@ def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
             "failed": result["failed"],
             "skipped": result["skipped"]
         }
-    }))
+    })
     
     return result
 
