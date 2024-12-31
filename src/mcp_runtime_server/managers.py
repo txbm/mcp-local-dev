@@ -38,7 +38,10 @@ def build_install_command(
 
     elif manager == RuntimeManager.UV:
         cmd = get_manager_binary(manager)
-        return cmd, ["sync", "--all-extras"]
+        base_args = ["sync"]
+        if "--production" not in args and "--no-deps" not in args:
+            base_args.extend(args)
+        return cmd, base_args
 
     raise RuntimeError(f"Unsupported runtime: {manager}")
 
