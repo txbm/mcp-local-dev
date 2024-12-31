@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Union
 
 import mcp.types as types
 from mcp.server.lowlevel import Server
+from mcp.server.models import InitializationOptions
 from mcp.server import stdio
 
 from mcp_runtime_server.environments import (
@@ -66,28 +67,6 @@ async def init_server() -> Server:
     async def list_tools() -> List[types.Tool]:
         logger.debug("Tools requested")
         return tools
-
-    @server.initialize()
-    async def initialize(request: types.InitializeRequest) -> types.InitializeResult:
-        result = types.InitializeResult(
-            protocolVersion=request.params.protocolVersion,
-            capabilities=types.ServerCapabilities(
-                tools=types.ToolsCapability(listChanged=False),
-            ),
-            serverInfo=types.Implementation(
-                name="mcp-runtime-server",
-                version="0.1.0"
-            )
-        )
-        await send_initialized_notification(server)
-        return result
-
-    async def send_initialized_notification(server: Server) -> None:
-        notification = types.InitializedNotification(
-            jsonrpc="2.0",
-            method="notifications/initialized"
-        )
-        await server.send_notification(notification)
 
     @server.call_tool()
     async def call_tool(
@@ -170,7 +149,14 @@ async def serve() -> None:
     server = await init_server()
     try:
         async with stdio.stdio_server() as (read_stream, write_stream):
-            await server.run(read_stream, write_stream)
+            init_options = InitializationOptions(
+                server_name="mcp-runtime-server",
+                server_version="0.1.0",
+                capabilities=types.ServerCapabilities(
+                    tools=types.ToolsCapability(listChanged=False)
+                )
+            )
+            await server.run(read_stream, write_stream, init_options)
     except asyncio.CancelledError:
         logger.info("Server shutdown initiated")
         await cleanup_all_environments()
