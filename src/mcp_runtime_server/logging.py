@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, TextIO, Union
 
 import structlog
+import mcp.types as types
 
 @dataclass
 class TestCase:
@@ -131,8 +132,7 @@ def parse_pytest_output(stdout: str, stderr: str) -> Dict[str, Any]:
 
 def format_test_results(framework: str, results: Dict[str, Any]) -> List[types.TextContent]:
     """Convert parsed test results into MCP-compatible format."""
-    from mcp.types import TextContent
-    return [TextContent(
+    return [types.TextContent(
         text=json.dumps({
             "success": True,
             "frameworks": [{
