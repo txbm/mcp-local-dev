@@ -5,6 +5,7 @@ import logging
 import signal
 import sys
 from typing import Dict, Any, List
+from urllib.parse import unquote
 
 from mcp.server.lowlevel import Server
 from mcp.types import Tool, TextContent, CallToolResult
@@ -20,6 +21,10 @@ from mcp_runtime_server.types import EnvironmentConfig
 from mcp_runtime_server.logging import configure_logging, get_logger
 
 logger = get_logger("server")
+
+def normalize_tool_name(name: str) -> str:
+    """Normalize tool name by decoding and replacing hyphens."""
+    return unquote(name).replace("-", "_")
 
 def init_server() -> Server:
     logger.debug("Initializing MCP runtime server")
@@ -78,7 +83,10 @@ def init_server() -> Server:
         name: str, arguments: Dict[str, Any]
     ) -> CallToolResult:
         try:
-            if name == "create_environment":
+            normalized_name = normalize_tool_name(name)
+            logger.debug(f"Calling tool: {normalized_name} with args: {arguments}")
+
+            if normalized_name == "create_environment":
                 config = EnvironmentConfig(github_url=arguments["github_url"])
                 env = await create_environment(config)
                 result = {
@@ -91,7 +99,7 @@ def init_server() -> Server:
                     content=[TextContent(text=json.dumps(result), type="text/plain")]
                 )
 
-            elif name == "run_tests":
+            elif normalized_name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
                     raise RuntimeError(f"Unknown environment: {arguments['env_id']}")
 
@@ -107,7 +115,7 @@ def init_server() -> Server:
                     content=[TextContent(text=json.dumps(test_results), type="text/plain")]
                 )
 
-            elif name == "cleanup":
+            elif normalized_name == "cleanup":
                 cleanup_environment(arguments["env_id"])
                 return CallToolResult(
                     content=[TextContent(text=json.dumps({"status": "success"}), type="text/plain")]
