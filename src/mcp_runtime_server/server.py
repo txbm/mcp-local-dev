@@ -1,7 +1,6 @@
 """MCP server implementation."""
 import asyncio
 import json
-import logging
 import signal
 import sys
 from typing import Dict, Any, List, Union
@@ -11,16 +10,18 @@ from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server import stdio
 
-from mcp_runtime_server.environments import (
+from mcp_runtime_server.environments.environment import (
+    Environment,
     create_environment,
-    cleanup_environment,
-    ENVIRONMENTS,
+    cleanup_environment
 )
+from mcp_runtime_server.environments.runtime import Runtime
 from mcp_runtime_server.testing.execution import auto_run_tests
-from mcp_runtime_server.types import EnvironmentConfig
 from mcp_runtime_server.logging import configure_logging, get_logger
 
 logger = get_logger("server")
+
+ENVIRONMENTS: Dict[str, Environment] = {}
 
 tools = [
     types.Tool(
@@ -76,13 +77,13 @@ async def init_server() -> Server:
             logger.debug(f"Tool called: {name} with args: {arguments}")
             
             if name == "create_environment":
-                config = EnvironmentConfig(github_url=arguments["github_url"])
-                env = await create_environment(config)
+                env = await create_environment(arguments["github_url"])
+                ENVIRONMENTS[env.id] = env
                 result = {
                     "id": env.id,
                     "working_dir": str(env.work_dir),
                     "created_at": env.created_at.isoformat(),
-                    "runtime": env.manager.value if env.manager else None,
+                    "runtime": env.runtime.value
                 }
                 return [types.TextContent(text=json.dumps(result), type="text")]
 
@@ -97,19 +98,13 @@ async def init_server() -> Server:
                     )]
 
                 env = ENVIRONMENTS[arguments["env_id"]]
-                if not env.manager:
-                    return [types.TextContent(
-                        text=json.dumps({
-                            "success": False,
-                            "error": "Runtime not detected for environment"
-                        }),
-                        type="text"
-                    )]
-
                 return await auto_run_tests(env)
 
             elif name == "cleanup":
-                cleanup_environment(arguments["env_id"])
+                env_id = arguments["env_id"]
+                if env_id in ENVIRONMENTS:
+                    env = ENVIRONMENTS.pop(env_id)
+                    cleanup_environment(env)
                 return [types.TextContent(
                     text=json.dumps({"success": True}),
                     type="text"
@@ -145,9 +140,10 @@ async def init_server() -> Server:
     return server
 
 async def cleanup_all_environments():
-    for env_id in list(ENVIRONMENTS.keys()):
+    for env_id, env in list(ENVIRONMENTS.items()):
         try:
-            cleanup_environment(env_id)
+            cleanup_environment(env)
+            ENVIRONMENTS.pop(env_id)
         except Exception as e:
             logger.error(f"Failed to cleanup environment {env_id}: {e}")
 
