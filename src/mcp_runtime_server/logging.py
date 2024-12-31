@@ -2,6 +2,7 @@
 import json
 import logging
 import logging.config
+import inspect
 import sys
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
@@ -21,6 +22,23 @@ class JsonFormatter(logging.Formatter):
     
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
+        # Get the caller's frame info
+        frame = inspect.currentframe()
+        calling_frame = None
+        try:
+            while frame:
+                if frame.f_code.co_filename != __file__:
+                    calling_frame = frame
+                    break
+                frame = frame.f_back
+        finally:
+            del frame
+        
+        if calling_frame:
+            record.filename = calling_frame.f_code.co_filename.split('/')[-1]
+            record.lineno = calling_frame.f_lineno
+            record.module = calling_frame.f_code.co_name
+
         # Add source file info
         record.source_info = f"{record.filename}:{record.lineno}"
         
@@ -133,17 +151,9 @@ def log_with_data(
     data: Optional[Dict[str, Any]] = None,
     exc_info: Union[bool, Tuple[Any, BaseException, Any]] = None
 ) -> None:
-    """
-    Enhanced helper to log messages with structured data and optional exception info.
-    
-    Args:
-        logger: The logger instance to use
-        level: The logging level
-        msg: The log message
-        data: Optional dictionary of structured data to include
-        exc_info: Optional exception info to include
-    """
+    """Enhanced helper to log messages with structured data and optional exception info."""
     extra = {'data': data} if data else {}
+    extra['_frame'] = inspect.currentframe().f_back
     logger.log(level, msg, extra=extra, exc_info=exc_info)
 
 
