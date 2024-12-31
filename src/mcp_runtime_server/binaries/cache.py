@@ -5,9 +5,8 @@ import hashlib
 import logging
 from pathlib import Path
 from typing import Optional
-from mcp_runtime_server.logging import log_with_data
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("mcp_runtime_server.binaries.cache")
 
 CACHE_DIR = Path(os.path.expanduser("~/.cache/mcp_runtime_server/binaries"))
 MAX_CACHE_SIZE = 1024 * 1024 * 1024  # 1 GB
@@ -21,9 +20,11 @@ def compute_file_hash(path: Path) -> str:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
     except Exception as e:
-        log_with_data(logger, logging.ERROR, "Failed to compute file hash", {
-            'file': str(path),
-            'error': str(e)
+        logger.error("Failed to compute file hash", extra={
+            'data': {
+                'file': str(path),
+                'error': str(e)
+            }
         })
         raise RuntimeError(f"Checksum failure for {path.name}") from e
 
@@ -40,20 +41,24 @@ def get_binary_path(name: str, version: str) -> Optional[Path]:
         current_hash = compute_file_hash(cache_path)
         
         if stored_hash != current_hash:
-            log_with_data(logger, logging.ERROR, "Cache validation failed", {
-                'binary': name,
-                'version': version,
-                'stored_hash': stored_hash,
-                'computed_hash': current_hash
+            logger.error("Cache validation failed", extra={
+                'data': {
+                    'binary': name,
+                    'version': version,
+                    'stored_hash': stored_hash,
+                    'computed_hash': current_hash
+                }
             })
             return None
             
         return cache_path
     except Exception as e:
-        log_with_data(logger, logging.ERROR, "Cache access error", {
-            'binary': name,
-            'version': version,
-            'error': str(e)
+        logger.error("Cache access error", extra={
+            'data': {
+                'binary': name,
+                'version': version,
+                'error': str(e)
+            }
         })
         return None
 
@@ -76,28 +81,34 @@ def cache_binary(name: str, version: str, binary_path: Path, checksum: str) -> P
         
         # Verify checksum if provided
         if checksum and computed_hash != checksum:
-            log_with_data(logger, logging.ERROR, "Checksum verification failed", {
-                'binary': name,
-                'version': version,
-                'computed': computed_hash,
-                'expected': checksum
+            logger.error("Checksum verification failed", extra={
+                'data': {
+                    'binary': name,
+                    'version': version,
+                    'computed': computed_hash,
+                    'expected': checksum
+                }
             })
             raise RuntimeError(f"Checksum mismatch for {name} {version}")
             
-        log_with_data(logger, logging.INFO, "Binary cached successfully", {
-            'binary': name,
-            'version': version,
-            'path': str(binary_cache),
-            'hash': computed_hash
+        logger.info("Binary cached successfully", extra={
+            'data': {
+                'binary': name,
+                'version': version,
+                'path': str(binary_cache),
+                'hash': computed_hash
+            }
         })
         
         return binary_cache
         
     except Exception as e:
-        log_with_data(logger, logging.ERROR, "Failed to cache binary", {
-            'binary': name,
-            'version': version,
-            'error': str(e)
+        logger.error("Failed to cache binary", extra={
+            'data': {
+                'binary': name,
+                'version': version,
+                'error': str(e)
+            }
         })
         raise RuntimeError(f"Failed to cache {name} {version}") from e
 
@@ -126,12 +137,16 @@ def cleanup_cache() -> None:
                 cache_file.with_suffix('.sha256').unlink()
                 total_size -= file_size
                 
-                log_with_data(logger, logging.INFO, "Removed cached binary", {
-                    'path': str(cache_file),
-                    'size': file_size
+                logger.info("Removed cached binary", extra={
+                    'data': {
+                        'path': str(cache_file),
+                        'size': file_size
+                    }
                 })
                 
     except Exception as e:
-        log_with_data(logger, logging.ERROR, "Cache cleanup failed", {
-            'error': str(e)
+        logger.error("Cache cleanup failed", extra={
+            'data': {
+                'error': str(e)
+            }
         })
