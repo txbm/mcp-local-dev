@@ -1,79 +1,60 @@
-"""MCP server implementation."""
 import asyncio
 import json
 import logging
 import signal
 import sys
 from typing import Dict, Any, List
-
 from mcp.server.lowlevel import Server
 from mcp.types import Tool, TextContent, CallToolResult
 from mcp.server import stdio
 
-from mcp_runtime_server.environments import (
-    create_environment,
-    cleanup_environment,
-    ENVIRONMENTS,
-)
+from mcp_runtime_server.environments import (create_environment, cleanup_environment, ENVIRONMENTS)
 from mcp_runtime_server.testing.execution import auto_run_tests
 from mcp_runtime_server.types import EnvironmentConfig
 from mcp_runtime_server.logging import configure_logging, get_logger
 
 logger = get_logger("server")
 
-def get_tools() -> List[Tool]:
-    tools = [
-        Tool(
-            name="create_environment",
-            description="Create a new runtime environment with sandbox isolation",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "github_url": {
-                        "type": "string",
-                        "description": "GitHub repository URL",
-                    }
-                },
-                "required": ["github_url"],
+tools = [
+    Tool(
+        name="create_environment",
+        description="Create a new runtime environment with sandbox isolation",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "github_url": {"type": "string", "description": "GitHub repository URL"}
             },
-        ),
-        Tool(
-            name="run_tests",
-            description="Auto-detect and run tests in a sandboxed environment",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "env_id": {
-                        "type": "string",
-                        "description": "Environment identifier",
-                    }
-                },
-                "required": ["env_id"],
+            "required": ["github_url"],
+        },
+    ),
+    Tool(
+        name="run_tests",
+        description="Auto-detect and run tests in a sandboxed environment",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "env_id": {"type": "string", "description": "Environment identifier"}
             },
-        ),
-        Tool(
-            name="cleanup",
-            description="Clean up a sandboxed environment",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "env_id": {
-                        "type": "string",
-                        "description": "Environment identifier",
-                    }
-                },
-                "required": ["env_id"],
+            "required": ["env_id"],
+        },
+    ),
+    Tool(
+        name="cleanup",
+        description="Clean up a sandboxed environment",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "env_id": {"type": "string", "description": "Environment identifier"}
             },
-        ),
-    ]
-    logger.info(f"Registered tools: {', '.join(t.name for t in tools)}")
-    return tools
+            "required": ["env_id"],
+        },
+    ),
+]
 
 async def init_server() -> Server:
-    logger.debug("Initializing MCP runtime server")
+    logger.info(f"Registered tools: {', '.join(t.name for t in tools)}")
     
     server = Server("mcp-runtime-server")
-    tools = get_tools()
 
     @server.list_tools()
     async def list_tools() -> List[Tool]:
@@ -81,10 +62,10 @@ async def init_server() -> Server:
         return tools
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         try:
             logger.debug(f"Tool called: {name} with args: {arguments}")
-
+            
             if name == "create_environment":
                 config = EnvironmentConfig(github_url=arguments["github_url"])
                 env = await create_environment(config)
@@ -94,9 +75,7 @@ async def init_server() -> Server:
                     "created_at": env.created_at.isoformat(),
                     "runtime": env.manager.value if env.manager else None,
                 }
-                return CallToolResult(
-                    content=[TextContent(text=json.dumps(result), type="text")]
-                )
+                return {"meta": None, "content": [TextContent(text=json.dumps(result), type="text")], "isError": False}
 
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
@@ -110,24 +89,17 @@ async def init_server() -> Server:
                 if not isinstance(test_results, dict):
                     raise RuntimeError("Invalid test results")
 
-                return CallToolResult(
-                    content=[TextContent(text=json.dumps(test_results), type="text")]
-                )
+                return {"meta": None, "content": [TextContent(text=json.dumps(test_results), type="text")], "isError": False}
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
-                return CallToolResult(
-                    content=[TextContent(text=json.dumps({"status": "success"}), type="text")]
-                )
+                return {"meta": None, "content": [TextContent(text=json.dumps({"status": "success"}), type="text")], "isError": False}
 
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
             logger.exception(f"Tool invocation failed: {str(e)}")
-            return CallToolResult(
-                content=[TextContent(text=str(e), type="text")],
-                isError=True
-            )
+            return {"meta": None, "content": [TextContent(text=str(e), type="text")], "isError": True}
 
     return server
 
