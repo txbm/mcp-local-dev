@@ -1,5 +1,4 @@
 """Runtime manager utilities."""
-
 import logging
 import os
 import shutil
@@ -29,7 +28,9 @@ def build_install_command(
         cmd = shutil.which("npm")
         if not cmd:
             raise RuntimeError("npm not found in PATH")
-        return cmd, ["install"]
+        base_args = ["install"]
+        base_args.extend(args)
+        return cmd, base_args
 
     elif manager == RuntimeManager.BUN:
         cmd = get_manager_binary(manager)
