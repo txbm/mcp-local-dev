@@ -1,11 +1,9 @@
 """Test configuration and fixtures."""
-import os
 import pytest
 import tempfile
 from pathlib import Path
 
-from mcp_runtime_server.types import EnvironmentConfig  
-from mcp_runtime_server.environments import create_environment, cleanup_environment
+from mcp_runtime_server.environments.environment import Environment, create_environment, cleanup_environment
 
 @pytest.fixture
 def temp_dir():
