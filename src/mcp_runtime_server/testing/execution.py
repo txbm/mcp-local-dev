@@ -1,6 +1,6 @@
 """Test execution module."""
-import asyncio
 import json
+import logging
 from typing import List
 
 import mcp.types as types
@@ -10,9 +10,9 @@ from mcp_runtime_server.testing.frameworks import (
     run_framework_tests,
     TestFramework
 )
-from mcp_runtime_server.logging import get_logger, format_test_results
+from mcp_runtime_server.testing.results import format_test_results
 
-logger = get_logger("testing.execution")
+logger = logging.getLogger("mcp_runtime_server.testing.execution")
 
 async def auto_run_tests(env: Environment) -> List[types.TextContent]:
     """Auto-detect and run tests in the environment."""
@@ -31,7 +31,7 @@ async def auto_run_tests(env: Environment) -> List[types.TextContent]:
         for framework in frameworks:
             result = await run_framework_tests(framework, env)
             results.append(result)
-        
+            
         all_passed = all(r.get("success", False) for r in results)
         return format_test_results(frameworks[0].value, results[0] if results else {})
 
