@@ -1,20 +1,32 @@
 """Logging configuration and test output formatting."""
+import json
 import logging
 import re
 import sys
-import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, TextIO, Union
 
 import structlog
 import mcp.types as types
+from structlog.typing import Processor
 
-@dataclass
-class TestCase:
-    name: str
-    status: str
-    output: List[str]
-    failure_message: Optional[str] = None
+LEVEL_COLORS = {
+    "DEBUG": "\033[36m",    # Cyan
+    "INFO": "\033[32m",     # Green  
+    "WARNING": "\033[33m",  # Yellow
+    "ERROR": "\033[31;1m",  # Bright Red
+    "CRITICAL": "\033[35;1m" # Bright Magenta
+}
+
+RESET_COLOR = "\033[0m"
+
+def add_log_level_color(_, __, event_dict: dict) -> dict:
+    if "level" in event_dict:
+        level = event_dict["level"].upper()
+        if level in LEVEL_COLORS:
+            event_dict["level_color"] = LEVEL_COLORS[level]
+            event_dict["reset_color"] = RESET_COLOR
+    return event_dict
 
 def configure_logging(level: str = "INFO") -> None:
     """Configure structured logging for the application."""
@@ -24,16 +36,25 @@ def configure_logging(level: str = "INFO") -> None:
         level=getattr(logging, level)
     )
 
-    renderer = structlog.processors.JSONRenderer() if sys.stderr.isatty() else structlog.dev.ConsoleRenderer(colors=True)
+    stderr_processors: List[Processor] = [
+        structlog.stdlib.filter_by_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        add_log_level_color,
+        structlog.processors.JSONRenderer()
+    ]
+
+    stdout_processors: List[Processor] = [
+        structlog.stdlib.filter_by_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.dev.ConsoleRenderer(colors=True)
+    ]
 
     structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            renderer,
-        ],
+        processors=stderr_processors if sys.stderr.isatty() else stdout_processors,
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -43,6 +64,13 @@ def configure_logging(level: str = "INFO") -> None:
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Get a structured logger instance."""
     return structlog.get_logger(name)
+
+@dataclass
+class TestCase:
+    name: str
+    status: str
+    output: List[str]
+    failure_message: Optional[str] = None
 
 def parse_pytest_output(stdout: str, stderr: str) -> Dict[str, Any]:
     """Parse pytest output into structured format."""
@@ -78,7 +106,7 @@ def parse_pytest_output(stdout: str, stderr: str) -> Dict[str, Any]:
         test_cases.append(current_test)
 
     summary_match = re.search(
-        r"=+ (\d+) passed,? (\d+) failed,? (\d+) skipped",
+        r"=+ (\\d+) passed,? (\\d+) failed,? (\\d+) skipped",
         stdout
     )
     if summary_match:
