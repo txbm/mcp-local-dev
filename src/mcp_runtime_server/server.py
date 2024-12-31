@@ -48,7 +48,7 @@ tools = [
         name="cleanup",
         description="Clean up a sandboxed environment",
         inputSchema={
-            "type": "object",
+            "type": "object", 
             "properties": {
                 "env_id": {"type": "string", "description": "Environment identifier"}
             },
@@ -66,6 +66,28 @@ async def init_server() -> Server:
     async def list_tools() -> List[types.Tool]:
         logger.debug("Tools requested")
         return tools
+
+    async def send_initialized_notification(server: Server) -> None:
+        notification = types.InitializedNotification(
+            jsonrpc="2.0",
+            method="notifications/initialized"
+        )
+        await server.send_notification(notification)
+
+    @server.initialize_handler()
+    async def initialize(request: types.InitializeRequest) -> types.InitializeResult:
+        result = types.InitializeResult(
+            protocolVersion=request.params.protocolVersion,
+            capabilities=types.ServerCapabilities(
+                tools=types.ToolsCapability(listChanged=False),
+            ),
+            serverInfo=types.Implementation(
+                name="mcp-runtime-server",
+                version="0.1.0"
+            )
+        )
+        await send_initialized_notification(server)
+        return result
 
     @server.call_tool()
     async def call_tool(
@@ -148,8 +170,7 @@ async def serve() -> None:
     server = await init_server()
     try:
         async with stdio.stdio_server() as (read_stream, write_stream):
-            options = server.create_initialization_options()
-            await server.run(read_stream, write_stream, options)
+            await server.run(read_stream, write_stream)
     except asyncio.CancelledError:
         logger.info("Server shutdown initiated")
         await cleanup_all_environments()
