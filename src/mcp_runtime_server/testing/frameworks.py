@@ -1,14 +1,13 @@
 """Test framework utilities."""
 import json
 import logging
-import re
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from mcp_runtime_server.commands import run_command
 from mcp_runtime_server.types import Environment
-from mcp_runtime_server.testing.results import parse_pytest_output
+from mcp_runtime_server.testing.results import parse_pytest_json
 
 logger = logging.getLogger("mcp_runtime_server.testing.frameworks")
 
@@ -42,52 +41,20 @@ def detect_frameworks(project_dir: str) -> List[TestFramework]:
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     """Run pytest in the environment."""
-    result = {
-        "framework": TestFramework.PYTEST.value,
-        "success": False
-    }
+    result = {"framework": TestFramework.PYTEST.value, "success": False}
     
     try:
-        command = "uv pip install pytest pytest-asyncio pytest-mock pytest-cov pytest-json"
-        process = await run_command(command, str(env.work_dir), env.env_vars)
-        stdout, stderr = await process.communicate()
-
-        if process.returncode != 0:
-            error = stderr.decode() if stderr else ''
-            result["error"] = f"Failed to install pytest: {error}"
-            logger.error(json.dumps({
-                "event": "pytest_install_failed",
-                "error": error
-            }))
-            return result
-
-        logger.info(json.dumps({
-            "event": "pytest_starting",
-            "working_dir": str(env.work_dir)
-        }))
-        
         process = await run_command(
-            "uv run pytest",
+            "pytest -vv --no-header --json-report-file=- tests/ 2>/dev/stderr",
             str(env.work_dir),
             env.env_vars
         )
         stdout, stderr = await process.communicate()
         
-        output = stdout.decode() if stdout else ""
-        errors = stderr.decode() if stderr else ""
-        
-        # Parse test results
-        summary = parse_pytest_output(output, errors)
+        report = json.loads(stderr)
+        summary = parse_pytest_json(report)
         result.update(summary)
         result["success"] = summary["failed"] == 0
-        
-        logger.info(json.dumps({
-            "event": "pytest_complete",
-            "total": summary["total"],
-            "passed": summary["passed"], 
-            "failed": summary["failed"],
-            "skipped": summary["skipped"]
-        }))
         
     except Exception as e:
         result["error"] = str(e)
@@ -114,10 +81,10 @@ async def run_framework_tests(framework: TestFramework, env: Environment) -> Dic
             "success": result["success"]
         }))
         return result
-    else:
-        error = f"Unsupported framework: {framework}"
-        logger.error(json.dumps({
-            "event": "framework_test_error", 
-            "error": error
-        }))
-        raise ValueError(error)
+        
+    error = f"Unsupported framework: {framework}"
+    logger.error(json.dumps({
+        "event": "framework_test_error", 
+        "error": error
+    }))
+    raise ValueError(error)
