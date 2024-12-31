@@ -2,23 +2,32 @@
 import json
 import logging
 import sys
+import os
 from datetime import datetime
 
 class JsonFormatter(logging.Formatter):
     COLORS = {
-        'DEBUG': '\033[36m',     # Cyan
-        'INFO': '\033[32m',      # Green
-        'WARNING': '\033[33m',   # Yellow
-        'ERROR': '\033[31m',     # Red
-        'CRITICAL': '\033[35m',  # Magenta
-        'RESET': '\033[0m'       # Reset
+        'DEBUG': '\033[36m', 
+        'INFO': '\033[32m',
+        'WARNING': '\033[33m',
+        'ERROR': '\033[31m',
+        'CRITICAL': '\033[35m',
+        'RESET': '\033[0m'
     }
 
     def format(self, record):
+        # Convert full path to module path
+        if record.pathname:
+            mod_path = record.pathname.replace('/', '.').replace('.py', '')
+            parts = mod_path.split('.')
+            if 'python3.12' in parts:
+                idx = parts.index('python3.12') + 1
+                mod_path = '.'.join(parts[idx:])
+
         message_dict = {
             'time': self.formatTime(record),
             'level': record.levelname,
-            'source': f"{record.pathname}:{record.lineno}",
+            'source': f"{mod_path}:{record.lineno}",
             'message': record.getMessage()
         }
         if hasattr(record, 'data'):
