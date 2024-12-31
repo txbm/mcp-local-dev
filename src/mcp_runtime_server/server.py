@@ -22,7 +22,7 @@ from mcp_runtime_server.logging import configure_logging, get_logger
 logger = get_logger("server")
 
 def get_tools() -> List[Tool]:
-    return [
+    tools = [
         Tool(
             name="create_environment",
             description="Create a new runtime environment with sandbox isolation",
@@ -66,6 +66,8 @@ def get_tools() -> List[Tool]:
             },
         ),
     ]
+    logger.info(f"Registered tools: {', '.join(t.name for t in tools)}")
+    return tools
 
 async def init_server() -> Server:
     logger.debug("Initializing MCP runtime server")
@@ -75,6 +77,7 @@ async def init_server() -> Server:
 
     @server.list_tools()
     async def list_tools() -> List[Tool]:
+        logger.debug("Tools requested")
         return tools
 
     @server.call_tool()
