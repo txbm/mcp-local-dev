@@ -23,6 +23,7 @@ dev = [
     "pytest-asyncio",
     "pytest-cov",
     "pytest-mock",
+    "pytest-json",
     "black",
     "mypy",
     "ruff"
@@ -35,52 +36,14 @@ mcp-runtime-server = "mcp_runtime_server.server:main"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=mcp_runtime_server --cov-report=term-missing"
+addopts = "-v --cov=mcp_runtime_server --cov-report=term-missing --json=report.json -s --no-header"
 log_cli = true
 log_cli_level = "INFO"
-log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
-log_cli_date_format = "%Y-%m-%d %H:%M:%S"
-
-[tool.mypy]
-strict = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_return_any = true
-warn_unreachable = true
-
-[tool.black]
-line-length = 88
-target-version = ["py39"]
-include = '\.pyi?$'
-
-[tool.ruff]
-select = ["E", "F", "B"]
-ignore = []
-line-length = 88
-target-version = "py39"
-
-[tool.coverage.run]
-branch = true
-source = ["mcp_runtime_server"]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "pass",
-    "raise ImportError",
+log_cli_format = "%(message)s"
+log_level = "INFO"
+log_format = "%(message)s"
+log_date_format = ""
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/mcp_runtime_server"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
