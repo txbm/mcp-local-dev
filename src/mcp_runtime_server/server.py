@@ -19,10 +19,9 @@ from mcp_runtime_server.environments import (
 )
 from mcp_runtime_server.testing.execution import auto_run_tests
 from mcp_runtime_server.types import EnvironmentConfig
-from mcp_runtime_server.logging import configure_logging, log_with_data
+from mcp_runtime_server.logging import configure_logging, get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger("server")
 
 def init_server() -> Server:
     """Initialize the MCP runtime server."""
@@ -87,11 +86,9 @@ def init_server() -> Server:
     ) -> List[Union[TextContent]]:
         """Handle tool invocations."""
         try:
-            log_with_data(
-                logger,
-                logging.DEBUG,
-                f"Tool invocation started: {name}",
-                {"tool": name, "arguments": arguments},
+            logger.debug(
+                "Tool invocation started",
+                extra={"tool": name, "arguments": arguments}
             )
 
             if name == "create_environment":
@@ -104,8 +101,9 @@ def init_server() -> Server:
                     "runtime": env.manager.value if env.manager else None,
                 }
 
-                log_with_data(
-                    logger, logging.DEBUG, "Environment created successfully", result
+                logger.debug(
+                    "Environment created successfully",
+                    extra={"result": result}
                 )
                 return [TextContent(type="text", text=json.dumps(result))]
 
@@ -123,16 +121,18 @@ def init_server() -> Server:
                     logger.error("Runtime not detected for environment")
                     raise RuntimeError("Runtime not detected for environment")
 
-                log_with_data(
-                    logger,
-                    logging.DEBUG,
+                logger.debug(
                     "Running tests",
-                    {"env_id": arguments["env_id"], "runtime": env.manager.value},
+                    extra={
+                        "env_id": arguments["env_id"],
+                        "runtime": env.manager.value
+                    }
                 )
 
                 results = await auto_run_tests(env)
-                log_with_data(
-                    logger, logging.DEBUG, "Test execution completed", results
+                logger.debug(
+                    "Test execution completed",
+                    extra={"results": results}
                 )
 
                 return [TextContent(type="text", text=json.dumps(results))]
@@ -142,33 +142,26 @@ def init_server() -> Server:
                     logger.error("Missing env_id parameter")
                     raise RuntimeError("Missing env_id parameter")
 
-                log_with_data(
-                    logger,
-                    logging.DEBUG,
+                logger.debug(
                     "Cleaning up environment",
-                    {"env_id": arguments["env_id"]},
+                    extra={"env_id": arguments["env_id"]}
                 )
 
                 await cleanup_environment(arguments["env_id"])
-                return [
-                    TextContent(type="text", text=json.dumps({"status": "success"}))
-                ]
+                return [TextContent(type="text", text=json.dumps({"status": "success"}))]
 
             logger.error(f"Unknown tool requested: {name}")
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
-            logger.error(
-                "Error occurred",
+            logger.exception(
+                "Tool invocation failed",
                 extra={
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                    "traceback": traceback.format_exc(),
                     "tool": name,
                     "arguments": arguments,
-                },
+                    "error": str(e)
+                }
             )
-            logger.error("Tool invocation failed", exc_info=True)
             return [TextContent(type="text", text=str(e))]
 
     return server
@@ -178,28 +171,19 @@ def setup_handlers() -> None:
     """Set up signal handlers for graceful shutdown."""
 
     def handle_shutdown(signum, frame):
-        log_with_data(
-            logger, logging.DEBUG, "Shutting down runtime server...", {"signal": signum}
-        )
+        logger.debug("Shutting down runtime server...", extra={"signal": signum})
         # Cleanup all active environments
         for env_id in list(ENVIRONMENTS.keys()):
             try:
-                log_with_data(
-                    logger,
-                    logging.DEBUG,
+                logger.debug(
                     "Cleaning up environment during shutdown",
-                    {"env_id": env_id},
+                    extra={"env_id": env_id}
                 )
                 asyncio.create_task(cleanup_environment(env_id))
             except Exception as e:
-                logger.error(
-                    "Error occurred",
-                    extra={
-                        "error_type": type(e).__name__,
-                        "error_message": str(e),
-                        "traceback": traceback.format_exc(),
-                        "env_id": env_id,
-                    },
+                logger.exception(
+                    "Error during environment cleanup",
+                    extra={"env_id": env_id}
                 )
         sys.exit(0)
 
@@ -210,10 +194,7 @@ def setup_handlers() -> None:
 async def serve() -> None:
     """Start the MCP runtime server."""
     configure_logging()
-
-    log_with_data(
-        logger, logging.DEBUG, "Starting runtime server", {"version": "0.1.0"}
-    )
+    logger.debug("Starting runtime server", extra={"version": "0.1.0"})
 
     server = init_server()
     setup_handlers()
@@ -226,5 +207,5 @@ async def serve() -> None:
 
 def main() -> None:
     """Main entry point."""
-    log_with_data(logger, logging.DEBUG, "Starting MCP runtime server main process")
+    logger.debug("Starting MCP runtime server main process")
     asyncio.run(serve())
