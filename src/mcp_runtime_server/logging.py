@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
 import structlog
+import mcp.types as types
 from structlog.types import Processor, EventDict
 from structlog.processors import JSONRenderer
 
