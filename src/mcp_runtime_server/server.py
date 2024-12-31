@@ -1,14 +1,20 @@
+"""MCP server implementation."""
 import asyncio
 import json
 import logging
 import signal
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
+
 from mcp.server.lowlevel import Server
-from mcp.types import Tool, TextContent, CallToolResult
+from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 from mcp.server import stdio
 
-from mcp_runtime_server.environments import (create_environment, cleanup_environment, ENVIRONMENTS)
+from mcp_runtime_server.environments import (
+    create_environment,
+    cleanup_environment,
+    ENVIRONMENTS,
+)
 from mcp_runtime_server.testing.execution import auto_run_tests
 from mcp_runtime_server.types import EnvironmentConfig
 from mcp_runtime_server.logging import configure_logging, get_logger
@@ -62,7 +68,9 @@ async def init_server() -> Server:
         return tools
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
+    async def call_tool(
+        name: str, arguments: Dict[str, Any]
+    ) -> List[Union[TextContent, ImageContent, EmbeddedResource]]:
         try:
             logger.debug(f"Tool called: {name} with args: {arguments}")
             
@@ -75,8 +83,7 @@ async def init_server() -> Server:
                     "created_at": env.created_at.isoformat(),
                     "runtime": env.manager.value if env.manager else None,
                 }
-                response = TextContent(text=json.dumps(result), type="text")
-                return CallToolResult(content=[response])
+                return [TextContent(text=json.dumps(result), type="text")]
 
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
@@ -90,20 +97,17 @@ async def init_server() -> Server:
                 if not isinstance(test_results, dict):
                     raise RuntimeError("Invalid test results")
 
-                response = TextContent(text=json.dumps(test_results), type="text")
-                return CallToolResult(content=[response])
+                return [TextContent(text=json.dumps(test_results), type="text")]
 
             elif name == "cleanup":
                 cleanup_environment(arguments["env_id"])
-                response = TextContent(text=json.dumps({"status": "success"}), type="text")
-                return CallToolResult(content=[response])
+                return [TextContent(text=json.dumps({"status": "success"}), type="text")]
 
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
             logger.exception(f"Tool invocation failed: {str(e)}")
-            response = TextContent(text=str(e), type="text")
-            return CallToolResult(content=[response], isError=True)
+            return [TextContent(text=str(e), type="text")]
 
     return server
 
