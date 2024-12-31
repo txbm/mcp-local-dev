@@ -17,9 +17,8 @@ from mcp_runtime_server.binaries.cache import (
     cleanup_cache
 )
 from mcp_runtime_server.binaries.binary_info import get_binary_download_info
-from mcp_runtime_server.logging import log_with_data
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("mcp_runtime_server.binaries.fetcher")
 
 async def download_file(
     url: str, 
@@ -29,18 +28,22 @@ async def download_file(
     """Download a file with streaming."""
     try:
         async with aiohttp.ClientSession() as session:
-            log_with_data(logger, logging.INFO, "Starting binary download", {
-                'url': url,
-                'destination': str(dest)
+            logger.info("Starting binary download", extra={
+                'data': {
+                    'url': url,
+                    'destination': str(dest)
+                }
             })
             
             async with session.get(url, headers=headers) as response:
                 if response.status != 200:
-                    log_with_data(logger, logging.ERROR, "Download request failed", {
-                        'url': url,
-                        'status': response.status,
-                        'reason': response.reason,
-                        'headers': dict(response.headers)
+                    logger.error("Download request failed", extra={
+                        'data': {
+                            'url': url,
+                            'status': response.status,
+                            'reason': response.reason,
+                            'headers': dict(response.headers)
+                        }
                     })
                     response.raise_for_status()
                 
@@ -52,17 +55,21 @@ async def download_file(
                         f.write(chunk)
                         downloaded += len(chunk)
                         
-                log_with_data(logger, logging.INFO, "Binary download complete", {
-                    'url': url,
-                    'size': downloaded,
-                    'expected_size': size
+                logger.info("Binary download complete", extra={
+                    'data': {
+                        'url': url,
+                        'size': downloaded,
+                        'expected_size': size
+                    }
                 })
                 
     except aiohttp.ClientError as e:
-        log_with_data(logger, logging.ERROR, "Binary download failed", {
-            'url': url,
-            'error': str(e),
-            'status': getattr(e, 'status', None)
+        logger.error("Binary download failed", extra={
+            'data': {
+                'url': url,
+                'error': str(e),
+                'status': getattr(e, 'status', None)
+            }
         })
         raise ValueError(f"Failed to download from {url}") from e
 
@@ -74,9 +81,11 @@ def get_archive_files(archive: Union[zipfile.ZipFile, tarfile.TarFile], format: 
         else:  # tarfile.TarFile
             return archive.getnames()
     except Exception as e:
-        log_with_data(logger, logging.ERROR, "Failed to list archive contents", {
-            'format': format,
-            'error': str(e)
+        logger.error("Failed to list archive contents", extra={
+            'data': {
+                'format': format,
+                'error': str(e)
+            }
         })
         raise ValueError(f"Failed to read {format} archive") from e
 
@@ -105,10 +114,12 @@ def extract_binary(
             
             matching_files = [f for f in all_files if f.endswith(binary_name)]
             if not matching_files:
-                log_with_data(logger, logging.ERROR, "Binary not found in archive", {
-                    'archive': str(archive_path),
-                    'binary_name': binary_name,
-                    'available_files': all_files
+                logger.error("Binary not found in archive", extra={
+                    'data': {
+                        'archive': str(archive_path),
+                        'binary_name': binary_name,
+                        'available_files': all_files
+                    }
                 })
                 raise ValueError(f"Binary {binary_name} not found in archive")
 
@@ -117,26 +128,32 @@ def extract_binary(
             extracted_path = Path(dest_dir) / target
             
             if not extracted_path.exists():
-                log_with_data(logger, logging.ERROR, "Extracted file missing", {
-                    'archive': str(archive_path),
-                    'expected_path': str(extracted_path)
+                logger.error("Extracted file missing", extra={
+                    'data': {
+                        'archive': str(archive_path),
+                        'expected_path': str(extracted_path)
+                    }
                 })
                 raise ValueError("Failed to extract binary - file missing after extraction")
             
-            log_with_data(logger, logging.INFO, "Binary extracted successfully", {
-                'archive': str(archive_path),
-                'binary': binary_name,
-                'extracted_to': str(extracted_path)
+            logger.info("Binary extracted successfully", extra={
+                'data': {
+                    'archive': str(archive_path),
+                    'binary': binary_name,
+                    'extracted_to': str(extracted_path)
+                }
             })
             
             return extracted_path
             
     except Exception as e:
         if not isinstance(e, ValueError):  # Don't wrap our own exceptions
-            log_with_data(logger, logging.ERROR, "Failed to extract binary", {
-                'archive': str(archive_path),
-                'format': format,
-                'error': str(e)
+            logger.error("Failed to extract binary", extra={
+                'data': {
+                    'archive': str(archive_path),
+                    'format': format,
+                    'error': str(e)
+                }
             })
             raise ValueError(f"Failed to extract from {archive_path.name}") from e
         raise
@@ -149,19 +166,23 @@ async def fetch_binary(
     try:
         download_url, version, binary_path = await get_binary_download_info(name, version)
         
-        log_with_data(logger, logging.INFO, "Fetching binary", {
-            'name': name,
-            'version': version,
-            'url': download_url
+        logger.info("Fetching binary", extra={
+            'data': {
+                'name': name,
+                'version': version,
+                'url': download_url
+            }
         })
         
         # Check cache first
         cached = get_binary_path(name, version)
         if cached:
-            log_with_data(logger, logging.INFO, "Using cached binary", {
-                'name': name,
-                'version': version,
-                'path': str(cached)
+            logger.info("Using cached binary", extra={
+                'data': {
+                    'name': name,
+                    'version': version,
+                    'path': str(cached)
+                }
             })
             return cached
 
@@ -173,10 +194,12 @@ async def fetch_binary(
             await download_file(download_url, archive_path)
             
             if not archive_path.exists() or archive_path.stat().st_size == 0:
-                log_with_data(logger, logging.ERROR, "Downloaded archive is missing or empty", {
-                    'path': str(archive_path),
-                    'exists': archive_path.exists(),
-                    'size': archive_path.stat().st_size if archive_path.exists() else 0
+                logger.error("Downloaded archive is missing or empty", extra={
+                    'data': {
+                        'path': str(archive_path),
+                        'exists': archive_path.exists(),
+                        'size': archive_path.stat().st_size if archive_path.exists() else 0
+                    }
                 })
                 raise ValueError("Download failed - archive is missing or empty")
             
@@ -187,19 +210,23 @@ async def fetch_binary(
             cached_path = cache_binary(name, version, binary, "")
             cleanup_cache()
             
-            log_with_data(logger, logging.INFO, "Binary fetch complete", {
-                'name': name,
-                'version': version,
-                'path': str(cached_path)
+            logger.info("Binary fetch complete", extra={
+                'data': {
+                    'name': name,
+                    'version': version,
+                    'path': str(cached_path)
+                }
             })
             
             return cached_path
             
     except Exception as e:
-        log_with_data(logger, logging.ERROR, "Binary fetch failed", {
-            'name': name,
-            'version': version,
-            'error': str(e)
+        logger.error("Binary fetch failed", extra={
+            'data': {
+                'name': name,
+                'version': version,
+                'error': str(e)
+            }
         })
         raise ValueError(f"Failed to fetch {name}") from e
 
