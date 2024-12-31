@@ -67,3 +67,24 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         })
         
     return result
+
+async def run_framework_tests(framework: TestFramework, env: Environment) -> Dict[str, Any]:
+    """Run tests for a specific framework in the environment."""
+    logger.info({
+        "event": "framework_test_start",
+        "framework": framework.value,
+        "working_dir": str(env.work_dir)
+    })
+    
+    if framework == TestFramework.PYTEST:
+        result = await run_pytest(env)
+        logger.info({
+            "event": "framework_test_complete",
+            "framework": framework.value,
+            "success": result["success"]
+        })
+        return result
+
+    error = f"Unsupported framework: {framework}"
+    logger.error({"event": "framework_test_error", "error": error})
+    raise ValueError(error)
