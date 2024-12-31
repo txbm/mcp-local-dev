@@ -34,3 +34,13 @@ async def auto_run_tests(env: Environment) -> List[types.TextContent]:
         
         all_passed = all(r.get("success", False) for r in results)
         return format_test_results(frameworks[0].value, results[0] if results else {})
+
+    except Exception as e:
+        logger.exception("Test execution failed")
+        return [types.TextContent(
+            text=json.dumps({
+                "success": False,
+                "error": str(e)
+            }),
+            type="text"
+        )]
