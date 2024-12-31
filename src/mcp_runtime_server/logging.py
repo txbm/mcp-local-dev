@@ -4,50 +4,95 @@ import logging
 import re
 import sys
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import Any, Dict, List, Optional
 
 import structlog
-import mcp.types as types
-from structlog.typing import Processor
+from structlog.types import Processor, EventDict
+from structlog.processors import JSONRenderer
 
-LEVEL_COLORS = {
-    "DEBUG": "\033[36m",    # Cyan
-    "INFO": "\033[32m",     # Green  
-    "WARNING": "\033[33m",  # Yellow
-    "ERROR": "\033[31;1m",  # Bright Red
-    "CRITICAL": "\033[35;1m" # Bright Magenta
-}
+STDERR_LOG_LEVEL = "INFO"
+IGNORED_LOGGERS = [
+    "mcp.server.session",
+    "mcp.server.stdio",
+    "aiohttp",
+    "asyncio"
+]
 
-RESET_COLOR = "\033[0m"
-
-def add_log_level_color(_, __, event_dict: dict) -> dict:
-    if "level" in event_dict:
-        level = event_dict["level"].upper()
-        if level in LEVEL_COLORS:
-            event_dict["level_color"] = LEVEL_COLORS[level]
-            event_dict["reset_color"] = RESET_COLOR
+def add_timestamp(_, __, event_dict: EventDict) -> EventDict:
+    """Add ISO timestamp to the event dict."""
+    if 'timestamp' not in event_dict:
+        import datetime
+        event_dict['timestamp'] = datetime.datetime.utcnow().isoformat()
     return event_dict
 
+def add_caller_info(logger: Any, name: str, event_dict: EventDict) -> EventDict:
+    """Add caller info to the event dict."""
+    import inspect
+    frame = inspect.currentframe()
+    if frame is not None:
+        caller = frame.f_back
+        while caller and any(ignored in caller.f_code.co_filename for ignored in IGNORED_LOGGERS):
+            caller = caller.f_back
+        if caller:
+            event_dict.update({
+                "module": caller.f_code.co_name,
+                "line": caller.f_lineno,
+                "file": caller.f_code.co_filename.split("/")[-1]
+            })
+    return event_dict
+
+def level_filter(logger: Any, name: str, event_dict: EventDict) -> EventDict:
+    """Filter log records based on level."""
+    try:
+        if not any(ignored in logger.name for ignored in IGNORED_LOGGERS):
+            level_no = getattr(logging, event_dict.get('level', 'NOTSET'))
+            min_level = getattr(logging, STDERR_LOG_LEVEL)
+            if level_no >= min_level:
+                return event_dict
+        raise structlog.DropEvent
+    except AttributeError:
+        return event_dict
+
+class CompactJSONRenderer:
+    """Single-line JSON renderer with minimal output."""
+    def __call__(self, _: Any, __: str, event_dict: EventDict) -> str:
+        items = {
+            "ts": event_dict.pop("timestamp", None),
+            "lvl": event_dict.pop("level", "???"),
+            "msg": event_dict.pop("event", ""),
+            **{k:v for k,v in event_dict.items() if k in ('module', 'line', 'file')}
+        }
+        if other := {k:v for k,v in event_dict.items() if k not in ('module', 'line', 'file')}:
+            items["data"] = other
+        return json.dumps(items, separators=(',', ':'))
+
 def configure_logging(level: str = "INFO") -> None:
-    """Configure structured logging for the application."""
+    """Configure structured logging for the application.
+    
+    This sets up:
+    - STDERR: JSON format, filtered by level & ignored loggers
+    - STDOUT: Regular console output for server messages
+    """
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stderr,
         level=getattr(logging, level)
     )
 
+    # Different processors for STDERR vs STDOUT
     stderr_processors: List[Processor] = [
-        structlog.stdlib.filter_by_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        add_log_level_color,
-        structlog.processors.JSONRenderer()
+        level_filter,
+        structlog.stdlib.add_log_level,
+        add_timestamp,
+        add_caller_info,
+        CompactJSONRenderer()
     ]
 
     stdout_processors: List[Processor] = [
         structlog.stdlib.filter_by_level,
-        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.dev.ConsoleRenderer(colors=True)
