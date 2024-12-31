@@ -3,197 +3,96 @@ import json
 import logging
 import re
 import sys
-from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional
-
-import structlog
+from typing import Any, Dict, List, Optional, NamedTuple
+from dataclasses import dataclass, asdict
 import mcp.types as types
-from structlog.types import Processor, EventDict
+from pathlib import Path
 
-# Don't modify root logger - mcp server uses it for stdout
+# Don't modify root logger - MCP server uses it for stdout
 root = logging.getLogger()
 root.handlers = []
 
-# Setup stderr handler
-stderr_handler = logging.StreamHandler(sys.stderr)
-stderr_handler.setLevel(logging.INFO)
+class ColorCodes:
+    RESET = "\033[0m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    BOLD = "\033[1m"
 
-def add_timestamp(_, __, event_dict: EventDict) -> EventDict:
-    """Add ISO timestamp to the event dict."""
-    if 'timestamp' not in event_dict:
-        import datetime
-        event_dict['timestamp'] = datetime.datetime.utcnow().isoformat()
-    return event_dict
-
-def add_caller_info(logger: Any, name: str, event_dict: EventDict) -> EventDict:
-    """Add caller info to the event dict."""
-    import inspect
-    frame = inspect.currentframe()
-    if frame:
-        caller = frame.f_back
-        while caller:
-            filename = caller.f_code.co_filename
-            if '/mcp/' not in filename and not any(x in filename for x in ['asyncio', 'aiohttp']):
-                event_dict.update({
-                    'module': caller.f_code.co_name,
-                    'file': filename.split('/')[-1],
-                    'line': caller.f_lineno
-                })
-                break
-            caller = caller.f_back
-    return event_dict
-
-class StderrRenderer:
-    """Render log entries as single-line JSON with colors."""
-    def __call__(self, _: Any, __: str, event_dict: EventDict) -> str:
-        # Extract standard fields
-        level = event_dict.pop('level', 'INFO')
-        timestamp = event_dict.pop('timestamp', None)
-        event = event_dict.pop('event', '')
-        module = event_dict.pop('module', None) 
-        filename = event_dict.pop('file', None)
-        lineno = event_dict.pop('line', None)
-        
-        # Build output
-        output = {
-            'ts': timestamp,
-            'lvl': level,
-            'msg': event
-        }
-        
-        # Add location if available
-        if module and filename and lineno:
-            output['loc'] = f"{filename}:{lineno} in {module}"
-            
-        # Add remaining fields as data
-        if event_dict:
-            output['data'] = event_dict
-
-        return json.dumps(output)
-
-def configure_logging() -> None:
-    """Configure structured logging for the application."""
-    # Configure structlog
-    structlog.configure(
-        processors=[
-            structlog.stdlib.add_log_level,
-            add_timestamp,
-            add_caller_info,
-            structlog.processors.format_exc_info,
-            StderrRenderer()
-        ],
-        wrapper_class=structlog.stdlib.BoundLogger,
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        cache_logger_on_first_use=True,
-    )
-
-def get_logger(name: str) -> structlog.stdlib.BoundLogger:
-    """Get a structured logger instance."""
-    return structlog.get_logger(name)
-
-@dataclass
-class TestCase:
-    name: str
-    status: str
-    output: List[str]
-    failure_message: Optional[str] = None
-
-def parse_pytest_output(stdout: str, stderr: str) -> Dict[str, Any]:
-    """Parse pytest output into structured format."""
-    test_cases = []
-    current_test = None
-    output_buffer = []
-
-    for line in stdout.splitlines():
-        test_match = re.match(r"^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR|XFAIL|XPASS)", line)
-        if test_match:
-            if current_test:
-                current_test.output = output_buffer
-                test_cases.append(current_test)
-            
-            name, status = test_match.groups()
-            current_test = TestCase(
-                name=name.strip(),
-                status=status.lower(),
-                output=[],
-                failure_message=None
-            )
-            output_buffer = []
-            continue
-
-        if current_test:
-            if "E   " in line:
-                current_test.failure_message = line.split("E   ", 1)[1]
-            elif line.strip():
-                output_buffer.append(line)
-
-    if current_test:
-        current_test.output = output_buffer
-        test_cases.append(current_test)
-
-    summary_match = re.search(
-        r"=+ (\\d+) passed,? (\\d+) failed,? (\\d+) skipped",
-        stdout
-    )
-    if summary_match:
-        passed, failed, skipped = map(int, summary_match.groups())
-    else:
-        passed = len([t for t in test_cases if t.status == "passed"])
-        failed = len([t for t in test_cases if t.status == "failed"])
-        skipped = len([t for t in test_cases if t.status == "skipped"])
-
-    total = passed + failed + skipped
-    
-    # Extract warnings from stderr
-    warnings = []
-    warning_buffer = []
-    in_warning = False
-    
-    for line in stderr.splitlines():
-        if line.startswith("Warning"):
-            if warning_buffer:
-                warnings.append(" ".join(warning_buffer))
-            warning_buffer = [line]
-            in_warning = True
-        elif in_warning and line.strip():
-            warning_buffer.append(line.strip())
-        else:
-            in_warning = False
-            
-    if warning_buffer:
-        warnings.append(" ".join(warning_buffer))
-
-    return {
-        "success": failed == 0,
-        "passed": passed,
-        "failed": failed,
-        "skipped": skipped,
-        "total": total,
-        "failures": [t.failure_message for t in test_cases if t.failure_message],
-        "stdout": stdout,
-        "stderr": stderr,
-        "warnings": warnings,
-        "test_cases": [
-            {
-                "name": t.name,
-                "status": t.status,
-                "output": t.output,
-                "failureMessage": t.failure_message
-            }
-            for t in test_cases
-        ]
+class JsonFormatter(logging.Formatter):
+    """Format logs as single-line JSON with colors."""
+    COLORS = {
+        "DEBUG": ColorCodes.BLUE,
+        "INFO": ColorCodes.GREEN,
+        "WARNING": ColorCodes.YELLOW,
+        "ERROR": ColorCodes.RED + ColorCodes.BOLD,
+        "CRITICAL": ColorCodes.MAGENTA + ColorCodes.BOLD
     }
 
-def format_test_results(framework: str, results: Dict[str, Any]) -> List[types.TextContent]:
-    """Convert parsed test results into MCP-compatible format."""
-    return [types.TextContent(
-        text=json.dumps({
-            "success": True,
-            "frameworks": [{
-                "framework": framework,
-                **results
-            }]
-        }),
-        type="text"
-    )]
+    def __init__(self):
+        super().__init__()
+        self.include_source = True
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record as color-coded JSON."""
+        color = self.COLORS.get(record.levelname, "")
+
+        # Extract caller info if available
+        try:
+            caller_frame = sys._getframe(8)  # Adjust frame depth as needed
+            module = Path(caller_frame.f_code.co_filename).name
+            lineno = caller_frame.f_lineno
+            func = caller_frame.f_code.co_name
+            location = f"{module}:{lineno} in {func}"
+        except (AttributeError, ValueError):
+            location = None
+
+        # Build output
+        output = {
+            "ts": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "msg": record.getMessage(),
+        }
+
+        if location and self.include_source:
+            output["source"] = location
+
+        # Include any additional fields from record
+        if hasattr(record, "data"):
+            output["data"] = record.data
+
+        # Apply color codes
+        json_str = json.dumps(output)
+        return f"{color}{json_str}{ColorCodes.RESET}"
+
+def configure_logging():
+    """Configure application logging."""
+    # Create stderr handler with JSON formatting
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(JsonFormatter())
+    stderr_handler.setLevel(logging.INFO)
+
+    # Configure root logger for MCP protocol on stdout only
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Configure app logger for everything else on stderr
+    app_logger = logging.getLogger("mcp_runtime_server")
+    app_logger.setLevel(logging.INFO)
+    app_logger.addHandler(stderr_handler)
+    app_logger.propagate = False
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger instance."""
+    return logging.getLogger(f"mcp_runtime_server.{name}")
+
+def log_with_data(logger: logging.Logger, level: int, msg: str, data: Dict[str, Any] = None):
+    """Log a message with optional structured data."""
+    if data:
+        logger = logger.makeRecord(
+            logger.name, level, "(unknown)", 0, msg, (), None, extra={"data": data}
+        )
+    logger.log(level, msg)
