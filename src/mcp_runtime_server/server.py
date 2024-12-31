@@ -5,7 +5,6 @@ import json
 import logging
 import signal
 import sys
-import traceback
 from typing import Dict, Any, List, Union
 
 from mcp.server.lowlevel import Server
@@ -24,14 +23,11 @@ from mcp_runtime_server.logging import configure_logging, get_logger
 logger = get_logger("server")
 
 def init_server() -> Server:
-    """Initialize the MCP runtime server."""
     logger.debug("Initializing MCP runtime server")
     server = Server("mcp-runtime-server")
 
     @server.list_tools()
     async def list_tools() -> List[Tool]:
-        """List available runtime management tools."""
-        logger.debug("Listing available tools")
         tools = [
             Tool(
                 name="create_environment",
@@ -77,14 +73,12 @@ def init_server() -> Server:
             ),
         ]
         logger.debug(f"Found {len(tools)} available tools")
-
         return tools
 
     @server.call_tool()
     async def call_tool(
         name: str, arguments: Dict[str, Any]
     ) -> List[Union[TextContent]]:
-        """Handle tool invocations."""
         try:
             logger.debug(
                 "Tool invocation started",
@@ -100,57 +94,23 @@ def init_server() -> Server:
                     "created_at": env.created_at.isoformat(),
                     "runtime": env.manager.value if env.manager else None,
                 }
-
-                logger.debug(
-                    "Environment created successfully",
-                    extra={"result": result}
-                )
                 return [TextContent(type="text", text=json.dumps(result))]
 
             elif name == "run_tests":
-                if "env_id" not in arguments:
-                    logger.error("Missing env_id parameter")
-                    raise RuntimeError("Missing env_id parameter")
-
                 if arguments["env_id"] not in ENVIRONMENTS:
-                    logger.error(f"Unknown environment: {arguments['env_id']}")
                     raise RuntimeError(f"Unknown environment: {arguments['env_id']}")
 
                 env = ENVIRONMENTS[arguments["env_id"]]
                 if not env.manager:
-                    logger.error("Runtime not detected for environment")
                     raise RuntimeError("Runtime not detected for environment")
 
-                logger.debug(
-                    "Running tests",
-                    extra={
-                        "env_id": arguments["env_id"],
-                        "runtime": env.manager.value
-                    }
-                )
-
                 results = await auto_run_tests(env)
-                logger.debug(
-                    "Test execution completed",
-                    extra={"results": results}
-                )
-
                 return [TextContent(type="text", text=json.dumps(results))]
 
             elif name == "cleanup":
-                if "env_id" not in arguments:
-                    logger.error("Missing env_id parameter")
-                    raise RuntimeError("Missing env_id parameter")
-
-                logger.debug(
-                    "Cleaning up environment",
-                    extra={"env_id": arguments["env_id"]}
-                )
-
                 cleanup_environment(arguments["env_id"])
                 return [TextContent(type="text", text=json.dumps({"status": "success"}))]
 
-            logger.error(f"Unknown tool requested: {name}")
             raise RuntimeError(f"Unknown tool: {name}")
 
         except Exception as e:
@@ -166,46 +126,40 @@ def init_server() -> Server:
 
     return server
 
+async def cleanup_all_environments():
+    """Clean up all environments."""
+    for env_id in list(ENVIRONMENTS.keys()):
+        try:
+            cleanup_environment(env_id)
+        except Exception as e:
+            logger.error(f"Failed to cleanup environment {env_id}: {e}")
 
 def setup_handlers() -> None:
-    """Set up signal handlers for graceful shutdown."""
-
     def handle_shutdown(signum, frame):
-        logger.debug("Shutting down runtime server...", extra={"signal": signum})
-        # Cleanup all active environments
-        for env_id in list(ENVIRONMENTS.keys()):
-            try:
-                logger.debug(
-                    "Cleaning up environment during shutdown",
-                    extra={"env_id": env_id}
-                )
-                cleanup_environment(env_id)
-            except Exception as e:
-                logger.exception(
-                    "Error during environment cleanup",
-                    extra={"env_id": env_id}
-                )
+        logger.info(f"Shutting down on signal {signum}")
+        cleanup_all_environments()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-
 async def serve() -> None:
-    """Start the MCP runtime server."""
     configure_logging()
-    logger.debug("Starting runtime server", extra={"version": "0.1.0"})
+    logger.info("Starting MCP runtime server")
 
     server = init_server()
     setup_handlers()
 
-    async with stdio.stdio_server() as (read_stream, write_stream):
-        logger.debug("Server streams initialized")
-        options = server.create_initialization_options()
-        await server.run(read_stream, write_stream, options)
-
+    try:
+        async with stdio.stdio_server() as (read_stream, write_stream):
+            options = server.create_initialization_options()
+            await server.run(read_stream, write_stream, options)
+    except Exception as e:
+        logger.exception("Server error")
+        await cleanup_all_environments()
+        raise
+    finally:
+        await cleanup_all_environments()
 
 def main() -> None:
-    """Main entry point."""
-    logger.debug("Starting MCP runtime server main process")
     asyncio.run(serve())
