@@ -9,15 +9,14 @@ from typing import Any, Dict, List, Optional
 import structlog
 import mcp.types as types
 from structlog.types import Processor, EventDict
-from structlog.processors import JSONRenderer
+
+# Set MCP internal loggers to WARNING level
+logging.getLogger("mcp.server").setLevel(logging.WARNING)
+logging.getLogger("mcp.shared").setLevel(logging.WARNING)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
+logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 STDERR_LOG_LEVEL = "INFO"
-IGNORED_LOGGERS = [
-    "mcp.server.session",
-    "mcp.server.stdio",
-    "aiohttp",
-    "asyncio"
-]
 
 def add_timestamp(_, __, event_dict: EventDict) -> EventDict:
     """Add ISO timestamp to the event dict."""
@@ -32,8 +31,6 @@ def add_caller_info(logger: Any, name: str, event_dict: EventDict) -> EventDict:
     frame = inspect.currentframe()
     if frame is not None:
         caller = frame.f_back
-        while caller and any(ignored in caller.f_code.co_filename for ignored in IGNORED_LOGGERS):
-            caller = caller.f_back
         if caller:
             event_dict.update({
                 "module": caller.f_code.co_name,
@@ -45,52 +42,44 @@ def add_caller_info(logger: Any, name: str, event_dict: EventDict) -> EventDict:
 def level_filter(logger: Any, name: str, event_dict: EventDict) -> EventDict:
     """Filter log records based on level."""
     try:
-        if not any(ignored in logger.name for ignored in IGNORED_LOGGERS):
-            level_no = getattr(logging, event_dict.get('level', 'NOTSET'))
-            min_level = getattr(logging, STDERR_LOG_LEVEL)
-            if level_no >= min_level:
-                return event_dict
+        level_no = getattr(logging, event_dict.get('level', 'NOTSET'))
+        min_level = getattr(logging, STDERR_LOG_LEVEL)
+        if level_no >= min_level:
+            return event_dict
         raise structlog.DropEvent
     except AttributeError:
         return event_dict
-
-class CompactJSONRenderer:
-    """Single-line JSON renderer with minimal output."""
-    def __call__(self, _: Any, __: str, event_dict: EventDict) -> str:
-        items = {
-            "ts": event_dict.pop("timestamp", None),
-            "lvl": event_dict.pop("level", "???"),
-            "msg": event_dict.pop("event", ""),
-            **{k:v for k,v in event_dict.items() if k in ('module', 'line', 'file')}
-        }
-        if other := {k:v for k,v in event_dict.items() if k not in ('module', 'line', 'file')}:
-            items["data"] = other
-        return json.dumps(items, separators=(',', ':'))
-
-def configure_logging(level: str = "INFO") -> None:
-    """Configure structured logging for the application.
     
-    This sets up:
-    - STDERR: JSON format, filtered by level & ignored loggers
-    - STDOUT: Regular console output for server messages
-    """
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stderr,
-        level=getattr(logging, level)
-    )
+class StderrJSONRenderer:
+    """Single-line JSON renderer for stderr output."""
+    def __call__(self, _: Any, __: str, event_dict: EventDict) -> str:
+        return json.dumps({
+            "ts": event_dict.get("timestamp"),
+            "lvl": event_dict.get("level", "INFO"),
+            "msg": event_dict.get("event", ""),
+            "mod": event_dict.get("module"),
+            "ln": event_dict.get("line"),
+            "file": event_dict.get("file"),
+            **({"data": {k:v for k,v in event_dict.items() if k not in 
+                        ('timestamp', 'level', 'event', 'module', 'line', 'file')}} 
+               if any(k for k in event_dict if k not in 
+                     ('timestamp', 'level', 'event', 'module', 'line', 'file')) else {})
+        }, separators=(',', ':'))
 
-    # Different processors for STDERR vs STDOUT
+def configure_logging() -> None:
+    """Configure structured logging for the application."""
+    # Basic config for third-party modules
+    logging.basicConfig(format="%(message)s", stream=sys.stderr, level=logging.WARNING)
+
     stderr_processors: List[Processor] = [
         level_filter,
         structlog.stdlib.add_log_level,
         add_timestamp,
-        add_caller_info,
-        CompactJSONRenderer()
+        add_caller_info, 
+        StderrJSONRenderer()
     ]
 
     stdout_processors: List[Processor] = [
-        structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
