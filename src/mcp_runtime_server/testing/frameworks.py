@@ -45,7 +45,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     
     try:
         process = await run_command(
-            "pytest -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
+            "uv run pytest -vv --no-header --json-report --json-report-file=- tests/ 2>/dev/stderr",
             str(env.work_dir),
             env.env_vars
         )
