@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Dict, Any
 
-from mcp_runtime_server.types import Environment, RunTestResult
+from mcp_runtime_server.types import Environment
 
 
 def validate_test_environment(env: Environment) -> bool:
@@ -25,13 +25,13 @@ def validate_test_results(results: Dict[str, Any]) -> bool:
         raise ValueError("Invalid test results: cannot be None")
     if not isinstance(results, dict):
         raise ValueError("Invalid test results: must be a dictionary")
-    
+
     # Required fields
     if "framework" not in results:
         raise ValueError("Invalid test results: missing framework")
     if "success" not in results:
         raise ValueError("Invalid test results: missing success indicator")
-    
+
     # Framework-specific validation
     framework = results["framework"]
     if framework == "pytest":
@@ -40,7 +40,7 @@ def validate_test_results(results: Dict[str, Any]) -> bool:
         _validate_unittest_results(results)
     else:
         raise ValueError(f"Invalid test results: unknown framework {framework}")
-    
+
     return True
 
 
@@ -57,4 +57,6 @@ def _validate_unittest_results(results: Dict[str, Any]) -> None:
     required_fields = ["test_dirs", "results"]
     missing = [f for f in required_fields if f not in results]
     if missing:
-        raise ValueError(f"Invalid unittest results: missing fields {', '.join(missing)}")
+        raise ValueError(
+            f"Invalid unittest results: missing fields {', '.join(missing)}"
+        )
