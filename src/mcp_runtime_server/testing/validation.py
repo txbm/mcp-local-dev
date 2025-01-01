@@ -8,14 +8,14 @@ from mcp_runtime_server.types import Environment, RunTestResult
 
 def validate_test_environment(env: Environment) -> bool:
     """Validate that an environment is properly configured for testing."""
-    if not isinstance(env.work_dir, Path):
-        raise ValueError("Invalid environment: work_dir must be a Path object")
-    if not isinstance(env.bin_dir, Path):
-        raise ValueError("Invalid environment: bin_dir must be a Path object")
-    if not env.work_dir:
-        raise ValueError("Invalid environment: missing work directory")
-    if not env.bin_dir:
-        raise ValueError("Invalid environment: missing binary directory")
+    if not isinstance(env.sandbox.work_dir, Path):
+        raise ValueError("Invalid environment: sandbox work_dir must be a Path object")
+    if not isinstance(env.sandbox.bin_dir, Path):
+        raise ValueError("Invalid environment: sandbox bin_dir must be a Path object")
+    if not env.sandbox.work_dir:
+        raise ValueError("Invalid environment: missing sandbox work directory")
+    if not env.sandbox.bin_dir:
+        raise ValueError("Invalid environment: missing sandbox binary directory")
     return True
 
 
