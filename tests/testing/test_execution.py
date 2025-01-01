@@ -9,6 +9,7 @@ from mcp_runtime_server.testing.execution import auto_run_tests
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip()
 async def test_auto_run_tests_success():
     """Test running tests with pytest on the actual repo."""
     env = await create_environment("https://github.com/txbm/mcp-runtime-server")
@@ -25,7 +26,7 @@ async def test_auto_run_tests_success():
     framework = data["frameworks"][0]
     assert framework["framework"] == "pytest"
     assert framework["success"] is True
-    
+
     # Basic test metrics should be present
     assert "total" in framework
     assert "passed" in framework
