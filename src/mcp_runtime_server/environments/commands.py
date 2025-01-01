@@ -3,8 +3,7 @@ import asyncio
 from typing import Dict, Optional
 from pathlib import Path
 
-from mcp_runtime_server.types import Runtimes, Environment
-from mcp_runtime_server.environments.environment import Environment
+from mcp_runtime_server.types import Runtime, PackageManager, Environment
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
@@ -28,14 +27,17 @@ async def run_command(
 
 async def run_install(env: Environment) -> None:
     """Run install command for environment runtime."""
-    if env.runtime == Runtimes.PYTHON:
+    pkg_manager = PackageManager.for_runtime(env.runtime)
+    
+    # Get the appropriate install command for package manager
+    if pkg_manager == PackageManager.UV:
         cmd = "uv sync --all-extras"
-    elif env.runtime == Runtimes.NODE:
+    elif pkg_manager == PackageManager.NPM:
         cmd = "npm install"
-    elif env.runtime == Runtimes.BUN:
+    elif pkg_manager == PackageManager.BUN:
         cmd = "bun install"
     else:
-        raise RuntimeError(f"Unsupported runtime: {env.runtime}")
+        raise RuntimeError(f"Unsupported package manager: {pkg_manager}")
         
     process = await run_command(cmd, str(env.work_dir), env.env_vars)
     stdout, stderr = await process.communicate()
@@ -53,6 +55,7 @@ async def clone_repository(url: str, target_dir: Path, branch: Optional[str], en
     Args:
         url: Repository URL
         target_dir: Clone target directory
+        branch: Optional branch to clone
         env_vars: Environment variables for git
     """
     try:
@@ -66,6 +69,9 @@ async def clone_repository(url: str, target_dir: Path, branch: Optional[str], en
             
         logger.debug(f"Final URL: {url}")
         cmd = f"git clone {url} {target_dir}"
+        if branch:
+            cmd += f" -b {branch}"
+            
         logger.info(f"Executing git clone command: {cmd}")
         logger.debug(f"Clone target directory: {target_dir}")
         logger.debug(f"Clone working directory: {str(Path(target_dir).parent)}")
