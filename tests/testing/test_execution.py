@@ -3,7 +3,7 @@
 import json
 import pytest
 from mcp.types import TextContent
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.types import Environment, RunTestResult
 from mcp_runtime_server.environments.environment import create_environment
 from mcp_runtime_server.testing.execution import auto_run_tests
 
