@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
+from tempfile import TemporaryDirectory
 
 class Runtime(str, Enum):
     """Runtime environment types."""
@@ -36,3 +37,4 @@ class Environment:
     work_dir: Path  
     created_at: datetime
     env_vars: Dict[str, str]
+    _tempdir: Optional[TemporaryDirectory] = None  # Keeps temp directory alive
