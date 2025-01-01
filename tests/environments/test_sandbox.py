@@ -4,13 +4,7 @@ import stat
 import tempfile
 from pathlib import Path
 
-from mcp_runtime_server.environments.sandbox import (
-    create_sandbox,
-    cleanup_sandbox,
-    _create_directories,
-    _prepare_environment,
-    _apply_security
-)
+from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
 
 def test_sandbox_with_tempdir():
     """Test sandbox creation within TemporaryDirectory."""
@@ -46,6 +40,8 @@ def test_sandbox_env_vars():
             assert "PATH" in info.env_vars
             assert str(info.bin_dir) in info.env_vars["PATH"]
             assert "TMPDIR" in info.env_vars
+            assert "XDG_CACHE_HOME" in info.env_vars
+            assert "XDG_RUNTIME_DIR" in info.env_vars
             
             # Check unsafe vars are removed
             assert "LD_PRELOAD" not in info.env_vars
@@ -84,6 +80,12 @@ def test_sandbox_security():
     with tempfile.TemporaryDirectory() as tmpdir:
         info = create_sandbox(Path(tmpdir))
         try:
+            # Check directory structure
+            assert (info.root / "tmp").exists()
+            assert (info.root / "cache").exists()
+            assert (info.root / "work").exists()
+            assert (info.root / "bin").exists()
+            
             # Check tmp directory writability
             tmp_file = info.root / "tmp" / "test.txt"
             tmp_file.touch()
@@ -96,7 +98,13 @@ def test_sandbox_security():
             
             if os.name != "nt":  # Skip on Windows
                 # Check restrictive permissions
-                assert work_file.stat().st_mode & 0o777 == 0o600
+                mode = work_file.stat().st_mode
+                assert mode & stat.S_IRUSR  # Owner can read
+                assert mode & stat.S_IWUSR  # Owner can write
+                assert not mode & stat.S_IRGRP  # Group cannot read
+                assert not mode & stat.S_IWGRP  # Group cannot write
+                assert not mode & stat.S_IROTH  # Others cannot read
+                assert not mode & stat.S_IWOTH  # Others cannot write
                 
         finally:
             cleanup_sandbox(info.root)
