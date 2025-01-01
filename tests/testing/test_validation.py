@@ -1,10 +1,11 @@
 """Tests for test validation functionality."""
 
 import pytest
+from datetime import datetime
 from pathlib import Path
-from dataclasses import asdict
+from tempfile import TemporaryDirectory
 
-from mcp_runtime_server.types import Environment, RunTestResult
+from mcp_runtime_server.types import Environment, RunTestResult, Runtime, Sandbox
 from mcp_runtime_server.testing.validation import (
     validate_test_environment,
     validate_test_results,
@@ -15,31 +16,53 @@ from mcp_runtime_server.testing.validation import (
 
 def test_validate_test_environment():
     """Test validation of test environment."""
-    # Test valid environment
-    env = Environment(
+    tempdir = TemporaryDirectory()
+    sandbox = Sandbox(
+        root=Path("/path/to/root"),
         work_dir=Path("/path/to/work"),
         bin_dir=Path("/path/to/bin"),
         env_vars={}
+    )
+    
+    # Test valid environment
+    env = Environment(
+        id="test-env",
+        runtime=Runtime.PYTHON,
+        work_dir=Path("/path/to/work"),
+        created_at=datetime.now(),
+        env_vars={},
+        sandbox=sandbox,
+        tempdir=tempdir
     )
     assert validate_test_environment(env) is True
     
     # Test invalid environment - string instead of Path
     env = Environment(
+        id="test-env",
+        runtime=Runtime.PYTHON,
         work_dir="/path/to/work",  # string instead of Path
-        bin_dir=Path("/path/to/bin"),
-        env_vars={}
+        created_at=datetime.now(),
+        env_vars={},
+        sandbox=sandbox,
+        tempdir=tempdir
     )
     with pytest.raises(ValueError, match="work_dir must be a Path object"):
         validate_test_environment(env)
     
     # Test invalid environment - empty work_dir
     env = Environment(
+        id="test-env",
+        runtime=Runtime.PYTHON,
         work_dir=Path(""),
-        bin_dir=Path("/path/to/bin"),
-        env_vars={}
+        created_at=datetime.now(),
+        env_vars={},
+        sandbox=sandbox,
+        tempdir=tempdir
     )
     with pytest.raises(ValueError, match="missing work directory"):
         validate_test_environment(env)
+    
+    tempdir.cleanup()
 
 
 def test_validate_test_results_basic():
