@@ -7,7 +7,7 @@ from typing import Optional
 from mcp_runtime_server.types import Runtime, Environment
 from mcp_runtime_server.environments.runtime import detect_runtime, setup_runtime_env
 from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
-from mcp_runtime_server.git import clone_repository
+from mcp_runtime_server.environments.commands import clone_repository
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
