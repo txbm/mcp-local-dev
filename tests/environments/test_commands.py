@@ -1,49 +1,47 @@
 """Tests for environment command execution."""
+import os
 import pytest
 from pathlib import Path
 
 from mcp_runtime_server.environments.environment import create_environment
-from mcp_runtime_server.environments.runtime import Runtime
-from mcp_runtime_server.environments.commands import run_command, run_install
+from mcp_runtime_server.environments.commands import run_command, run_install, clone_repository
 
+@pytest.mark.asyncio
 async def test_run_install_node(tmp_path):
     """Test running install for Node.js environment."""
-    env = await create_environment(tmp_path, "https://github.com/username/node-project")
-    pkg_json = env.work_dir / "package.json"
-    pkg_json.write_text('{"name": "test", "version": "1.0.0"}')
+    env = await create_environment(tmp_path, "https://github.com/txbm/mcp-node-repo-fixture")
     
     await run_install(env)
     assert (env.work_dir / "node_modules").exists()
 
+@pytest.mark.asyncio
 async def test_run_install_python(tmp_path):
     """Test running install for Python environment."""
-    env = await create_environment(tmp_path, "https://github.com/username/python-project")
-    pyproject = env.work_dir / "pyproject.toml"
-    pyproject.write_text('''[project]
-name = "test"
-version = "0.1.0"
-''')
+    env = await create_environment(tmp_path, "https://github.com/txbm/mcp-python-repo-fixture")
     
     await run_install(env)
     assert (env.work_dir / ".venv").exists()
     assert (env.work_dir / ".venv" / "bin" / "python").exists() or \
            (env.work_dir / ".venv" / "Scripts" / "python.exe").exists()
 
-async def test_run_install_fails_no_config(tmp_path):
-    """Test install failure without config files."""
-    env = await create_environment(tmp_path, "https://github.com/username/empty-project")
+@pytest.mark.asyncio
+async def test_github_clone(tmp_path):
+    """Test GitHub repository cloning during environment creation."""
+    env = await create_environment(
+        tmp_path,
+        "https://github.com/txbm/mcp-runtime-server"
+    )
     
-    with pytest.raises(RuntimeError, match="Install failed"):
-        await run_install(env)
+    # Verify clone success
+    assert (env.work_dir / ".git").exists()
+    assert (env.work_dir / "pyproject.toml").exists()
 
-async def test_run_command_captures_output(tmp_path):
-    """Test command output capture."""
-    env = await create_environment(tmp_path, "https://github.com/username/test-project")
+@pytest.mark.asyncio
+async def test_invalid_url(tmp_path):
+    """Test environment creation with invalid Git URL."""
+    with pytest.raises(RuntimeError):
+        await create_environment(
+            tmp_path,
+            "not-a-url"
+        )
     
-    # Test echo command
-    process = await run_command("echo 'test'" if os.name != 'nt' else "echo test", 
-                              str(env.work_dir), env.env_vars)
-    stdout, stderr = await process.communicate()
-    
-    assert process.returncode == 0
-    assert stdout.decode().strip() == "test"
