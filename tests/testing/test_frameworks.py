@@ -2,11 +2,13 @@
 
 import os
 import pytest
+from datetime import datetime
 from pathlib import Path
 from typing import List, Set
 from unittest.mock import Mock, patch, AsyncMock
+from tempfile import TemporaryDirectory
 
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.types import Environment, Runtime, Sandbox, RunTestResult
 from mcp_runtime_server.testing.frameworks import (
     TestFramework,
     detect_frameworks,
@@ -110,14 +112,30 @@ testpaths = ["tests"]
 @pytest.mark.asyncio
 async def test_run_pytest():
     """Test running pytest tests."""
-    # Create mock environment
+    # Create mock environment with all required fields
+    tempdir = TemporaryDirectory()
+    sandbox = Sandbox(
+        root=Path("/path/to/root"),
+        work_dir=Path("/path/to/work"),
+        bin_dir=Path("/path/to/bin"),
+        env_vars={}
+    )
+    
     env = Mock(spec=Environment)
+    env.id = "test-env"
+    env.runtime = Runtime.PYTHON
     env.work_dir = Path("/path/to/work")
-    env.bin_dir = Path("/path/to/bin")
+    env.created_at = datetime.now()
     env.env_vars = {}
+    env.sandbox = sandbox
+    env.tempdir = tempdir
+    
+    # Mock bin_dir property access
+    bin_path = Path("/path/to/bin")
+    type(env).bin_dir = Mock(return_value=bin_path)
     
     # Mock pytest executable existence
-    pytest_path = env.bin_dir / "pytest"
+    pytest_path = bin_path / "pytest"
     pytest_path.exists.return_value = True
     
     # Mock successful test run
@@ -138,3 +156,5 @@ async def test_run_pytest():
     assert result["passed"] == 1
     assert result["failed"] == 0
     assert result["skipped"] == 0
+    
+    tempdir.cleanup()
