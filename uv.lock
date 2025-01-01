@@ -111,6 +111,15 @@ wheels = [
 ]
 
 [[package]]
+name = "base58"
+version = "2.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7f/45/8ae61209bb9015f516102fa559a2914178da1d5868428bd86a1b4421141d/base58-2.1.1.tar.gz", hash = "sha256:c5d0cb3f5b6e81e8e35da5754388ddcc6d0d14b6c6a132cb93d69ed580a7278c", size = 6528 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/45/ec96b29162a402fc4c1c5512d114d7b3787b9d1c2ec241d9568b4816ee23/base58-2.1.1-py3-none-any.whl", hash = "sha256:11a36f4d3ce51dfc1043f3218591ac4eb1ceb172919cebe05b52a5bcc8d245c2", size = 5621 },
+]
+
+[[package]]
 name = "black"
 version = "24.10.0"
 source = { registry = "https://pypi.org/simple" }
@@ -254,6 +263,15 @@ wheels = [
 ]
 
 [[package]]
+name = "fuuid"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "base58" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/53/dddaadc515d83d0d570504646d23cf5c79e09734484ef9b35c5a675d2560/fuuid-0.1.0.tar.gz", hash = "sha256:ce8aec9ae81078941fa730dca0bf5ff7ca56675bea9327e938f1a04c8fad18b2", size = 3645 }
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -352,6 +370,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "appdirs" },
+    { name = "fuuid" },
     { name = "mcp" },
     { name = "psutil" },
 ]
@@ -377,6 +396,7 @@ requires-dist = [
     { name = "aiohttp", specifier = "==3.11.11" },
     { name = "appdirs", specifier = "==1.4.4" },
     { name = "black", marker = "extra == 'dev'" },
+    { name = "fuuid", specifier = ">=0.1.0" },
     { name = "mcp", git = "https://github.com/modelcontextprotocol/python-sdk" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "psutil", specifier = "==6.1.1" },

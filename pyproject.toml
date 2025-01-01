@@ -14,7 +14,8 @@ dependencies = [
     "mcp@git+https://github.com/modelcontextprotocol/python-sdk",
     "aiohttp==3.11.11",
     "psutil==6.1.1",
-    "appdirs==1.4.4"
+    "appdirs==1.4.4",
+    "fuuid>=0.1.0",
 ]
 
 [project.optional-dependencies]
