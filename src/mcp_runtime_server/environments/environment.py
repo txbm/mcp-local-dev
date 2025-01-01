@@ -6,7 +6,7 @@ from typing import Optional
 
 from mcp_runtime_server.types import Runtime, Environment
 from mcp_runtime_server.environments.runtime import detect_runtime, setup_runtime_env
-from mcp_runtime_server.environments.sandbox import create_sandbox
+from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.git import clone_repository
 from mcp_runtime_server.logging import get_logger
 
@@ -47,4 +47,28 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             "event": "environment_creation_failed",
             "error": str(e)
         })
+        if "temp_dir" in locals():
+            temp_dir.cleanup()
         raise RuntimeError(f"Failed to create environment: {e}")
+
+def cleanup_environment(env: Environment) -> None:
+    """Clean up environment.
+    
+    This performs an explicit cleanup of the sandbox environment and its resources.
+    Even if this is not called, the environment will be cleaned up when the Environment
+    object is destroyed via the TemporaryDirectory.
+    """
+    try:
+        # First try sandbox cleanup for proper resource cleanup
+        cleanup_sandbox(Path(env._tempdir.name))
+        
+        # Then cleanup temporary directory 
+        env._tempdir.cleanup()
+        
+    except Exception as e:
+        logger.error({
+            "event": "environment_cleanup_failed", 
+            "error": str(e)
+        })
+        # Re-raise so caller knows about failure
+        raise RuntimeError(f"Failed to cleanup environment: {e}")
