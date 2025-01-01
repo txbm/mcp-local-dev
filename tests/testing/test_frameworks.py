@@ -114,28 +114,26 @@ async def test_run_pytest():
     """Test running pytest tests."""
     # Create mock environment with all required fields
     tempdir = TemporaryDirectory()
+    work_dir = Path("/path/to/work")
+    bin_dir = Path("/path/to/bin")
+    
     sandbox = Sandbox(
         root=Path("/path/to/root"),
-        work_dir=Path("/path/to/work"),
-        bin_dir=Path("/path/to/bin"),
+        work_dir=work_dir,
+        bin_dir=bin_dir,
         env_vars={}
     )
     
     env = Mock(spec=Environment)
     env.id = "test-env"
     env.runtime = Runtime.PYTHON
-    env.work_dir = Path("/path/to/work")
     env.created_at = datetime.now()
     env.env_vars = {}
     env.sandbox = sandbox
     env.tempdir = tempdir
     
-    # Mock bin_dir property access
-    bin_path = Path("/path/to/bin")
-    type(env).bin_dir = Mock(return_value=bin_path)
-    
     # Mock pytest executable existence
-    pytest_path = bin_path / "pytest"
+    pytest_path = sandbox.bin_dir / "pytest"
     pytest_path.exists.return_value = True
     
     # Mock successful test run
