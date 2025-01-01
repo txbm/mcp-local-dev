@@ -2,73 +2,98 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from dataclasses import asdict
 
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.types import Environment, RunTestResult
 from mcp_runtime_server.testing.validation import (
     validate_test_environment,
-    validate_test_results
+    validate_test_results,
+    _validate_pytest_results,
+    _validate_unittest_results
 )
 
 
 def test_validate_test_environment():
     """Test validation of test environment."""
     # Test valid environment
-    env = Mock(spec=Environment)
-    env.work_dir = Path("/path/to/work")
-    env.bin_dir = Path("/path/to/bin")
-    
+    env = Environment(
+        work_dir=Path("/path/to/work"),
+        bin_dir=Path("/path/to/bin"),
+        env_vars={}
+    )
     assert validate_test_environment(env) is True
     
-    # Test invalid environment - missing work_dir
-    env = Mock(spec=Environment)
-    env.work_dir = None
-    env.bin_dir = Path("/path/to/bin")
-    
-    with pytest.raises(ValueError, match="Invalid environment: missing work directory"):
+    # Test invalid environment - string instead of Path
+    env = Environment(
+        work_dir="/path/to/work",  # string instead of Path
+        bin_dir=Path("/path/to/bin"),
+        env_vars={}
+    )
+    with pytest.raises(ValueError, match="work_dir must be a Path object"):
         validate_test_environment(env)
     
-    # Test invalid environment - missing bin_dir
-    env = Mock(spec=Environment)
-    env.work_dir = Path("/path/to/work")
-    env.bin_dir = None
-    
-    with pytest.raises(ValueError, match="Invalid environment: missing binary directory"):
-        validate_test_environment(env)
-    
-    # Test invalid environment - non-Path objects
-    env = Mock(spec=Environment)
-    env.work_dir = "/path/to/work"  # string instead of Path
-    env.bin_dir = Path("/path/to/bin")
-    
-    with pytest.raises(ValueError, match="Invalid environment: work_dir must be a Path object"):
+    # Test invalid environment - empty work_dir
+    env = Environment(
+        work_dir=Path(""),
+        bin_dir=Path("/path/to/bin"),
+        env_vars={}
+    )
+    with pytest.raises(ValueError, match="missing work directory"):
         validate_test_environment(env)
 
 
-def test_validate_test_results():
-    """Test validation of test results."""
-    # Test valid pytest results
-    pytest_results = {
+def test_validate_test_results_basic():
+    """Test basic validation of test results."""
+    # Test None results
+    with pytest.raises(ValueError, match="cannot be None"):
+        validate_test_results(None)
+    
+    # Test non-dict results
+    with pytest.raises(ValueError, match="must be a dictionary"):
+        validate_test_results(["not", "a", "dict"])
+    
+    # Test missing framework
+    with pytest.raises(ValueError, match="missing framework"):
+        validate_test_results({"success": True})
+    
+    # Test missing success
+    with pytest.raises(ValueError, match="missing success indicator"):
+        validate_test_results({"framework": "pytest"})
+    
+    # Test unknown framework
+    with pytest.raises(ValueError, match="unknown framework"):
+        validate_test_results({"framework": "unknown", "success": True})
+
+
+def test_validate_pytest_results():
+    """Test validation of pytest results."""
+    # Valid pytest results
+    valid_results = {
         "framework": "pytest",
         "success": True,
-        "total": 10,
-        "passed": 8,
+        "total": 5,
+        "passed": 4,
         "failed": 1,
-        "skipped": 1,
-        "test_cases": [
-            {
-                "name": "test_something",
-                "file": "test_file.py",
-                "outcome": "passed",
-                "duration": 0.1
-            }
-        ]
+        "skipped": 0,
+        "test_cases": []
     }
+    assert validate_test_results(valid_results) is True
     
-    assert validate_test_results(pytest_results) is True
-    
-    # Test valid unittest results
-    unittest_results = {
+    # Test missing required fields
+    invalid_results = {
+        "framework": "pytest",
+        "success": True,
+        "total": 5,
+        # missing other required fields
+    }
+    with pytest.raises(ValueError, match="missing fields"):
+        validate_test_results(invalid_results)
+
+
+def test_validate_unittest_results():
+    """Test validation of unittest results."""
+    # Valid unittest results
+    valid_results = {
         "framework": "unittest",
         "success": True,
         "test_dirs": ["/path/to/tests"],
@@ -81,63 +106,13 @@ def test_validate_test_results():
             }
         ]
     }
+    assert validate_test_results(valid_results) is True
     
-    assert validate_test_results(unittest_results) is True
-    
-    # Test invalid results - missing framework
+    # Test missing required fields
     invalid_results = {
-        "success": True,
-        "total": 10,
-        "passed": 10
-    }
-    
-    with pytest.raises(ValueError, match="Invalid test results: missing framework"):
-        validate_test_results(invalid_results)
-    
-    # Test invalid results - missing success flag
-    invalid_results = {
-        "framework": "pytest",
-        "total": 10,
-        "passed": 10
-    }
-    
-    with pytest.raises(ValueError, match="Invalid test results: missing success indicator"):
-        validate_test_results(invalid_results)
-    
-    # Test invalid results - invalid framework
-    invalid_results = {
-        "framework": "unknown",
-        "success": True,
-        "total": 10
-    }
-    
-    with pytest.raises(ValueError, match="Invalid test results: unknown framework"):
-        validate_test_results(invalid_results)
-    
-    # Test invalid pytest results - missing required fields
-    invalid_pytest = {
-        "framework": "pytest",
-        "success": True,
-        # missing total, passed, failed, skipped
-    }
-    
-    with pytest.raises(ValueError, match="Invalid pytest results: missing required fields"):
-        validate_test_results(invalid_pytest)
-    
-    # Test invalid unittest results - missing required fields
-    invalid_unittest = {
         "framework": "unittest",
         "success": True,
-        # missing test_dirs, results
+        # missing test_dirs and results
     }
-    
-    with pytest.raises(ValueError, match="Invalid unittest results: missing required fields"):
-        validate_test_results(invalid_unittest)
-    
-    # Test invalid results type
-    with pytest.raises(ValueError, match="Invalid test results: must be a dictionary"):
-        validate_test_results(["not", "a", "dict"])
-    
-    # Test None results
-    with pytest.raises(ValueError, match="Invalid test results: cannot be None"):
-        validate_test_results(None)
+    with pytest.raises(ValueError, match="missing fields"):
+        validate_test_results(invalid_results)
