@@ -18,23 +18,22 @@ class SandboxInfo:
     bin_dir: Path
     env_vars: Dict[str, str]
 
-def create_sandbox(base_dir: Path, sandbox_id: str) -> SandboxInfo:
-    """Create new sandbox environment."""
-    sandbox_root = base_dir / f"sandbox-{sandbox_id}"
+def create_sandbox(root: Path) -> SandboxInfo:
+    """Create new sandbox environment within root directory."""
     try:
-        dirs = _create_directories(sandbox_root)
-        env_vars = _prepare_environment(sandbox_root, dirs)
-        _apply_security(sandbox_root)
+        dirs = _create_directories(root)
+        env_vars = _prepare_environment(root, dirs)
+        _apply_security(root)
         
         return SandboxInfo(
-            root=sandbox_root,
+            root=root,
             work_dir=dirs["work"],
             bin_dir=dirs["bin"],
             env_vars=env_vars
         )
     except Exception as e:
-        if sandbox_root.exists():
-            shutil.rmtree(sandbox_root, ignore_errors=True)
+        if root.exists():
+            shutil.rmtree(root, ignore_errors=True)
         raise RuntimeError(f"Failed to create sandbox: {e}")
 
 def _create_directories(root: Path) -> Dict[str, Path]:
