@@ -1,10 +1,12 @@
 """Tests for environment creation and lifecycle."""
+import gc
 import os
 from pathlib import Path
+from typing import cast
 
 import pytest
-from mcp_runtime_server.types import Runtime
-from mcp_runtime_server.environments.environment import create_environment
+from mcp_runtime_server.types import Runtime, Environment
+from mcp_runtime_server.environments.environment import create_environment, cleanup_environment
 
 @pytest.mark.asyncio
 async def test_environment_creation():
@@ -17,10 +19,35 @@ async def test_environment_creation():
     assert temp_root.name.startswith("mcp-")
     assert env.work_dir.exists()
     assert env.runtime == Runtime.PYTHON
-    
-    # Let Environment clean itself up
-    env._tempdir.cleanup()
+
+    # Test explicit cleanup
+    cleanup_environment(env)
     assert not temp_root.exists()
+
+@pytest.mark.asyncio
+async def test_environment_implicit_cleanup():
+    """Test environment cleanup when object is destroyed."""
+    env = await create_environment("https://github.com/txbm/mcp-runtime-server.git")
+    temp_root = Path(env._tempdir.name)
+    assert temp_root.exists()
+    
+    # Remove reference and force garbage collection
+    temp_path = temp_root
+    env = cast(Environment, None)
+    gc.collect()
+    
+    # Directory should be cleaned up
+    assert not temp_path.exists()
+
+@pytest.mark.asyncio
+async def test_environment_cleanup_after_error():
+    """Test environment cleanup after creation error."""
+    with pytest.raises(RuntimeError):
+        # Invalid URL should cause failure
+        env = await create_environment("not-a-valid-url")
+    
+    # Check for leftover directories
+    assert not any(p for p in Path("/tmp").glob("mcp-*") if p.is_dir())
 
 @pytest.mark.asyncio
 async def test_environment_isolation():
@@ -39,21 +66,28 @@ async def test_environment_isolation():
         # Both should be Python environments
         assert env1.runtime == Runtime.PYTHON
         assert env2.runtime == Runtime.PYTHON
+        
+        # Files should exist
+        assert Path(env1._tempdir.name).exists()
+        assert Path(env2._tempdir.name).exists()
     
     finally:
-        env1._tempdir.cleanup()
-        env2._tempdir.cleanup()
+        cleanup_environment(env1)
+        cleanup_environment(env2)
+        
+        # Verify cleanup
+        assert not Path(env1._tempdir.name).exists()
+        assert not Path(env2._tempdir.name).exists()
 
 @pytest.mark.asyncio
-async def test_environment_cleanup():
-    """Test environment cleanup with TemporaryDirectory."""
+async def test_environment_cleanup_twice():
+    """Test that cleaning up an environment twice doesn't error."""
     env = await create_environment("https://github.com/txbm/mcp-runtime-server.git")
-    temp_dir = Path(env._tempdir.name)
-    work_dir = env.work_dir
+    temp_root = Path(env._tempdir.name)
     
-    assert temp_dir.exists()
-    assert work_dir.exists()
+    # First cleanup should work
+    cleanup_environment(env)
+    assert not temp_root.exists()
     
-    env._tempdir.cleanup()
-    assert not temp_dir.exists()
-    assert not work_dir.exists()
+    # Second cleanup should not error
+    cleanup_environment(env)
