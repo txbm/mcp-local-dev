@@ -17,6 +17,8 @@ from mcp_runtime_server.testing.validation import (
 def test_validate_test_environment():
     """Test validation of test environment."""
     tempdir = TemporaryDirectory()
+
+    # Test valid environment
     sandbox = Sandbox(
         root=Path("/path/to/root"),
         work_dir=Path("/path/to/work"),
@@ -24,11 +26,9 @@ def test_validate_test_environment():
         env_vars={}
     )
     
-    # Test valid environment
     env = Environment(
         id="test-env",
         runtime=Runtime.PYTHON,
-        work_dir=Path("/path/to/work"),
         created_at=datetime.now(),
         env_vars={},
         sandbox=sandbox,
@@ -36,30 +36,64 @@ def test_validate_test_environment():
     )
     assert validate_test_environment(env) is True
     
-    # Test invalid environment - string instead of Path
+    # Test invalid environment - string instead of Path in sandbox
+    sandbox_invalid_type = Sandbox(
+        root=Path("/path/to/root"),
+        work_dir="/path/to/work",  # string instead of Path
+        bin_dir=Path("/path/to/bin"),
+        env_vars={}
+    )
+    
     env = Environment(
         id="test-env",
         runtime=Runtime.PYTHON,
-        work_dir="/path/to/work",  # string instead of Path
         created_at=datetime.now(),
         env_vars={},
-        sandbox=sandbox,
+        sandbox=sandbox_invalid_type,
         tempdir=tempdir
     )
-    with pytest.raises(ValueError, match="work_dir must be a Path object"):
+    
+    with pytest.raises(ValueError, match="sandbox work_dir must be a Path object"):
         validate_test_environment(env)
     
-    # Test invalid environment - empty work_dir
+    # Test invalid environment - empty work_dir in sandbox
+    sandbox_empty_path = Sandbox(
+        root=Path("/path/to/root"),
+        work_dir=Path(""),  # empty path
+        bin_dir=Path("/path/to/bin"),
+        env_vars={}
+    )
+    
     env = Environment(
         id="test-env",
         runtime=Runtime.PYTHON,
-        work_dir=Path(""),
         created_at=datetime.now(),
         env_vars={},
-        sandbox=sandbox,
+        sandbox=sandbox_empty_path,
         tempdir=tempdir
     )
-    with pytest.raises(ValueError, match="missing work directory"):
+    
+    with pytest.raises(ValueError, match="missing sandbox work directory"):
+        validate_test_environment(env)
+    
+    # Test invalid environment - empty bin_dir in sandbox
+    sandbox_empty_bin = Sandbox(
+        root=Path("/path/to/root"),
+        work_dir=Path("/path/to/work"),
+        bin_dir=Path(""),  # empty path
+        env_vars={}
+    )
+    
+    env = Environment(
+        id="test-env",
+        runtime=Runtime.PYTHON,
+        created_at=datetime.now(),
+        env_vars={},
+        sandbox=sandbox_empty_bin,
+        tempdir=tempdir
+    )
+    
+    with pytest.raises(ValueError, match="missing sandbox binary directory"):
         validate_test_environment(env)
     
     tempdir.cleanup()
