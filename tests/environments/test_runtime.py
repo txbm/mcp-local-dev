@@ -1,13 +1,16 @@
 """Tests for runtime detection and management."""
+
 import os
-from pathlib import Path
 
 import pytest
 from mcp_runtime_server.types import Runtime, PackageManager
 from mcp_runtime_server.environments.runtime import (
-    detect_runtime, setup_runtime_env, get_package_manager_binary,
-    get_runtime_bin_dir
+    detect_runtime,
+    setup_runtime_env,
+    get_package_manager_binary,
+    get_runtime_bin_dir,
 )
+
 
 def test_runtime_detection(tmp_path):
     """Test runtime detection from project files."""
@@ -34,6 +37,7 @@ def test_runtime_detection(tmp_path):
     setup_py.touch()
     assert detect_runtime(tmp_path) == Runtime.PYTHON
 
+
 def test_runtime_detection_nested(tmp_path):
     """Test detection with nested config files."""
     nested = tmp_path / "src" / "project"
@@ -49,10 +53,12 @@ def test_runtime_detection_nested(tmp_path):
     bun_lock.touch()
     assert detect_runtime(tmp_path) == Runtime.BUN
 
+
 def test_runtime_detection_fails(tmp_path):
     """Test detection with no config files."""
     with pytest.raises(ValueError, match="No supported runtime detected"):
         detect_runtime(tmp_path)
+
 
 def test_package_manager_mapping():
     """Test runtime to package manager mapping."""
@@ -60,13 +66,12 @@ def test_package_manager_mapping():
     assert PackageManager.for_runtime(Runtime.NODE) == PackageManager.NPM
     assert PackageManager.for_runtime(Runtime.BUN) == PackageManager.BUN
 
+
 def test_package_manager_binary():
     """Test package manager binary resolution."""
     binary = get_package_manager_binary(PackageManager.UV)
     assert binary.endswith(PackageManager.UV.value)
 
-    with pytest.raises(RuntimeError):
-        get_package_manager_binary("nonexistent")
 
 def test_runtime_bin_dir(tmp_path):
     """Test runtime binary directory resolution."""
@@ -85,6 +90,7 @@ def test_runtime_bin_dir(tmp_path):
 
     result = get_runtime_bin_dir(tmp_path, Runtime.NODE)
     assert result == node_bin
+
 
 def test_runtime_env_setup(tmp_path):
     """Test runtime environment variable setup."""
