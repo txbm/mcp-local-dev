@@ -1,1 +1,0 @@
-"""Detection module - moved to environments/runtime.py"""

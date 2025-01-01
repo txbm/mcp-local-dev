@@ -33,3 +33,8 @@ mcp-runtime-server = "mcp_runtime_server.server:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[dependency-groups]
+dev = [
+    "ruff-lsp>=0.0.59",
+]

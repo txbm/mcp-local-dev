@@ -1,1 +1,0 @@
-"""Moved to tests/environments/test_git.py"""
