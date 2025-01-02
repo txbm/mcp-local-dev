@@ -1,9 +1,13 @@
 """Runtime configuration and management."""
 
 import os
+import re
 import shutil
+import hashlib
+import platform
+import aiohttp
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from mcp_runtime_server.types import Runtime, PackageManager, RuntimeConfig
 from mcp_runtime_server.logging import get_logger
@@ -19,13 +23,20 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
             "NODE_NO_WARNINGS": "1",
             "NPM_CONFIG_UPDATE_NOTIFIER": "false"
         },
-        bin_paths=["node_modules/.bin"]
+        bin_paths=["node_modules/.bin"],
+        binary_name="node",
+        url_template="https://nodejs.org/dist/{version_prefix}{version}/node-{version_prefix}{version}-{platform}-{arch}.{format}",
+        checksum_template="https://nodejs.org/dist/{version_prefix}{version}/SHASUMS256.txt"
     ),
     Runtime.BUN: RuntimeConfig(
         config_files=["bun.lockb", "package.json"],
         package_manager=PackageManager.BUN,
         env_setup={"NO_INSTALL_HINTS": "1"},
-        bin_paths=["node_modules/.bin"]
+        bin_paths=["node_modules/.bin"],
+        binary_name="bun",
+        url_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/bun-{platform}-{arch}.{format}",
+        checksum_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/SHASUMS.txt",
+        github_release=True
     ),
     Runtime.PYTHON: RuntimeConfig(
         config_files=["pyproject.toml", "setup.py", "requirements.txt"],
@@ -35,7 +46,15 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
             "PYTHONUNBUFFERED": "1",
             "PYTHONDONTWRITEBYTECODE": "1"
         },
-        bin_paths=[".venv/bin", ".venv/Scripts"]  # Scripts for Windows
+        bin_paths=[".venv/bin", ".venv/Scripts"],  # Scripts for Windows
+        binary_name="uv",
+        url_template="https://github.com/{owner}/{repo}/releases/download/{version_prefix}{version}/uv-{platform}.{format}",
+        checksum_template=None,
+        platform_style="composite",
+        version_prefix="",
+        github_release=True,
+        owner="astral-sh",
+        repo="uv"
     )
 }
 
@@ -176,3 +195,142 @@ def make_runtime_env(runtime: Runtime, sandbox_work_dir: Path, base_env: Dict[st
     })
 
     return env
+
+
+def get_platform_info() -> Tuple[str, str, str]:
+    """Get platform-specific information for binary downloads."""
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    
+    if system == "darwin":
+        system = "macos"
+    
+    if machine == "x86_64":
+        machine = "x64"
+    elif machine == "aarch64":
+        machine = "arm64"
+    elif machine.startswith("arm"):
+        machine = "arm64"  # Assuming ARM is 64-bit
+        
+    if system == "windows":
+        ext = "zip"
+    else:
+        ext = "tar.gz"
+        
+    return system, machine, ext
+
+
+async def get_binary_release_version(runtime: Runtime) -> str:
+    """Get the latest version for a runtime binary."""
+    config = RUNTIME_CONFIGS[runtime]
+    
+    async with aiohttp.ClientSession() as session:
+        if not config.github_release:
+            if runtime == Runtime.NODE:
+                async with session.get("https://nodejs.org/dist/index.json") as response:
+                    response.raise_for_status()
+                    releases = await response.json()
+                    return releases[0]["version"].lstrip("v")
+            elif runtime == Runtime.BUN:
+                async with session.get(
+                    "https://github.com/oven-sh/bun/releases/latest",
+                    allow_redirects=True
+                ) as response:
+                    response.raise_for_status()
+                    match = re.search(r"/tag/bun-v([\d.]+)", str(response.url))
+                    if not match:
+                        raise ValueError("Could not parse Bun release version")
+                    return match.group(1)
+        else:
+            # GitHub release
+            url = f"https://api.github.com/repos/{config.owner}/{config.repo}/releases/latest"
+            async with session.get(url) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data["tag_name"].lstrip("v")
+
+
+async def download_binary(url: str, dest: Path) -> None:
+    """Download a binary file."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"Download failed with status {response.status}")
+                
+                with open(dest, "wb") as f:
+                    while chunk := await response.content.read(8192):
+                        f.write(chunk)
+                        
+    except Exception as e:
+        if dest.exists():
+            dest.unlink()
+        raise RuntimeError(f"Failed to download binary: {e}")
+
+
+def verify_checksum(file_path: Path, expected: str) -> bool:
+    """Verify file checksum."""
+    sha256_hash = hashlib.sha256()
+    
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+            
+    return sha256_hash.hexdigest() == expected
+
+
+async def ensure_runtime_binary(runtime: Runtime) -> Path:
+    """Ensure runtime binary is available.
+    
+    Args:
+        runtime: Runtime to ensure binary for
+        
+    Returns:
+        Path to the binary
+        
+    Raises:
+        RuntimeError: If binary cannot be obtained
+    """
+    config = RUNTIME_CONFIGS[runtime]
+    system, arch, format = get_platform_info()
+    
+    try:
+        # Get latest version
+        version = await get_binary_release_version(runtime)
+        
+        # Format download URL
+        url_vars = {
+            "version": version,
+            "version_prefix": config.version_prefix,
+            "platform": system,
+            "arch": arch,
+            "format": format
+        }
+        
+        if config.github_release:
+            url_vars.update({
+                "owner": config.owner,
+                "repo": config.repo
+            })
+            
+        download_url = config.url_template.format(**url_vars)
+        
+        # Create temporary directory for download
+        download_dir = Path("/tmp/mcp-downloads").resolve()
+        download_dir.mkdir(exist_ok=True)
+        
+        # Download binary
+        dest = download_dir / f"{config.binary_name}-{version}"
+        if not dest.exists():
+            await download_binary(download_url, dest)
+            dest.chmod(0o755)
+            
+        return dest
+        
+    except Exception as e:
+        logger.error({
+            "event": "binary_fetch_failed",
+            "runtime": runtime.value,
+            "error": str(e)
+        })
+        raise RuntimeError(f"Failed to fetch {runtime.value} binary: {e}")
