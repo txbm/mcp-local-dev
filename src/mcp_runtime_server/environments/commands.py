@@ -39,7 +39,7 @@ async def run_install(env: Environment) -> None:
     else:
         raise RuntimeError(f"Unsupported package manager: {pkg_manager}")
         
-    process = await run_command(cmd, str(env.work_dir), env.env_vars)
+    process = await run_command(cmd, str(env.sandbox.work_dir), env.env_vars)
     stdout, stderr = await process.communicate()
     
     if process.returncode != 0:
@@ -59,7 +59,11 @@ async def clone_repository(url: str, target_dir: Path, branch: Optional[str], en
         env_vars: Environment variables for git
     """
     try:
-        logger.debug(f"Original URL: {url}")
+        logger.debug({
+            "event": "preparing_clone",
+            "url": url,
+            "target_dir": str(target_dir)
+        })
         
         # Ensure HTTPS URL
         if not url.startswith("https://"):
@@ -67,15 +71,22 @@ async def clone_repository(url: str, target_dir: Path, branch: Optional[str], en
                 raise ValueError("Only HTTPS URLs are supported")
             url = f"https://{url}"
             
-        logger.debug(f"Final URL: {url}")
+        logger.debug({
+            "event": "clone_url_processed",
+            "final_url": url
+        })
+        
+        # Build command
         cmd = f"git clone {url} {target_dir}"
         if branch:
             cmd += f" -b {branch}"
             
-        logger.info(f"Executing git clone command: {cmd}")
-        logger.debug(f"Clone target directory: {target_dir}")
-        logger.debug(f"Clone working directory: {str(Path(target_dir).parent)}")
-        logger.debug(f"Clone environment variables: {env_vars}")
+        logger.debug({
+            "event": "cloning_repository",
+            "command": cmd,
+            "target_dir": str(target_dir),
+            "parent_dir": str(Path(target_dir).parent)
+        })
             
         process = await run_command(
             cmd,
@@ -85,16 +96,33 @@ async def clone_repository(url: str, target_dir: Path, branch: Optional[str], en
         stdout, stderr = await process.communicate()
         
         if stdout:
-            logger.debug(f"Clone stdout: {stdout.decode()}")
+            logger.debug({
+                "event": "clone_stdout",
+                "output": stdout.decode()
+            })
         if stderr:
-            logger.debug(f"Clone stderr: {stderr.decode()}")
+            logger.debug({
+                "event": "clone_stderr",
+                "output": stderr.decode()
+            })
             
         if process.returncode != 0:
-            logger.error(f"Clone failed with return code {process.returncode}")
+            logger.error({
+                "event": "clone_failed",
+                "return_code": process.returncode,
+                "stderr": stderr.decode()
+            })
             raise RuntimeError(f"Failed to clone repository: {stderr.decode()}")
             
-        logger.info("Repository cloned successfully")
+        logger.info({
+            "event": "repository_cloned",
+            "url": url,
+            "target_dir": str(target_dir)
+        })
             
     except Exception as e:
-        logger.error(f"Clone failed: {str(e)}")
+        logger.error({
+            "event": "clone_error",
+            "error": str(e)
+        })
         raise RuntimeError(f"Clone failed: {str(e)}")
