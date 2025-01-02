@@ -18,7 +18,7 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
         env_setup={"NODE_NO_WARNINGS": "1", "NPM_CONFIG_UPDATE_NOTIFIER": "false"},
         bin_paths=["node_modules/.bin"],
         binary_name="node",
-        url_template="https://nodejs.org/dist/{version_prefix}{version}/node-{version_prefix}{version}-{platform}-{arch}.{format}",
+        url_template="https://nodejs.org/dist/{version_prefix}{version}/node-{version_prefix}{version}-{platform}.{format}",
         checksum_template="https://nodejs.org/dist/{version_prefix}{version}/SHASUMS256.txt",
     ),
     Runtime.BUN: RuntimeConfig(

@@ -4,10 +4,8 @@ import os
 import tempfile
 import zipfile
 import tarfile
-from pathlib import Path
 
 import pytest
-import aiohttp
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from mcp_runtime_server.types import Runtime
@@ -24,12 +22,12 @@ from mcp_runtime_server.environments.runtime_binaries import (
 def test_get_archive_files(tmp_path):
     """Test listing files from different archive types."""
     test_binary = "test-binary"
-    
+
     # Test zip archive
     zip_path = tmp_path / "test.zip"
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr(test_binary, "content")
-    
+
     with zipfile.ZipFile(zip_path) as archive:
         files = get_archive_files(archive, ".zip")
         assert test_binary in files
@@ -41,7 +39,7 @@ def test_get_archive_files(tmp_path):
             tmp.write(b"content")
             tmp.flush()
             tf.add(tmp.name, arcname=test_binary)
-    
+
     with tarfile.open(tar_path) as archive:
         files = get_archive_files(archive, ".tar.gz")
         assert test_binary in files
@@ -51,7 +49,7 @@ def test_extract_binary_zip(tmp_path):
     """Test binary extraction from zip archive."""
     test_binary = "test-binary"
     zip_path = tmp_path / "test.zip"
-    
+
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr(test_binary, "content")
 
@@ -66,7 +64,7 @@ def test_extract_binary_tar(tmp_path):
     """Test binary extraction from tar.gz archive."""
     test_binary = "test-binary"
     tar_path = tmp_path / "test.tar.gz"
-    
+
     with tarfile.open(tar_path, "w:gz") as tf:
         with tempfile.NamedTemporaryFile() as tmp:
             tmp.write(b"content")
@@ -85,7 +83,7 @@ def test_extract_binary_not_found(tmp_path):
     test_binary = "test-binary"
     wrong_binary = "wrong-binary"
     zip_path = tmp_path / "test.zip"
-    
+
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr(wrong_binary, "content")
 
@@ -99,11 +97,12 @@ async def test_verify_checksum(tmp_path):
     test_binary = "test-binary"
     test_path = tmp_path / test_binary
     test_content = b"test content"
-    
+
     with open(test_path, "wb") as f:
         f.write(test_content)
 
     import hashlib
+
     expected_sha = hashlib.sha256(test_content).hexdigest()
     checksum_content = f"{expected_sha}  {test_binary}"
 
@@ -138,13 +137,22 @@ async def test_ensure_binary(tmp_path):
     mock_session.__aexit__ = AsyncMock()
     mock_session.get = AsyncMock(return_value=mock_response)
 
-    with patch("aiohttp.ClientSession", return_value=mock_session), \
-         patch("mcp_runtime_server.environments.runtime_binaries.get_binary_release_version", 
-               new_callable=AsyncMock, return_value=test_version), \
-         patch("mcp_runtime_server.environments.runtime_binaries.get_binary_path", 
-               return_value=None), \
-         patch("mcp_runtime_server.environments.runtime_binaries.cache_binary",
-               return_value=tmp_path / test_binary):
+    with (
+        patch("aiohttp.ClientSession", return_value=mock_session),
+        patch(
+            "mcp_runtime_server.environments.runtime_binaries.get_binary_release_version",
+            new_callable=AsyncMock,
+            return_value=test_version,
+        ),
+        patch(
+            "mcp_runtime_server.environments.runtime_binaries.get_binary_path",
+            return_value=None,
+        ),
+        patch(
+            "mcp_runtime_server.environments.runtime_binaries.cache_binary",
+            return_value=tmp_path / test_binary,
+        ),
+    ):
 
         config = RUNTIME_CONFIGS[Runtime.NODE]
         binary_path = await ensure_binary(Runtime.NODE, config)
@@ -158,10 +166,17 @@ async def test_ensure_binary_cached(tmp_path):
     test_version = "1.0.0"
     cached_path = tmp_path / test_binary
 
-    with patch("mcp_runtime_server.environments.runtime_binaries.get_binary_release_version", 
-               new_callable=AsyncMock, return_value=test_version), \
-         patch("mcp_runtime_server.environments.runtime_binaries.get_binary_path", 
-               return_value=cached_path):
+    with (
+        patch(
+            "mcp_runtime_server.environments.runtime_binaries.get_binary_release_version",
+            new_callable=AsyncMock,
+            return_value=test_version,
+        ),
+        patch(
+            "mcp_runtime_server.environments.runtime_binaries.get_binary_path",
+            return_value=cached_path,
+        ),
+    ):
 
         config = RUNTIME_CONFIGS[Runtime.NODE]
         binary_path = await ensure_binary(Runtime.NODE, config)
