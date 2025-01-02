@@ -4,19 +4,12 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, List, Optional
 
 from mcp_runtime_server.types import Runtime, PackageManager
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-class RuntimeContext(TypedDict):
-    """Runtime context for operations."""
-    work_dir: Path
-    bin_dir: Path
-    env_vars: Dict[str, str]
 
 
 @dataclass(frozen=True)
