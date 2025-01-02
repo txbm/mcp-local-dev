@@ -1,102 +1,86 @@
 """Environment lifecycle management."""
 
-import shutil
-import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
+import shutil
+from datetime import datetime, timezone
 from typing import Optional
 
 from fuuid import b58_fuuid
 
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.types import Environment, Sandbox
 from mcp_runtime_server.runtimes.runtime import (
     detect_runtime,
-    make_runtime_env,
-    RUNTIME_CONFIGS,
 )
-from mcp_runtime_server.runtimes.binaries import ensure_binary
-from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
-from mcp_runtime_server.environments.commands import clone_repository, run_install
+from mcp_runtime_server.sandboxes.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.sandboxes.git import clone_github_repository
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-async def create_environment(
-    github_url: str, branch: Optional[str] = None
+async def create_environment_from_github(
+    staging: Sandbox, github_url: str, branch: Optional[str] = None
 ) -> Environment:
-    """Create new sandboxed environment.
 
-    Args:
-        github_url: GitHub repository URL
-        branch: Optional branch to clone
+    repo = await clone_github_repository(staging, github_url, branch)
+    env = await create_environment(repo)
 
-    Returns:
-        Environment instance
+    return env
 
-    Raises:
-        RuntimeError: If environment creation fails at any stage
-    """
+
+async def create_environment(path: Path) -> Environment:
+    """Create new environment from a filesystem path."""
 
     env_id = b58_fuuid()
     logger.info(
         {
             "event": "creating_environment",
             "env_id": env_id,
-            "github_url": github_url,
-            "branch": branch,
+            "path": path,
         }
     )
-    sandbox = create_sandbox(f"mcp-{env_id}")
+    sandbox = await create_sandbox(f"mcp-{env_id}-")
+    shutil.copytree(path, sandbox.work_dir, dirs_exist_ok=True)
 
-    logger.debug({"event": "cloning_repository", "work_dir": str(sandbox.work_dir)})
-    await clone_repository(github_url, sandbox.work_dir, branch, sandbox.env_vars)
-
-    runtime = detect_runtime(sandbox.work_dir)
+    runtime_config = detect_runtime(sandbox)
     logger.info(
-        {"event": "runtime_detected", "env_id": env_id, "runtime": runtime.value}
+        {
+            "event": "runtime_detected",
+            "env_id": env_id,
+            "runtime": runtime_config.name.value,
+        }
     )
-
-    env_vars = make_runtime_env(runtime, sandbox.work_dir, sandbox.env_vars)
 
     env = Environment(
         id=env_id,
-        runtime=runtime,
+        runtime_config=runtime_config,
         sandbox=sandbox,
         created_at=datetime.now(timezone.utc),
-        env_vars=env_vars,
     )
 
-    logger.debug(
-        {
-            "event": "ensuring_runtime_binary",
-            "env_id": env_id,
-            "runtime": runtime.value,
-        }
-    )
-    config = RUNTIME_CONFIGS[runtime]
-    binary_path = await ensure_binary(runtime, config)
-    target_path = env.sandbox.bin_dir / binary_path.name
-    shutil.copy2(binary_path, target_path)
-    target_path.chmod(0o755)
+    # config = RUNTIME_CONFIGS[runtime]
+    # binary_path = await ensure_binary(runtime, config)
+    # target_path = env.sandbox.bin_dir / binary_path.name
+    # shutil.copy2(binary_path, target_path)
+    # target_path.chmod(0o755)
 
-    logger.debug(
-        {
-            "event": "installing_dependencies",
-            "env_id": env_id,
-            "runtime": runtime.value,
-        }
-    )
-    await run_install(env)
+    # logger.debug(
+    #     {
+    #         "event": "installing_dependencies",
+    #         "env_id": env_id,
+    #         "runtime": runtime.value,
+    #     }
+    # )
+    # await run_install(env)
 
-    logger.info(
-        {
-            "event": "environment_ready",
-            "env_id": env_id,
-            "runtime": runtime.value,
-            "work_dir": str(sandbox.work_dir),
-        }
-    )
+    # logger.info(
+    #     {
+    #         "event": "environment_ready",
+    #         "env_id": env_id,
+    #         "runtime": runtime.value,
+    #         "work_dir": str(sandbox.work_dir),
+    #     }
+    # )
 
     return env
 
@@ -113,16 +97,8 @@ def cleanup_environment(env: Environment) -> None:
     Raises:
         RuntimeError: If cleanup fails
     """
-    try:
-        logger.debug({"event": "cleaning_environment", "env_id": env.id})
+    logger.debug({"event": "cleaning_environment", "env_id": env.id})
 
-        cleanup_sandbox(env.sandbox)
-        env.tempdir.cleanup()
+    cleanup_sandbox(env.sandbox)
 
-        logger.info({"event": "environment_cleaned", "env_id": env.id})
-
-    except Exception as e:
-        logger.error(
-            {"event": "environment_cleanup_failed", "env_id": env.id, "error": str(e)}
-        )
-        raise RuntimeError(f"Failed to cleanup environment: {e}")
+    logger.info({"event": "environment_cleaned", "env_id": env.id})
