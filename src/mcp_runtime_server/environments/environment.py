@@ -69,7 +69,6 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             id=env_id,
             runtime=runtime,
             sandbox=sandbox,
-            work_dir=sandbox.work_dir,
             created_at=datetime.now(timezone.utc),
             env_vars=env_vars,
             tempdir=temp_dir
@@ -87,7 +86,7 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             "event": "environment_ready",
             "env_id": env_id,
             "runtime": runtime.value,
-            "work_dir": str(env.work_dir)
+            "work_dir": str(sandbox.work_dir)
         })
 
         return env
@@ -159,7 +158,6 @@ def make_runtime_context(env: Environment) -> RuntimeContext:
         RuntimeContext for runtime operations
     """
     return RuntimeContext(
-        work_dir=env.work_dir,
         bin_dir=env.sandbox.bin_dir,
         env_vars=env.env_vars
     )
