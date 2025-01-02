@@ -47,7 +47,6 @@ class RuntimeConfig:
 @dataclass(frozen=True)
 class RuntimeContext:
     """Context for runtime operations."""
-    work_dir: Path
     bin_dir: Path
     env_vars: Dict[str, str]
 
@@ -63,10 +62,8 @@ class Sandbox:
 @dataclass(frozen=True)
 class Environment:
     """Runtime environment instance."""
-
     id: str
     runtime: Runtime
-    work_dir: Path
     created_at: datetime
     env_vars: Dict[str, str]
     sandbox: Sandbox
