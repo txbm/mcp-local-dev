@@ -73,16 +73,13 @@ def detect_runtime(work_dir: Path) -> Runtime:
         "work_dir": str(work_dir)
     })
     
-    # Get all files in the directory
     files = set(str(p) for p in work_dir.rglob("*"))
     logger.debug({
         "event": "found_project_files",
         "files": list(files)
     })
 
-    # Check each runtime's config files
     for runtime, config in RUNTIME_CONFIGS.items():
-        # For runtimes that need all config files
         if runtime == Runtime.BUN:
             if all(any(f.endswith(c) for f in files) for c in config.config_files):
                 logger.info({
@@ -91,7 +88,6 @@ def detect_runtime(work_dir: Path) -> Runtime:
                     "matched_files": config.config_files
                 })
                 return runtime
-        # For runtimes that need any config file
         else:
             if any(any(f.endswith(c) for f in files) for c in config.config_files):
                 matched_file = next(
@@ -115,23 +111,12 @@ def detect_runtime(work_dir: Path) -> Runtime:
 
 
 def find_binary(name: str, paths: list[str], env_path: Optional[str] = None) -> Optional[Path]:
-    """Find a binary in the given paths.
-    
-    Args:
-        name: Binary name to find
-        paths: List of paths to search
-        env_path: Optional PATH environment variable
-        
-    Returns:
-        Path to binary if found, None otherwise
-    """
-    # Check system PATH first if provided
+    """Find a binary in the given paths."""
     if env_path:
         system_bin = shutil.which(name, path=env_path)
         if system_bin:
             return Path(system_bin)
 
-    # Check provided paths
     for path in paths:
         bin_path = Path(path) / name
         if not bin_path.exists() and os.name == "nt":
@@ -143,82 +128,39 @@ def find_binary(name: str, paths: list[str], env_path: Optional[str] = None) -> 
 
 
 def get_runtime_bin_dir(work_dir: Path, runtime: Runtime) -> Path:
-    """Get binary directory for a runtime.
-    
-    Args:
-        work_dir: Working directory path
-        runtime: Runtime type
-        
-    Returns:
-        Path to binary directory
-    """
+    """Get binary directory for a runtime."""
     config = RUNTIME_CONFIGS[runtime]
     
-    # Try each possible binary path
     for bin_path in config.bin_paths:
         full_path = work_dir / bin_path
         if full_path.exists():
             return full_path
             
-    # Default to first path if none exist yet
     return work_dir / config.bin_paths[0]
 
 
-async def prepare_runtime(runtime: Runtime, work_dir: Path, base_env: Dict[str, str]) -> Dict[str, str]:
-    """Prepare runtime environment with binaries and environment variables.
-    
-    Args:
-        runtime: Runtime to prepare
-        work_dir: Working directory
-        base_env: Base environment variables
-        
-    Returns:
-        Dict of environment variables
-        
-    Raises:
-        RuntimeError: If runtime preparation fails
-    """
+def make_runtime_env(runtime: Runtime, sandbox_work_dir: Path, base_env: Dict[str, str]) -> Dict[str, str]:
+    """Create runtime environment variables."""
     config = RUNTIME_CONFIGS[runtime]
-    
-    # Ensure runtime binary is available
-    try:
-        binary_path = await ensure_binary(runtime, config)
-        logger.info({
-            "event": "runtime_binary_ready",
-            "runtime": runtime.value,
-            "binary_path": str(binary_path)
-        })
-    except Exception as e:
-        logger.error({
-            "event": "runtime_binary_failed",
-            "runtime": runtime.value,
-            "error": str(e)
-        })
-        raise RuntimeError(f"Failed to prepare {runtime.value} runtime: {e}")
-
-    # Create environment
     env = base_env.copy()
-    
-    # Add runtime-specific base vars
     env.update(config.env_setup)
 
-    # Add runtime-specific path vars
-    bin_dir = get_runtime_bin_dir(work_dir, runtime)
-    env["PATH"] = os.pathsep.join([str(bin_dir), binary_path.parent, env.get("PATH", "")])
+    bin_dir = get_runtime_bin_dir(sandbox_work_dir, runtime)
+    env["PATH"] = os.pathsep.join([str(bin_dir), env.get("PATH", "")])
 
     if runtime == Runtime.PYTHON:
-        venv = work_dir / ".venv"
+        venv = sandbox_work_dir / ".venv"
         env.update({
             "VIRTUAL_ENV": str(venv),
-            "PYTHONPATH": str(work_dir)
+            "PYTHONPATH": str(sandbox_work_dir)
         })
         logger.debug({
             "event": "python_env_setup",
             "venv_path": str(venv),
-            "pythonpath": str(work_dir)
+            "pythonpath": str(sandbox_work_dir)
         })
     elif runtime in (Runtime.NODE, Runtime.BUN):
-        modules_path = work_dir / "node_modules"
+        modules_path = sandbox_work_dir / "node_modules"
         env["NODE_PATH"] = str(modules_path)
         logger.debug({
             "event": "node_env_setup",
@@ -226,9 +168,9 @@ async def prepare_runtime(runtime: Runtime, work_dir: Path, base_env: Dict[str, 
         })
 
     logger.info({
-        "event": "runtime_prepared",
+        "event": "runtime_env_setup",
         "runtime": runtime.value,
-        "work_dir": str(work_dir),
+        "work_dir": str(sandbox_work_dir),
         "env_vars": {k: v for k, v in env.items() if k in config.env_setup or 
                     k in ["VIRTUAL_ENV", "PYTHONPATH", "NODE_PATH", "PATH"]}
     })
