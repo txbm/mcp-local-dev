@@ -14,28 +14,22 @@ from mcp_runtime_server.environments.runtime import (
 
 def test_runtime_detection(tmp_path):
     """Test runtime detection from project files."""
-    # Test Node.js
     pkg_json = tmp_path / "package.json"
     pkg_json.touch()
     assert detect_runtime(tmp_path) == Runtime.NODE
 
-    # Test Bun
     bun_lock = tmp_path / "bun.lockb"
     bun_lock.touch()
     assert detect_runtime(tmp_path) == Runtime.BUN
 
-    # Clean up for Python test
     pkg_json.unlink()
     bun_lock.unlink()
 
-    # Test Python
-    pyproject = tmp_path / "pyproject.toml"
-    pyproject.touch()
-    assert detect_runtime(tmp_path) == Runtime.PYTHON
-
-    setup_py = tmp_path / "setup.py"
-    setup_py.touch()
-    assert detect_runtime(tmp_path) == Runtime.PYTHON
+    for pyfile in ["pyproject.toml", "setup.py"]:
+        f = tmp_path / pyfile
+        f.touch()
+        assert detect_runtime(tmp_path) == Runtime.PYTHON
+        f.unlink()
 
 
 def test_runtime_detection_nested(tmp_path):
@@ -43,12 +37,10 @@ def test_runtime_detection_nested(tmp_path):
     nested = tmp_path / "src" / "project"
     nested.mkdir(parents=True)
 
-    # Test Node detection
     pkg_json = nested / "package.json"
     pkg_json.touch()
     assert detect_runtime(tmp_path) == Runtime.NODE
 
-    # Add bun.lockb, should switch to Bun
     bun_lock = nested / "bun.lockb"
     bun_lock.touch()
     assert detect_runtime(tmp_path) == Runtime.BUN
@@ -69,7 +61,6 @@ def test_package_manager_mapping():
 
 def test_find_binary(tmp_path):
     """Test binary finding logic."""
-    # Test system PATH
     sys_path = "/usr/bin:/usr/local/bin"
     test_binary = "test-binary"
     test_binary_path = tmp_path / test_binary
@@ -78,6 +69,20 @@ def test_find_binary(tmp_path):
     
     paths = [str(tmp_path)]
     found = find_binary(test_binary, paths, env_path=sys_path)
+    assert found == test_binary_path
+
+
+def test_find_binary_windows(tmp_path):
+    """Test binary finding on Windows."""
+    if os.name != "nt":
+        pytest.skip("Windows-specific test")
+        
+    test_binary = "test-binary.exe"
+    test_binary_path = tmp_path / test_binary
+    test_binary_path.touch()
+    
+    paths = [str(tmp_path)]
+    found = find_binary("test-binary", paths)
     assert found == test_binary_path
 
 
@@ -100,7 +105,7 @@ def test_runtime_bin_dir(tmp_path):
     assert result == node_bin
 
 
-def test_runtime_env_setup(tmp_path):
+def test_make_runtime_env(tmp_path):
     """Test runtime environment variable setup."""
     base_env = {"PATH": "/usr/bin", "HOME": "/home/user"}
 
