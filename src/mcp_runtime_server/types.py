@@ -69,12 +69,9 @@ class RuntimeConfig:
     bin_paths: List[str]  # Possible binary paths in priority order
     binary_name: str  # Name of the runtime binary
     url_template: str  # Download URL template
-    checksum_template: Optional[str]  # Optional checksum URL template
+    checksum_template: str
     platform_style: str = "simple"  # Platform string style (simple or composite)
     version_prefix: str = "v"  # Version number prefix in URLs
-    github_release: bool = False  # Whether this uses GitHub releases
-    owner: Optional[str] = None  # GitHub owner for releases
-    repo: Optional[str] = None  # GitHub repo for releases
 
 
 @dataclass(frozen=True)
@@ -82,6 +79,8 @@ class Sandbox:
     root: Path
     work_dir: Path
     bin_dir: Path
+    tmp_dir: Path
+    cache_dir: Path
     temp_dir: TemporaryDirectory
     env_vars: Dict[str, str]
 
@@ -94,6 +93,9 @@ class Environment:
     runtime_config: RuntimeConfig
     created_at: datetime
     sandbox: Sandbox
+    pkg_bin: Path
+    runtime_bin: Path
+    test_bin: Path
 
 
 @dataclass

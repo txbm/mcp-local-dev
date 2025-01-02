@@ -146,6 +146,8 @@ async def create_sandbox(prefix: str) -> Sandbox:
             root=root,
             work_dir=dirs["work"],
             bin_dir=dirs["bin"],
+            tmp_dir=dirs["tmp"],
+            cache_dir=dirs["cache"],
             env_vars=env_vars,
             temp_dir=temp_dir,
         )

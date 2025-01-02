@@ -23,11 +23,6 @@ from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
 
-# GitHub API constants
-GITHUB_API_BASE = "https://api.github.com"
-GITHUB_REPOS_PATH = "repos"
-RELEASES_PATH = "releases"
-LATEST_PATH = "latest"
 
 
 async def get_binary_release_version(runtime: Runtime, config: RuntimeConfig) -> str:
@@ -53,11 +48,6 @@ async def get_binary_release_version(runtime: Runtime, config: RuntimeConfig) ->
                     return match.group(1)
         else:
             # GitHub release
-            url = f"{GITHUB_API_BASE}/{GITHUB_REPOS_PATH}/{config.owner}/{config.repo}/releases/latest"
-            async with session.get(url) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return data["tag_name"].lstrip("v")
 
 
 async def ensure_binary(runtime: Runtime, config: RuntimeConfig) -> Path:
@@ -170,90 +160,3 @@ async def ensure_binary(runtime: Runtime, config: RuntimeConfig) -> Path:
     # Architecture mappings
 
 
-ARCH_MAPPINGS = {
-    "x86_64": {"node": "x64", "bun": "x64", "uv": "x86_64"},
-    "aarch64": {"node": "arm64", "bun": "aarch64", "uv": "aarch64"},
-    "arm64": {"node": "arm64", "bun": "aarch64", "uv": "aarch64"},
-}
-
-# Platform mappings with composite configuration
-PLATFORM_MAPPINGS = {
-    "Linux": PlatformMapping(
-        node="linux",
-        bun="linux",
-        uv="unknown-linux-gnu",
-        archive_format="tar.gz",
-        platform_template="{arch}-{platform}",  # For UV-style composites
-        binary_location="bin",  # No extension for Unix binaries
-    ),
-    "Darwin": PlatformMapping(
-        node="darwin",
-        bun="darwin",
-        uv="apple-darwin",
-        archive_format="tar.gz",
-        platform_template="{arch}-{platform}",
-        binary_location="bin",
-    ),
-    "Windows": PlatformMapping(
-        node="win",
-        bun="windows",
-        uv="pc-windows-msvc",
-        archive_format="zip",
-        platform_template="{arch}-{platform}",
-        binary_location="bin/{name}.exe",  # Windows executables need .exe
-    ),
-}
-
-
-def get_platform_info() -> PlatformInfo:
-    """Get current platform information."""
-    system = platform.system()
-    machine = platform.machine().lower()
-
-    if system not in PLATFORM_MAPPINGS:
-        raise RuntimeError(f"Unsupported operating system: {system}")
-
-    # Handle ARM64 naming variations
-    if machine in ("arm64", "aarch64"):
-        machine = "aarch64"
-
-    if machine not in ARCH_MAPPINGS:
-        raise RuntimeError(f"Unsupported architecture: {machine}")
-
-    platform_map = PLATFORM_MAPPINGS[system]
-    arch_map = ARCH_MAPPINGS[machine]
-
-    # Now we can compose platform strings based on the template
-    uv_platform = platform_map.platform_template.format(
-        arch=arch_map["uv"], platform=platform_map.uv
-    )
-
-    return PlatformInfo(
-        os_name=system.lower(),
-        arch=machine,
-        format=platform_map.archive_format,
-        node_platform=f"{platform_map.node}-{arch_map['node']}",
-        bun_platform=f"{platform_map.bun}-{arch_map['bun']}",
-        uv_platform=uv_platform,
-    )
-
-
-def get_binary_location(runtime_name: str, system: Optional[str] = None) -> str:
-    """Get the appropriate binary path pattern for a runtime."""
-    if system is None:
-        system = platform.system()
-
-    if system not in PLATFORM_MAPPINGS:
-        raise RuntimeError(f"Unsupported operating system: {system}")
-
-    platform_map = PLATFORM_MAPPINGS[system]
-    return platform_map.binary_location.format(name=runtime_name)
-
-
-def is_platform_supported() -> bool:
-    """Check if current platform is supported."""
-    try:
-        get_platform_info()
-        return True
-    except RuntimeError:
-        return False
