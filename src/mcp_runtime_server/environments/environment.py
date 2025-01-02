@@ -1,5 +1,6 @@
 """Environment lifecycle management."""
 
+import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,7 +9,12 @@ from typing import Optional
 from fuuid import b58_fuuid
 
 from mcp_runtime_server.types import Environment, Runtime
-from mcp_runtime_server.environments.runtime import detect_runtime, make_runtime_env, RUNTIME_CONFIGS
+from mcp_runtime_server.environments.runtime import (
+    detect_runtime,
+    make_runtime_env,
+    RUNTIME_CONFIGS,
+    ensure_runtime_binary
+)
 from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.environments.commands import clone_repository, run_install
 from mcp_runtime_server.logging import get_logger
@@ -63,7 +69,7 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
 
         # Set up runtime environment
         env_vars = make_runtime_env(runtime, sandbox.work_dir, sandbox.env_vars)
-
+        
         # Create environment instance
         env = Environment(
             id=env_id,
@@ -73,6 +79,20 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             env_vars=env_vars,
             tempdir=temp_dir
         )
+        
+        # Ensure runtime binary is available
+        logger.debug({
+            "event": "ensuring_runtime_binary",
+            "env_id": env_id,
+            "runtime": runtime.value
+        })
+        binary_path = await ensure_runtime_binary(runtime)
+        target_path = env.sandbox.bin_dir / binary_path.name
+        shutil.copy2(binary_path, target_path)
+        target_path.chmod(0o755)
+        
+        # Update PATH with binary directory
+        env.env_vars["PATH"] = f"{env.sandbox.bin_dir}:{env.env_vars.get('PATH', '')}"
 
         # Install runtime dependencies
         logger.debug({
