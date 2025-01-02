@@ -62,6 +62,7 @@ class PlatformMapping(NamedTuple):
 class RuntimeConfig:
     """Runtime configuration details."""
 
+    name: Runtime
     config_files: List[str]  # Files that indicate this runtime
     package_manager: PackageManager  # Default package manager
     env_setup: Dict[str, str]  # Base environment variables
@@ -90,9 +91,8 @@ class Environment:
     """Runtime environment instance."""
 
     id: str
-    runtime: Runtime
+    runtime_config: RuntimeConfig
     created_at: datetime
-    env_vars: Dict[str, str]
     sandbox: Sandbox
 
 

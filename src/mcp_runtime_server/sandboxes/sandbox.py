@@ -14,7 +14,7 @@ from mcp_runtime_server.logging import get_logger
 logger = get_logger(__name__)
 
 
-def make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
+def _make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
     """Create sandbox directory structure and environment variables.
 
     Args:
@@ -50,7 +50,7 @@ def make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
             "TMPDIR": str(dirs["tmp"]),
             "XDG_CACHE_HOME": str(dirs["cache"]),
             "XDG_RUNTIME_DIR": str(dirs["tmp"]),
-            "PATH": f"{dirs['bin']}{os.pathsep}{base_env.get('PATH', '')}",
+            "PATH": f"{dirs['bin']}",
         }
         base_env.update(sandbox_env)
 
@@ -78,15 +78,27 @@ def make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
         raise RuntimeError(f"Failed to create sandbox directories: {e}")
 
 
-def apply_security(root: Path) -> None:
-    """Apply security restrictions to sandbox directory.
+async def _copy_system_binaries(sandbox: Sandbox):
 
-    Args:
-        root: Root directory to secure
+    process = await run_system_command("which git", sandbox.work_dir)
+    stdout, stderr = await process.communicate()
 
-    Raises:
-        RuntimeError: If security application fails
-    """
+    if process.returncode == 0:
+        bin_path = Path(stdout.decode().strip())
+        if bin_path.exists():
+            logger.debug(
+                {
+                    "event": "found_git",
+                    "git_path": bin_path,
+                }
+            )
+            shutil.copy2(bin_path, sandbox.bin_dir)
+
+
+def _apply_security(sandbox: Sandbox) -> None:
+    """Apply security restrictions to sandbox directory."""
+
+    root = sandbox.root
     try:
         if platform.system() == "Linux":
             logger.debug({"event": "applying_unix_permissions", "root": str(root)})
@@ -112,7 +124,7 @@ def _apply_unix_permissions(path: Path) -> None:
             _apply_unix_permissions(child)
 
 
-def create_sandbox(prefix: str) -> Sandbox:
+async def create_sandbox(prefix: str) -> Sandbox:
     """Create new sandbox environment within root directory.
 
     Args:
@@ -128,10 +140,7 @@ def create_sandbox(prefix: str) -> Sandbox:
 
         temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
         root = Path(temp_dir.name)
-        dirs, env_vars = make_sandbox_dirs(root)
-
-        # Apply security restrictions
-        apply_security(root)
+        dirs, env_vars = _make_sandbox_dirs(root)
 
         sandbox = Sandbox(
             root=root,
@@ -140,6 +149,9 @@ def create_sandbox(prefix: str) -> Sandbox:
             env_vars=env_vars,
             temp_dir=temp_dir,
         )
+
+        await _copy_system_binaries(sandbox)
+        _apply_security(sandbox)
 
         logger.info(
             {
@@ -171,20 +183,28 @@ def cleanup_sandbox(sandbox: Sandbox) -> None:
     Raises:
         RuntimeError: If cleanup fails
     """
+    logger.debug({"event": "cleaning_sandbox", "root": str(sandbox.root)})
+
+    sandbox.temp_dir.cleanup()
+    if sandbox.root.exists():
+        shutil.rmtree(sandbox.root, ignore_errors=True)
+    logger.info({"event": "sandbox_cleaned", "root": str(sandbox.root)})
+
+
+async def run_system_command(
+    cmd: str, cwd: Path, env_vars: Optional[Dict[str, str]] = None
+):
+
     try:
-        if sandbox.root.exists():
-            logger.debug({"event": "cleaning_sandbox", "root": str(sandbox.root)})
-            shutil.rmtree(sandbox.root, ignore_errors=True)
-            logger.info({"event": "sandbox_cleaned", "root": str(sandbox.root)})
-    except Exception as e:
-        logger.error(
-            {
-                "event": "sandbox_cleanup_failed",
-                "error": str(e),
-                "root": str(sandbox.root),
-            }
+        return await asyncio.create_subprocess_shell(
+            cmd,
+            cwd=cwd,
+            env=env_vars,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        raise RuntimeError(f"Failed to clean up sandbox: {e}")
+    except Exception as e:
+        raise RuntimeError(f"System command execution failed: {e}")
 
 
 async def run_sandboxed_command(
@@ -205,4 +225,4 @@ async def run_sandboxed_command(
             stderr=asyncio.subprocess.PIPE,
         )
     except Exception as e:
-        raise RuntimeError(f"Command execution failed: {e}")
+        raise RuntimeError(f"Sandbox command execution failed: {e}")
