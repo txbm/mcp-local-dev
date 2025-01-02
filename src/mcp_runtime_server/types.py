@@ -36,6 +36,15 @@ class PackageManager(str, Enum):
 
 
 @dataclass(frozen=True)
+class RuntimeConfig:
+    """Runtime configuration details."""
+    config_files: List[str]  # Files that indicate this runtime
+    package_manager: PackageManager  # Default package manager
+    env_setup: Dict[str, str]  # Base environment variables
+    bin_paths: List[str]  # Possible binary paths in priority order
+
+
+@dataclass(frozen=True)
 class RuntimeContext:
     """Context for runtime operations."""
     work_dir: Path
