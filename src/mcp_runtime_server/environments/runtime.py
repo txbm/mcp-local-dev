@@ -78,19 +78,22 @@ def detect_runtime(work_dir: Path) -> Runtime:
         # For runtimes that need any config file
         else:
             if any(any(f.endswith(c) for f in files) for c in config.config_files):
+                matched_file = next(
+                    c for c in config.config_files 
+                    if any(f.endswith(c) for f in files)
+                )
                 logger.info({
                     "event": "runtime_detected", 
                     "runtime": runtime.value,
-                    "matched_file": next(
-                        c for c in config.config_files 
-                        if any(f.endswith(c) for f in files)
-                    )
+                    "matched_file": matched_file,
+                    "files_checked": config.config_files
                 })
                 return runtime
 
     logger.error({
         "event": "no_runtime_detected",
-        "work_dir": str(work_dir)
+        "work_dir": str(work_dir),
+        "files_found": list(files)
     })
     raise ValueError("No supported runtime detected")
 
@@ -123,12 +126,12 @@ def find_binary(name: str, paths: List[str], env_path: Optional[str] = None) -> 
     return None
 
 
-def make_runtime_env(runtime: Runtime, work_dir: Path, base_env: Dict[str, str]) -> Dict[str, str]:
+def make_runtime_env(runtime: Runtime, sandbox_work_dir: Path, base_env: Dict[str, str]) -> Dict[str, str]:
     """Create runtime environment variables.
     
     Args:
         runtime: Runtime type to configure
-        work_dir: Working directory
+        sandbox_work_dir: Sandbox working directory
         base_env: Base environment variables
         
     Returns:
@@ -137,7 +140,7 @@ def make_runtime_env(runtime: Runtime, work_dir: Path, base_env: Dict[str, str])
     logger.debug({
         "event": "creating_runtime_env",
         "runtime": runtime.value,
-        "work_dir": str(work_dir)
+        "sandbox_work_dir": str(sandbox_work_dir)
     })
 
     env = base_env.copy()
@@ -148,18 +151,28 @@ def make_runtime_env(runtime: Runtime, work_dir: Path, base_env: Dict[str, str])
 
     # Add runtime-specific path vars
     if runtime == Runtime.PYTHON:
-        venv = work_dir / ".venv"
+        venv = sandbox_work_dir / ".venv"
         env.update({
             "VIRTUAL_ENV": str(venv),
-            "PYTHONPATH": str(work_dir)
+            "PYTHONPATH": str(sandbox_work_dir)
+        })
+        logger.debug({
+            "event": "python_env_vars_added",
+            "venv_path": str(venv),
+            "pythonpath": str(sandbox_work_dir)
         })
     elif runtime in (Runtime.NODE, Runtime.BUN):
-        env["NODE_PATH"] = str(work_dir / "node_modules")
+        modules_path = sandbox_work_dir / "node_modules"
+        env["NODE_PATH"] = str(modules_path)
+        logger.debug({
+            "event": "node_env_vars_added",
+            "node_path": str(modules_path)
+        })
 
     logger.debug({
         "event": "runtime_env_created",
         "runtime": runtime.value,
-        "env_vars": {k: v for k, v in env.items() if k in config.env_setup}
+        "runtime_specific_vars": {k: v for k, v in env.items() if k in config.env_setup or k in ["VIRTUAL_ENV", "PYTHONPATH", "NODE_PATH"]}
     })
 
     return env
