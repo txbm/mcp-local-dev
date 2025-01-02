@@ -7,7 +7,7 @@ from typing import Optional
 
 from fuuid import b58_fuuid
 
-from mcp_runtime_server.types import Environment, RuntimeContext, Runtime
+from mcp_runtime_server.types import Environment, Runtime
 from mcp_runtime_server.environments.runtime import detect_runtime, make_runtime_env, RUNTIME_CONFIGS
 from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.environments.commands import clone_repository, run_install
@@ -146,18 +146,3 @@ def cleanup_environment(env: Environment) -> None:
             "error": str(e)
         })
         raise RuntimeError(f"Failed to cleanup environment: {e}")
-
-
-def make_runtime_context(env: Environment) -> RuntimeContext:
-    """Create a RuntimeContext from an Environment.
-    
-    Args:
-        env: Environment instance
-        
-    Returns:
-        RuntimeContext for runtime operations
-    """
-    return RuntimeContext(
-        bin_dir=env.sandbox.bin_dir,
-        env_vars=env.env_vars
-    )
