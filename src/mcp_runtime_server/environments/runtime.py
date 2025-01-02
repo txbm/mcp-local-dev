@@ -4,12 +4,12 @@ import os
 import re
 import shutil
 import hashlib
-import platform
 import aiohttp
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from mcp_runtime_server.types import Runtime, PackageManager, RuntimeConfig
+from mcp_runtime_server.environments.platforms import get_platform_info, get_binary_location
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
@@ -197,29 +197,6 @@ def make_runtime_env(runtime: Runtime, sandbox_work_dir: Path, base_env: Dict[st
     return env
 
 
-def get_platform_info() -> Tuple[str, str, str]:
-    """Get platform-specific information for binary downloads."""
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-    
-    if system == "darwin":
-        system = "macos"
-    
-    if machine == "x86_64":
-        machine = "x64"
-    elif machine == "aarch64":
-        machine = "arm64"
-    elif machine.startswith("arm"):
-        machine = "arm64"  # Assuming ARM is 64-bit
-        
-    if system == "windows":
-        ext = "zip"
-    else:
-        ext = "tar.gz"
-        
-    return system, machine, ext
-
-
 async def get_binary_release_version(runtime: Runtime) -> str:
     """Get the latest version for a runtime binary."""
     config = RUNTIME_CONFIGS[runtime]
@@ -292,19 +269,21 @@ async def ensure_runtime_binary(runtime: Runtime) -> Path:
         RuntimeError: If binary cannot be obtained
     """
     config = RUNTIME_CONFIGS[runtime]
-    system, arch, format = get_platform_info()
+    platform_info = get_platform_info()
     
     try:
         # Get latest version
         version = await get_binary_release_version(runtime)
         
-        # Format download URL
+        # Format download URL based on runtime - use platform-specific paths
         url_vars = {
             "version": version,
             "version_prefix": config.version_prefix,
-            "platform": system,
-            "arch": arch,
-            "format": format
+            "platform": platform_info.node_platform if runtime == Runtime.NODE else
+                       platform_info.bun_platform if runtime == Runtime.BUN else
+                       platform_info.uv_platform,
+            "format": platform_info.format,
+            "arch": platform_info.arch
         }
         
         if config.github_release:
@@ -319,13 +298,28 @@ async def ensure_runtime_binary(runtime: Runtime) -> Path:
         download_dir = Path("/tmp/mcp-downloads").resolve()
         download_dir.mkdir(exist_ok=True)
         
-        # Download binary
-        dest = download_dir / f"{config.binary_name}-{version}"
-        if not dest.exists():
-            await download_binary(download_url, dest)
-            dest.chmod(0o755)
+        # Get binary path based on platform
+        binary_location = get_binary_location(config.binary_name)
+        download_path = download_dir / f"{config.binary_name}-{version}"
+        
+        if not download_path.exists():
+            logger.debug({
+                "event": "downloading_runtime_binary",
+                "runtime": runtime.value,
+                "version": version,
+                "url": download_url
+            })
+            await download_binary(download_url, download_path)
+            download_path.chmod(0o755)
+        
+        logger.info({
+            "event": "runtime_binary_ready",
+            "runtime": runtime.value,
+            "version": version,
+            "path": str(download_path)
+        })
             
-        return dest
+        return download_path
         
     except Exception as e:
         logger.error({
