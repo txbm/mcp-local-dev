@@ -39,7 +39,6 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
     temp_dir = None
     
     try:
-        # Generate unique ID
         env_id = b58_fuuid()
         logger.info({
             "event": "creating_environment",
@@ -48,18 +47,15 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             "branch": branch
         })
 
-        # Create temp directory that will be automatically cleaned up
         temp_dir = tempfile.TemporaryDirectory(prefix=f"mcp-{env_id}-")
         sandbox = create_sandbox(Path(temp_dir.name))
         
-        # Clone repository
         logger.debug({
             "event": "cloning_repository",
             "work_dir": str(sandbox.work_dir)
         })
         await clone_repository(github_url, sandbox.work_dir, branch, sandbox.env_vars)
 
-        # Detect runtime type
         runtime = detect_runtime(sandbox.work_dir)
         logger.info({
             "event": "runtime_detected",
@@ -67,10 +63,8 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             "runtime": runtime.value
         })
 
-        # Set up runtime environment
         env_vars = make_runtime_env(runtime, sandbox.work_dir, sandbox.env_vars)
         
-        # Create environment instance
         env = Environment(
             id=env_id,
             runtime=runtime,
@@ -80,7 +74,6 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             tempdir=temp_dir
         )
         
-        # Ensure runtime binary is available
         logger.debug({
             "event": "ensuring_runtime_binary",
             "env_id": env_id,
@@ -91,11 +84,7 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
         target_path = env.sandbox.bin_dir / binary_path.name
         shutil.copy2(binary_path, target_path)
         target_path.chmod(0o755)
-        
-        # Update PATH with binary directory
-        env.env_vars["PATH"] = f"{env.sandbox.bin_dir}:{env.env_vars.get('PATH', '')}"
 
-        # Install runtime dependencies
         logger.debug({
             "event": "installing_dependencies",
             "env_id": env_id,
@@ -119,7 +108,6 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             "error": str(e)
         })
         
-        # Clean up temp directory if it was created
         if temp_dir:
             logger.debug({
                 "event": "cleaning_failed_environment",
@@ -133,9 +121,8 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
 def cleanup_environment(env: Environment) -> None:
     """Clean up environment and its resources.
     
-    This performs an explicit cleanup of the sandbox environment and its resources.
-    Even if this is not called, the environment will be cleaned up when the Environment
-    object is destroyed via the TemporaryDirectory.
+    Even if not called, environment will be cleaned up when Environment 
+    object is destroyed via TemporaryDirectory.
     
     Args:
         env: Environment instance to clean up
@@ -149,10 +136,7 @@ def cleanup_environment(env: Environment) -> None:
             "env_id": env.id
         })
         
-        # First try sandbox cleanup for proper resource cleanup
         cleanup_sandbox(env.sandbox)
-        
-        # Then cleanup temporary directory
         env.tempdir.cleanup()
         
         logger.info({
