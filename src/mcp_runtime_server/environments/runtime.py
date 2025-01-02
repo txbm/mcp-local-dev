@@ -3,9 +3,8 @@
 import os
 import shutil
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol
+from typing import Dict, List, Optional, TypedDict
 
 from mcp_runtime_server.types import Runtime, PackageManager
 from mcp_runtime_server.logging import get_logger
@@ -13,9 +12,8 @@ from mcp_runtime_server.logging import get_logger
 logger = get_logger(__name__)
 
 
-class RuntimeContext(Protocol):
-    """Protocol defining required context for runtime operations."""
-
+class RuntimeContext(TypedDict):
+    """Runtime context for operations."""
     work_dir: Path
     bin_dir: Path
     env_vars: Dict[str, str]
@@ -24,7 +22,6 @@ class RuntimeContext(Protocol):
 @dataclass(frozen=True)
 class RuntimeConfig:
     """Runtime configuration details."""
-
     config_files: List[str]  # Files that indicate this runtime
     package_manager: PackageManager  # Default package manager
     env_setup: Dict[str, str]  # Base environment variables
@@ -115,66 +112,69 @@ def detect_runtime(work_dir: Path) -> Runtime:
     raise ValueError("No supported runtime detected")
 
 
-def get_binary_path(name: str, ctx: RuntimeContext) -> Optional[Path]:
-    """Get path to a binary in the runtime context.
+def find_binary(name: str, paths: List[str], env_path: Optional[str] = None) -> Optional[Path]:
+    """Find a binary in the given paths.
     
     Args:
         name: Binary name to find
-        ctx: Runtime context containing paths
+        paths: List of paths to search
+        env_path: Optional PATH environment variable
         
     Returns:
         Path to binary if found, None otherwise
     """
-    # First check if it's in the PATH
-    system_bin = shutil.which(name, path=ctx.env_vars.get("PATH"))
-    if system_bin:
-        return Path(system_bin)
+    # Check system PATH first if provided
+    if env_path:
+        system_bin = shutil.which(name, path=env_path)
+        if system_bin:
+            return Path(system_bin)
 
-    # Then check runtime bin directory
-    if ctx.bin_dir:
-        bin_path = ctx.bin_dir / name
+    # Check provided paths
+    for path in paths:
+        bin_path = Path(path) / name
         if not bin_path.exists() and os.name == "nt":
-            bin_path = ctx.bin_dir / f"{name}.exe"
+            bin_path = Path(path) / f"{name}.exe"
         if bin_path.exists():
             return bin_path
 
     return None
 
 
-def setup_runtime_env(runtime: Runtime, ctx: RuntimeContext) -> Dict[str, str]:
-    """Setup runtime environment variables.
+def make_runtime_env(runtime: Runtime, work_dir: Path, base_env: Dict[str, str]) -> Dict[str, str]:
+    """Create runtime environment variables.
     
     Args:
         runtime: Runtime type to configure
-        ctx: Runtime context with paths and base env
+        work_dir: Working directory
+        base_env: Base environment variables
         
     Returns:
         Dict of environment variables
     """
     logger.debug({
-        "event": "setting_up_runtime_env",
+        "event": "creating_runtime_env",
         "runtime": runtime.value,
-        "work_dir": str(ctx.work_dir)
+        "work_dir": str(work_dir)
     })
 
-    env = ctx.env_vars.copy()
+    env = base_env.copy()
     config = RUNTIME_CONFIGS[runtime]
 
-    # Add runtime-specific vars
+    # Add runtime-specific base vars
     env.update(config.env_setup)
 
-    # Runtime-specific setup
+    # Add runtime-specific path vars
     if runtime == Runtime.PYTHON:
-        venv = ctx.work_dir / ".venv"
+        venv = work_dir / ".venv"
         env.update({
             "VIRTUAL_ENV": str(venv),
-            "PYTHONPATH": str(ctx.work_dir)
+            "PYTHONPATH": str(work_dir)
         })
     elif runtime in (Runtime.NODE, Runtime.BUN):
-        env["NODE_PATH"] = str(ctx.work_dir / "node_modules")
+        env["NODE_PATH"] = str(work_dir / "node_modules")
 
     logger.debug({
-        "event": "runtime_env_configured",
+        "event": "runtime_env_created",
         "runtime": runtime.value,
         "env_vars": {k: v for k, v in env.items() if k in config.env_setup}
     })
