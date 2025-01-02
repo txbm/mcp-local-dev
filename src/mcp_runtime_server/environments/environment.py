@@ -12,9 +12,9 @@ from mcp_runtime_server.types import Environment, Runtime
 from mcp_runtime_server.environments.runtime import (
     detect_runtime,
     make_runtime_env,
-    RUNTIME_CONFIGS,
-    ensure_runtime_binary
+    RUNTIME_CONFIGS
 )
+from mcp_runtime_server.environments.runtime_binaries import ensure_binary
 from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.environments.commands import clone_repository, run_install
 from mcp_runtime_server.logging import get_logger
@@ -86,7 +86,8 @@ async def create_environment(github_url: str, branch: Optional[str] = None) -> E
             "env_id": env_id,
             "runtime": runtime.value
         })
-        binary_path = await ensure_runtime_binary(runtime)
+        config = RUNTIME_CONFIGS[runtime]
+        binary_path = await ensure_binary(runtime, config)
         target_path = env.sandbox.bin_dir / binary_path.name
         shutil.copy2(binary_path, target_path)
         target_path.chmod(0o755)
