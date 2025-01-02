@@ -9,12 +9,12 @@ from typing import Optional
 from fuuid import b58_fuuid
 
 from mcp_runtime_server.types import Environment
-from mcp_runtime_server.environments.runtime import (
+from mcp_runtime_server.runtimes.runtime import (
     detect_runtime,
     make_runtime_env,
     RUNTIME_CONFIGS,
 )
-from mcp_runtime_server.environments.runtime_binaries import ensure_binary
+from mcp_runtime_server.runtimes.binaries import ensure_binary
 from mcp_runtime_server.environments.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.environments.commands import clone_repository, run_install
 from mcp_runtime_server.logging import get_logger
@@ -37,85 +37,68 @@ async def create_environment(
     Raises:
         RuntimeError: If environment creation fails at any stage
     """
-    env_id = None
-    temp_dir = None
 
-    try:
-        env_id = b58_fuuid()
-        logger.info(
-            {
-                "event": "creating_environment",
-                "env_id": env_id,
-                "github_url": github_url,
-                "branch": branch,
-            }
-        )
+    env_id = b58_fuuid()
+    logger.info(
+        {
+            "event": "creating_environment",
+            "env_id": env_id,
+            "github_url": github_url,
+            "branch": branch,
+        }
+    )
+    sandbox = create_sandbox(f"mcp-{env_id}")
 
-        temp_dir = tempfile.TemporaryDirectory(prefix=f"mcp-{env_id}-")
-        sandbox = create_sandbox(Path(temp_dir.name))
+    logger.debug({"event": "cloning_repository", "work_dir": str(sandbox.work_dir)})
+    await clone_repository(github_url, sandbox.work_dir, branch, sandbox.env_vars)
 
-        logger.debug({"event": "cloning_repository", "work_dir": str(sandbox.work_dir)})
-        await clone_repository(github_url, sandbox.work_dir, branch, sandbox.env_vars)
+    runtime = detect_runtime(sandbox.work_dir)
+    logger.info(
+        {"event": "runtime_detected", "env_id": env_id, "runtime": runtime.value}
+    )
 
-        runtime = detect_runtime(sandbox.work_dir)
-        logger.info(
-            {"event": "runtime_detected", "env_id": env_id, "runtime": runtime.value}
-        )
+    env_vars = make_runtime_env(runtime, sandbox.work_dir, sandbox.env_vars)
 
-        env_vars = make_runtime_env(runtime, sandbox.work_dir, sandbox.env_vars)
+    env = Environment(
+        id=env_id,
+        runtime=runtime,
+        sandbox=sandbox,
+        created_at=datetime.now(timezone.utc),
+        env_vars=env_vars,
+    )
 
-        env = Environment(
-            id=env_id,
-            runtime=runtime,
-            sandbox=sandbox,
-            created_at=datetime.now(timezone.utc),
-            env_vars=env_vars,
-            tempdir=temp_dir,
-        )
+    logger.debug(
+        {
+            "event": "ensuring_runtime_binary",
+            "env_id": env_id,
+            "runtime": runtime.value,
+        }
+    )
+    config = RUNTIME_CONFIGS[runtime]
+    binary_path = await ensure_binary(runtime, config)
+    target_path = env.sandbox.bin_dir / binary_path.name
+    shutil.copy2(binary_path, target_path)
+    target_path.chmod(0o755)
 
-        logger.debug(
-            {
-                "event": "ensuring_runtime_binary",
-                "env_id": env_id,
-                "runtime": runtime.value,
-            }
-        )
-        config = RUNTIME_CONFIGS[runtime]
-        binary_path = await ensure_binary(runtime, config)
-        target_path = env.sandbox.bin_dir / binary_path.name
-        shutil.copy2(binary_path, target_path)
-        target_path.chmod(0o755)
+    logger.debug(
+        {
+            "event": "installing_dependencies",
+            "env_id": env_id,
+            "runtime": runtime.value,
+        }
+    )
+    await run_install(env)
 
-        logger.debug(
-            {
-                "event": "installing_dependencies",
-                "env_id": env_id,
-                "runtime": runtime.value,
-            }
-        )
-        await run_install(env)
+    logger.info(
+        {
+            "event": "environment_ready",
+            "env_id": env_id,
+            "runtime": runtime.value,
+            "work_dir": str(sandbox.work_dir),
+        }
+    )
 
-        logger.info(
-            {
-                "event": "environment_ready",
-                "env_id": env_id,
-                "runtime": runtime.value,
-                "work_dir": str(sandbox.work_dir),
-            }
-        )
-
-        return env
-
-    except Exception as e:
-        logger.error(
-            {"event": "environment_creation_failed", "env_id": env_id, "error": str(e)}
-        )
-
-        if temp_dir:
-            logger.debug({"event": "cleaning_failed_environment", "env_id": env_id})
-            temp_dir.cleanup()
-
-        raise RuntimeError(f"Failed to create environment: {e}")
+    return env
 
 
 def cleanup_environment(env: Environment) -> None:
