@@ -3,13 +3,20 @@
 import os
 import re
 import shutil
-import hashlib
 import aiohttp
+import tempfile
+import zipfile
+import tarfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from mcp_runtime_server.types import Runtime, PackageManager, RuntimeConfig
 from mcp_runtime_server.environments.platforms import get_platform_info, get_binary_location
+from mcp_runtime_server.environments.cache import (
+    get_binary_path,
+    cache_binary,
+    cleanup_cache
+)
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
@@ -245,15 +252,82 @@ async def download_binary(url: str, dest: Path) -> None:
         raise RuntimeError(f"Failed to download binary: {e}")
 
 
-def verify_checksum(file_path: Path, expected: str) -> bool:
-    """Verify file checksum."""
-    sha256_hash = hashlib.sha256()
+def get_archive_files(archive: Union[zipfile.ZipFile, tarfile.TarFile], format: str) -> List[str]:
+    """Get list of files from archive handling different archive types."""
+    try:
+        if isinstance(archive, zipfile.ZipFile):
+            return archive.namelist()
+        else:  # tarfile.TarFile
+            return archive.getnames()
+    except Exception as e:
+        logger.error({
+            "event": "list_archive_failed",
+            "format": format,
+            "error": str(e)
+        })
+        raise ValueError(f"Failed to read {format} archive") from e
+
+
+def extract_binary(archive_path: Path, binary_path: str, dest_dir: Path) -> Path:
+    """Extract binary from archive with flexible support."""
+    format = "".join(archive_path.suffixes[-2:]) if len(archive_path.suffixes) > 1 else archive_path.suffix
     
-    with open(file_path, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
+    archive_handlers = {
+        ".zip": zipfile.ZipFile,
+        ".tar.gz": tarfile.open,
+        ".tgz": tarfile.open
+    }
+    
+    handler = archive_handlers.get(format)
+    if not handler:
+        raise ValueError(f"Unsupported archive format: {format}")
+
+    try:
+        with handler(archive_path) as archive:
+            binary_name = Path(binary_path).name
+            all_files = get_archive_files(archive, format)
             
-    return sha256_hash.hexdigest() == expected
+            matching_files = [f for f in all_files if f.endswith(binary_name)]
+            if not matching_files:
+                logger.error({
+                    "event": "binary_not_found",
+                    "archive": str(archive_path),
+                    "binary_name": binary_name,
+                    "available_files": all_files
+                })
+                raise ValueError(f"Binary {binary_name} not found in archive")
+
+            target = matching_files[0]
+            archive.extract(target, dest_dir)
+            extracted_path = Path(dest_dir) / target
+            
+            if not extracted_path.exists():
+                logger.error({
+                    "event": "extracted_file_missing",
+                    "archive": str(archive_path),
+                    "expected_path": str(extracted_path)
+                })
+                raise ValueError("Failed to extract binary - file missing after extraction")
+            
+            logger.info({
+                "event": "binary_extracted",
+                "archive": str(archive_path),
+                "binary": binary_name,
+                "extracted_to": str(extracted_path)
+            })
+            
+            return extracted_path
+            
+    except Exception as e:
+        if not isinstance(e, ValueError):  # Don't wrap our own exceptions
+            logger.error({
+                "event": "extract_failed",
+                "archive": str(archive_path),
+                "format": format,
+                "error": str(e)
+            })
+            raise ValueError(f"Failed to extract from {archive_path.name}") from e
+        raise
 
 
 async def ensure_runtime_binary(runtime: Runtime) -> Path:
@@ -275,7 +349,18 @@ async def ensure_runtime_binary(runtime: Runtime) -> Path:
         # Get latest version
         version = await get_binary_release_version(runtime)
         
-        # Format download URL based on runtime - use platform-specific paths
+        # Check cache first
+        cached_path = get_binary_path(config.binary_name, version)
+        if cached_path:
+            logger.info({
+                "event": "using_cached_binary",
+                "runtime": runtime.value,
+                "version": version,
+                "path": str(cached_path)
+            })
+            return cached_path
+
+        # Format download URL
         url_vars = {
             "version": version,
             "version_prefix": config.version_prefix,
@@ -294,37 +379,39 @@ async def ensure_runtime_binary(runtime: Runtime) -> Path:
             
         download_url = config.url_template.format(**url_vars)
         
-        # Create temporary directory for download
-        download_dir = Path("/tmp/mcp-downloads").resolve()
-        download_dir.mkdir(exist_ok=True)
-        
-        # Get binary path based on platform
-        binary_location = get_binary_location(config.binary_name)
-        download_path = download_dir / f"{config.binary_name}-{version}"
-        
-        if not download_path.exists():
+        # Download and extract
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            archive_path = tmp_path / Path(download_url).name
+            
             logger.debug({
-                "event": "downloading_runtime_binary",
+                "event": "downloading_binary",
+                "runtime": runtime.value,
+                "url": download_url,
+                "destination": str(archive_path)
+            })
+            
+            await download_binary(download_url, archive_path)
+            binary_location = get_binary_location(config.binary_name)
+            binary = extract_binary(archive_path, binary_location, tmp_path)
+            
+            # Cache the binary
+            cached_binary = cache_binary(config.binary_name, version, binary, "")
+            cleanup_cache()
+            
+            logger.info({
+                "event": "binary_ready",
                 "runtime": runtime.value,
                 "version": version,
-                "url": download_url
+                "path": str(cached_binary)
             })
-            await download_binary(download_url, download_path)
-            download_path.chmod(0o755)
-        
-        logger.info({
-            "event": "runtime_binary_ready",
-            "runtime": runtime.value,
-            "version": version,
-            "path": str(download_path)
-        })
             
-        return download_path
+            return cached_binary
         
     except Exception as e:
         logger.error({
-            "event": "binary_fetch_failed",
+            "event": "ensure_binary_failed",
             "runtime": runtime.value,
             "error": str(e)
         })
-        raise RuntimeError(f"Failed to fetch {runtime.value} binary: {e}")
+        raise RuntimeError(f"Failed to ensure {runtime.value} binary: {e}")
