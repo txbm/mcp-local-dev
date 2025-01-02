@@ -1,1 +1,0 @@
-"""Platform detection and mapping."""

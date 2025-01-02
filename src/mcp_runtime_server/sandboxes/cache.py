@@ -17,14 +17,10 @@ MAX_CACHE_SIZE = 1024 * 1024 * 1024  # 1 GB
 def compute_file_hash(path: Path) -> str:
     """Compute SHA-256 hash of a file."""
     sha256_hash = hashlib.sha256()
-    try:
-        with open(path, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
-    except Exception as e:
-        logger.error({"event": "checksum_failure", "file": str(path), "error": str(e)})
-        raise RuntimeError(f"Checksum failure for {path.name}") from e
+    with open(path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
 
 def get_binary_path(name: str, version: str) -> Optional[Path]:
@@ -35,34 +31,22 @@ def get_binary_path(name: str, version: str) -> Optional[Path]:
     if not cache_path.exists() or not hash_path.exists():
         return None
 
-    try:
-        stored_hash = hash_path.read_text().strip()
-        current_hash = compute_file_hash(cache_path)
+    stored_hash = hash_path.read_text().strip()
+    current_hash = compute_file_hash(cache_path)
 
-        if stored_hash != current_hash:
-            logger.error(
-                {
-                    "event": "cache_validation_failed",
-                    "binary": name,
-                    "version": version,
-                    "stored_hash": stored_hash,
-                    "computed_hash": current_hash,
-                }
-            )
-            return None
-
-        return cache_path
-
-    except Exception as e:
+    if stored_hash != current_hash:
         logger.error(
             {
-                "event": "cache_access_error",
+                "event": "cache_validation_failed",
                 "binary": name,
                 "version": version,
-                "error": str(e),
+                "stored_hash": stored_hash,
+                "computed_hash": current_hash,
             }
         )
         return None
+
+    return cache_path
 
 
 def cache_binary(name: str, version: str, binary_path: Path, checksum: str) -> Path:
@@ -73,55 +57,38 @@ def cache_binary(name: str, version: str, binary_path: Path, checksum: str) -> P
     binary_cache = cache_path / "binary"
     hash_path = binary_cache.with_suffix(".sha256")
 
-    print(binary_path)
-    print(binary_cache)
+    # Copy binary to cache
+    shutil.copy2(binary_path, binary_cache)
+    binary_cache.chmod(0o755)  # Ensure binary is executable
 
-    try:
-        # Copy binary to cache
-        shutil.copy2(binary_path, binary_cache)
-        binary_cache.chmod(0o755)  # Ensure binary is executable
+    # Compute and store hash
+    computed_hash = compute_file_hash(binary_cache)
+    hash_path.write_text(computed_hash)
 
-        print("hello?")
-
-        # Compute and store hash
-        computed_hash = compute_file_hash(binary_cache)
-        hash_path.write_text(computed_hash)
-
-        # Verify checksum if provided
-        if checksum and computed_hash != checksum:
-            logger.error(
-                {
-                    "event": "checksum_verification_failed",
-                    "binary": name,
-                    "version": version,
-                    "computed": computed_hash,
-                    "expected": checksum,
-                }
-            )
-            raise RuntimeError(f"Checksum mismatch for {name} {version}")
-
-        logger.info(
-            {
-                "event": "binary_cached",
-                "binary": name,
-                "version": version,
-                "path": str(binary_cache),
-                "hash": computed_hash,
-            }
-        )
-
-        return binary_cache
-
-    except Exception as e:
+    # Verify checksum if provided
+    if checksum and computed_hash != checksum:
         logger.error(
             {
-                "event": "cache_binary_failed",
+                "event": "checksum_verification_failed",
                 "binary": name,
                 "version": version,
-                "error": str(e),
+                "computed": computed_hash,
+                "expected": checksum,
             }
         )
-        raise RuntimeError(f"Failed to cache {name} {version}") from e
+        raise RuntimeError(f"Checksum mismatch for {name} {version}")
+
+    logger.info(
+        {
+            "event": "binary_cached",
+            "binary": name,
+            "version": version,
+            "path": str(binary_cache),
+            "hash": computed_hash,
+        }
+    )
+
+    return binary_cache
 
 
 def cleanup_cache() -> None:

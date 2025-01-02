@@ -26,50 +26,20 @@ async def download_url(url: str, dest: Path) -> None:
         raise RuntimeError(f"Failed to download url: {e}")
 
 
-async def verify_checksum(file_path: Path, checksum_url: str) -> bool:
+async def download_checksum(checksum_url: str, file_path: Path) -> str:
     """Verify the checksum of a downloaded binary."""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(checksum_url) as response:
-                response.raise_for_status()
-                checksums = await response.text()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(checksum_url) as response:
+            response.raise_for_status()
+            checksums = await response.text()
 
-                for line in checksums.splitlines():
-                    if file_path.name in line:
-                        expected_checksum, _ = line.split()
-                        import hashlib
+            for line in checksums.splitlines():
+                if file_path.name in line:
+                    expected_checksum, _ = line.split()
 
-                        with open(file_path, "rb") as f:
-                            actual_checksum = hashlib.sha256(f.read()).hexdigest()
-                            return actual_checksum == expected_checksum
+                    return expected_checksum
 
-        return False
-    except Exception as e:
-        logger.error(
-            {
-                "event": "checksum_verification_failed",
-                "error": str(e),
-                "file": str(file_path),
-                "checksum_url": checksum_url,
-            }
-        )
-        return False
-
-
-def get_archive_files(
-    archive: Union[zipfile.ZipFile, tarfile.TarFile], format: str
-) -> List[str]:
-    """Get list of files from archive handling different archive types."""
-    try:
-        if isinstance(archive, zipfile.ZipFile):
-            return archive.namelist()
-        else:  # tarfile.TarFile
-            return archive.getnames()
-    except Exception as e:
-        logger.error(
-            {"event": "list_archive_failed", "format": format, "error": str(e)}
-        )
-        raise ValueError(f"Failed to read {format} archive") from e
+    raise RuntimeError("No valid checksum found!")
 
 
 def extract_archive(archive_path: Path, dest_dir: Path) -> Path:
@@ -103,3 +73,19 @@ def extract_archive(archive_path: Path, dest_dir: Path) -> Path:
         )
 
         return dest_dir
+
+
+def get_archive_files(
+    archive: Union[zipfile.ZipFile, tarfile.TarFile], format: str
+) -> List[str]:
+    """Get list of files from archive handling different archive types."""
+    try:
+        if isinstance(archive, zipfile.ZipFile):
+            return archive.namelist()
+        else:  # tarfile.TarFile
+            return archive.getnames()
+    except Exception as e:
+        logger.error(
+            {"event": "list_archive_failed", "format": format, "error": str(e)}
+        )
+        raise ValueError(f"Failed to read {format} archive") from e

@@ -8,9 +8,7 @@ from typing import Optional
 from fuuid import b58_fuuid
 
 from mcp_runtime_server.types import Environment, Sandbox
-from mcp_runtime_server.runtimes.runtime import (
-    detect_runtime,
-)
+from mcp_runtime_server.runtimes.runtime import detect_runtime, install_runtime
 from mcp_runtime_server.sandboxes.sandbox import create_sandbox, cleanup_sandbox
 from mcp_runtime_server.sandboxes.git import clone_github_repository
 from mcp_runtime_server.logging import get_logger
@@ -51,54 +49,31 @@ async def create_environment(path: Path) -> Environment:
         }
     )
 
+    runtime_bin, pkg_bin, test_bin = await install_runtime(sandbox, runtime_config)
+
     env = Environment(
         id=env_id,
         runtime_config=runtime_config,
         sandbox=sandbox,
         created_at=datetime.now(timezone.utc),
+        runtime_bin=runtime_bin,
+        pkg_bin=pkg_bin,
+        test_bin=test_bin,
     )
 
-    # config = RUNTIME_CONFIGS[runtime]
-    # binary_path = await ensure_binary(runtime, config)
-    # target_path = env.sandbox.bin_dir / binary_path.name
-    # shutil.copy2(binary_path, target_path)
-    # target_path.chmod(0o755)
-
-    # logger.debug(
-    #     {
-    #         "event": "installing_dependencies",
-    #         "env_id": env_id,
-    #         "runtime": runtime.value,
-    #     }
-    # )
-    # await run_install(env)
-
-    # logger.info(
-    #     {
-    #         "event": "environment_ready",
-    #         "env_id": env_id,
-    #         "runtime": runtime.value,
-    #         "work_dir": str(sandbox.work_dir),
-    #     }
-    # )
+    logger.info(
+        {
+            "event": "environment_ready",
+            "env_id": env_id,
+            "runtime": runtime_config.name.value,
+            "work_dir": sandbox.work_dir,
+        }
+    )
 
     return env
 
 
 def cleanup_environment(env: Environment) -> None:
-    """Clean up environment and its resources.
-
-    Even if not called, environment will be cleaned up when Environment
-    object is destroyed via TemporaryDirectory.
-
-    Args:
-        env: Environment instance to clean up
-
-    Raises:
-        RuntimeError: If cleanup fails
-    """
-    logger.debug({"event": "cleaning_environment", "env_id": env.id})
+    """Clean up environment and its resources."""
 
     cleanup_sandbox(env.sandbox)
-
-    logger.info({"event": "environment_cleaned", "env_id": env.id})

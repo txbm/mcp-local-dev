@@ -1,12 +1,13 @@
 """Runtime detection and configuration."""
 
-import os
-import shutil
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 from mcp_runtime_server.types import Runtime, PackageManager, RuntimeConfig, Sandbox
 from mcp_runtime_server.logging import get_logger
+from mcp_runtime_server.runtimes import (
+    python,
+)
 
 logger = get_logger(__name__)
 
@@ -31,7 +32,6 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
         binary_name="bun",
         url_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/bun-{platform}-{arch}.{format}",
         checksum_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/SHASUMS.txt",
-        github_release=True,
     ),
     Runtime.PYTHON: RuntimeConfig(
         name=Runtime.PYTHON,
@@ -44,13 +44,10 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
         },
         bin_paths=[".venv/bin", ".venv/Scripts"],  # Scripts for Windows
         binary_name="uv",
-        url_template="https://github.com/{owner}/{repo}/releases/download/{version_prefix}{version}/uv-{platform}.{format}",
-        checksum_template=None,
+        url_template="https://github.com/astral-sh/uv/releases/download/{version_prefix}{version}/uv-{platform}.{format}",
+        checksum_template="https://github.com/astral-sh/uv/releases/download/{version}/uv-{platform}.{format}.sha256",
         platform_style="composite",
         version_prefix="",
-        github_release=True,
-        owner="astral-sh",
-        repo="uv",
     ),
 }
 
@@ -98,3 +95,13 @@ def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
         }
     )
     raise ValueError("No supported runtime detected")
+
+
+async def install_runtime(
+    sandbox: Sandbox, config: RuntimeConfig
+) -> tuple[Path, Path, Path]:
+    match config.name:
+        case Runtime.PYTHON:
+            return await python.install_runtime(sandbox, config)
+
+    raise RuntimeError(f"Unsupported runtime name {config.name}")
