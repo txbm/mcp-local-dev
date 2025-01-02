@@ -42,6 +42,58 @@ class RuntimeConfig:
     package_manager: PackageManager  # Default package manager
     env_setup: Dict[str, str]  # Base environment variables
     bin_paths: List[str]  # Possible binary paths in priority order
+    binary_name: str  # Name of the runtime binary
+    url_template: str  # Download URL template
+    checksum_template: Optional[str]  # Optional checksum URL template
+    platform_style: str = "simple"  # Platform string style (simple or composite)
+    version_prefix: str = "v"  # Version number prefix in URLs
+    github_release: bool = False  # Whether this uses GitHub releases
+    owner: Optional[str] = None  # GitHub owner for releases
+    repo: Optional[str] = None  # GitHub repo for releases
+
+
+RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
+    Runtime.NODE: RuntimeConfig(
+        config_files=["package.json"],
+        package_manager=PackageManager.NPM,
+        env_setup={
+            "NODE_NO_WARNINGS": "1",
+            "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+        },
+        bin_paths=["node_modules/.bin"],
+        binary_name="node",
+        url_template="https://nodejs.org/dist/{version_prefix}{version}/node-{version_prefix}{version}-{platform}-{arch}.{format}",
+        checksum_template="https://nodejs.org/dist/{version_prefix}{version}/SHASUMS256.txt"
+    ),
+    Runtime.BUN: RuntimeConfig(
+        config_files=["bun.lockb", "package.json"],
+        package_manager=PackageManager.BUN,
+        env_setup={"NO_INSTALL_HINTS": "1"},
+        bin_paths=["node_modules/.bin"],
+        binary_name="bun",
+        url_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/bun-{platform}-{arch}.{format}",
+        checksum_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/SHASUMS.txt",
+        github_release=True
+    ),
+    Runtime.PYTHON: RuntimeConfig(
+        config_files=["pyproject.toml", "setup.py", "requirements.txt"],
+        package_manager=PackageManager.UV,
+        env_setup={
+            "PIP_NO_CACHE_DIR": "1",
+            "PYTHONUNBUFFERED": "1",
+            "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        bin_paths=[".venv/bin", ".venv/Scripts"],  # Scripts for Windows
+        binary_name="uv",
+        url_template="https://github.com/{owner}/{repo}/releases/download/{version_prefix}{version}/uv-{platform}.{format}",
+        checksum_template=None,
+        platform_style="composite",
+        version_prefix="",
+        github_release=True,
+        owner="astral-sh",
+        repo="uv"
+    )
+}
 
 
 @dataclass(frozen=True)
