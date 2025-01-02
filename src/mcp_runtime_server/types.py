@@ -36,6 +36,14 @@ class PackageManager(str, Enum):
 
 
 @dataclass(frozen=True)
+class RuntimeContext:
+    """Context for runtime operations."""
+    work_dir: Path
+    bin_dir: Path
+    env_vars: Dict[str, str]
+
+
+@dataclass(frozen=True)
 class Sandbox:
     root: Path
     work_dir: Path
