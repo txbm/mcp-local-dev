@@ -2,23 +2,13 @@
 
 import os
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from mcp_runtime_server.types import Runtime, PackageManager
+from mcp_runtime_server.types import Runtime, PackageManager, RuntimeConfig
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class RuntimeConfig:
-    """Runtime configuration details."""
-    config_files: List[str]  # Files that indicate this runtime
-    package_manager: PackageManager  # Default package manager
-    env_setup: Dict[str, str]  # Base environment variables
-    bin_paths: List[str]  # Possible binary paths in priority order
 
 
 RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
