@@ -1,5 +1,6 @@
 """Sandbox directory and security management."""
 
+import json
 import tempfile
 import asyncio
 import os
@@ -10,8 +11,11 @@ from typing import Dict, Tuple, Optional
 
 from mcp_runtime_server.types import Sandbox
 from mcp_runtime_server.logging import get_logger
+from mcp_runtime_server.utils.fs import copy_binaries_to_dest
 
 logger = get_logger(__name__)
+
+_SYSTEM_BINARIES_TO_BORROW = ("git", "sed", "basename", "uname")
 
 
 def _make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
@@ -45,12 +49,14 @@ def _make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
             )
 
         # Set base environment variables
-        base_env = os.environ.copy()
+        # base_env = os.environ.copy()
+        base_env = {}
         sandbox_env = {
             "TMPDIR": str(dirs["tmp"]),
             "XDG_CACHE_HOME": str(dirs["cache"]),
             "XDG_RUNTIME_DIR": str(dirs["tmp"]),
             "PATH": f"{dirs['bin']}",
+            "HOME": str(dirs["work"]),
         }
         base_env.update(sandbox_env)
 
@@ -76,23 +82,6 @@ def _make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
         if root.exists():
             shutil.rmtree(root, ignore_errors=True)
         raise RuntimeError(f"Failed to create sandbox directories: {e}")
-
-
-async def _copy_system_binaries(sandbox: Sandbox):
-
-    process = await run_system_command("which git", sandbox.work_dir)
-    stdout, stderr = await process.communicate()
-
-    if process.returncode == 0:
-        bin_path = Path(stdout.decode().strip())
-        if bin_path.exists():
-            logger.debug(
-                {
-                    "event": "found_git",
-                    "git_path": bin_path,
-                }
-            )
-            shutil.copy2(bin_path, sandbox.bin_dir)
 
 
 def _apply_security(sandbox: Sandbox) -> None:
@@ -152,7 +141,7 @@ async def create_sandbox(prefix: str) -> Sandbox:
             temp_dir=temp_dir,
         )
 
-        await _copy_system_binaries(sandbox)
+        await copy_binaries_to_dest(_SYSTEM_BINARIES_TO_BORROW, sandbox.bin_dir)
         _apply_security(sandbox)
 
         logger.info(
@@ -217,6 +206,15 @@ async def run_sandboxed_command(
     sandbox_env_vars = sandbox.env_vars
     if env_vars:
         sandbox_env_vars.update(env_vars)
+
+    logger.debug(
+        {
+            "event": "sandbox_cmd_exec",
+            "cmd": cmd,
+            "cwd": sandbox.work_dir,
+            "env": json.dumps(sandbox_env_vars),
+        }
+    )
 
     try:
         return await asyncio.create_subprocess_shell(
