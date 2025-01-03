@@ -20,7 +20,8 @@ from mcp_runtime_server.utils.fetching import (
     download_checksum,
     extract_archive,
 )
-from mcp_runtime_server.utils.generic import dict_to_hash, move_files
+from mcp_runtime_server.utils.generic import dict_to_hash
+from mcp_runtime_server.utils.fs import move_files
 
 logger = get_logger(__name__)
 
