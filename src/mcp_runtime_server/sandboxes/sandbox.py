@@ -138,7 +138,7 @@ async def create_sandbox(prefix: str) -> Sandbox:
     """
     try:
 
-        temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
+        temp_dir = tempfile.TemporaryDirectory(prefix=prefix, delete=False)
         root = Path(temp_dir.name)
         dirs, env_vars = _make_sandbox_dirs(root)
 
