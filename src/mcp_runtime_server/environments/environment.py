@@ -41,14 +41,6 @@ async def create_environment(path: Path) -> Environment:
     shutil.copytree(path, sandbox.work_dir, dirs_exist_ok=True)
 
     runtime_config = detect_runtime(sandbox)
-    logger.info(
-        {
-            "event": "runtime_detected",
-            "env_id": env_id,
-            "runtime": runtime_config.name.value,
-        }
-    )
-
     runtime_bin, pkg_bin, test_bin = await install_runtime(sandbox, runtime_config)
 
     env = Environment(
@@ -63,7 +55,7 @@ async def create_environment(path: Path) -> Environment:
 
     logger.info(
         {
-            "event": "environment_ready",
+            "event": "environment_created",
             "env_id": env_id,
             "runtime": runtime_config.name.value,
             "work_dir": sandbox.work_dir,

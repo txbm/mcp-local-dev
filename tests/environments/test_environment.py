@@ -12,7 +12,7 @@ from mcp_runtime_server.environments.environment import (
 async def staging_sandbox():
     sandbox = await create_sandbox("staging-")
     yield sandbox
-    cleanup_sandbox(sandbox)
+    # cleanup_sandbox(sandbox)
 
 
 @pytest.mark.asyncio
