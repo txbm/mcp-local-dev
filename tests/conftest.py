@@ -11,11 +11,13 @@ from mcp_runtime_server.sandboxes.sandbox import create_sandbox
 async def sandbox():
     """Create a real temporary sandbox for testing"""
     sandbox = await create_sandbox("test-")
-    yield sandbox
-    sandbox.temp_dir.cleanup()
+    try:
+        yield sandbox
+    finally:
+        sandbox.temp_dir.cleanup()
 
 @pytest_asyncio.fixture
-def python_runtime_config():
+async def python_runtime_config():
     """Standard Python runtime config"""
     return RuntimeConfig(
         name=Runtime.PYTHON,
@@ -28,7 +30,7 @@ def python_runtime_config():
         binary_name="python"
     )
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def python_environment(sandbox, python_runtime_config):
     """Create a real Python environment with sandbox"""
     env = Environment(
