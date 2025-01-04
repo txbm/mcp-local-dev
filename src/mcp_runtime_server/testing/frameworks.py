@@ -133,7 +133,7 @@ def detect_frameworks(env: Environment) -> List[TestFramework]:
     logger.info({"event": "framework_detection_start", "project_dir": str(env.sandbox.work_dir)})
 
     # Check for installed test runners based on runtime
-    if env.runtime == Runtime.PYTHON:
+    if env.runtime_config.name == Runtime.PYTHON:
         pytest_bin = env.sandbox.bin_dir / "pytest"
         if pytest_bin.exists() and _find_test_dirs(env.sandbox.work_dir, env):
             logger.info({"event": "framework_detected", "framework": "pytest"})
