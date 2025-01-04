@@ -89,7 +89,7 @@ async def install_runtime(
     
     # Verify required binaries exist
     required_binaries = [config.binary_name]
-    pkg_bin = sandbox.bin_dir / config.package_manager.value.lower()
+    pkg_bin = sandbox.bin_dir / config.package_manager.name.lower()
     runtime_bin = sandbox.bin_dir / config.binary_name
     
     if config.package_manager == PackageManager.UV:
