@@ -51,31 +51,40 @@ async def run_pytest_for_directory(env: Environment, test_dir: Path) -> dict[str
     stdout_text = stdout.decode() if stdout else ""
     stderr_text = stderr.decode() if stderr else ""
     
-    # Basic parsing of pytest output
-    result = {
-        "tests": [],
-        "summary": {
-            "total": 0,
-            "passed": 0,
-            "failed": 0,
-            "skipped": 0
-        },
-        "stdout": stdout_text,
-        "stderr": stderr_text
+    # Initialize counters
+    summary = {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
     }
+    tests = []
 
     # Parse test results from output
     for line in stdout_text.splitlines():
         if "PASSED" in line or "FAILED" in line or "SKIPPED" in line:
             test_name = line.split("::")[1].split()[0] if "::" in line else line
             status = "passed" if "PASSED" in line else "failed" if "FAILED" in line else "skipped"
-            result["tests"].append({
+            test = {
                 "nodeid": test_name,
                 "outcome": status,
                 "stdout": stdout_text,
                 "duration": 0.0  # We don't parse duration for now
-            })
-            result["summary"][status] += 1
-            result["summary"]["total"] += 1
+            }
+            tests.append(test)
+            summary[status] += 1
+            summary["total"] += 1
+
+    result = {
+        "summary": summary,  # Make sure summary is at the top level
+        "tests": tests,
+        "stdout": stdout_text,
+        "stderr": stderr_text
+    }
+
+    logger.info({
+        "event": "test_summary",
+        "data": summary
+    })
 
     return result
