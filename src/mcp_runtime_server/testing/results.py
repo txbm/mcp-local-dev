@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import mcp.types as types
+from mcp_runtime_server.types import TestCase
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
