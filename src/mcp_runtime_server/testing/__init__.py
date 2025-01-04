@@ -1,1 +1,0 @@
-"""Testing package initialization."""
