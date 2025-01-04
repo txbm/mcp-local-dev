@@ -68,24 +68,14 @@ def check_test_environment(env: Environment) -> ValidationResult:
     )
 
 def check_test_results(results: Dict[str, Any]) -> ValidationResult:
-    """Check if test results match expected format"""
-    errors = []
-    
-    if results is None:
-        return ValidationResult(is_valid=False, errors=["results cannot be None"])
-        
+    """Check test results format."""
     if not isinstance(results, dict):
         return ValidationResult(is_valid=False, errors=["results must be a dictionary"])
 
-    # Required fields
-    if "success" not in results:
-        errors.append("missing success indicator")
-    if "summary" not in results:
-        errors.append("missing test summary")
-    if "tests" not in results:
-        errors.append("missing test cases")
+    required = ["success", "summary", "test_cases"]
+    missing = [f for f in required if f not in results]
+    if missing:
+        errors = [f"missing required fields: {', '.join(missing)}"]
+        return ValidationResult(is_valid=False, errors=errors)
 
-    return ValidationResult(
-        is_valid=len(errors) == 0,
-        errors=errors
-    )
+    return ValidationResult(is_valid=True, errors=[])
