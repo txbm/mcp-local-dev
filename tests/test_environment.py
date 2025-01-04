@@ -33,7 +33,7 @@ async def test_create_environment_from_github():
         )
         assert env.runtime_config.name == Runtime.PYTHON
         assert env.sandbox.work_dir.exists()
-        assert (env.sandbox.work_dir / "setup.py").exists()
+        assert (env.sandbox.work_dir / "pyproject.toml").exists()
         
         # Cleanup
         env.sandbox.temp_dir.cleanup()
