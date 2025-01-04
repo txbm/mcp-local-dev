@@ -176,12 +176,23 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
             summary = parse_pytest_json(report)
             all_results.append(summary)
         except json.JSONDecodeError:
+            stdout_str = stdout.decode() if stdout else ""
+            stderr_str = stderr.decode() if stderr else ""
+            error_msg = f"Failed to parse test output for {test_dir}"
+            logger.error({
+                "event": "pytest_parse_error",
+                "error": error_msg,
+                "stdout": stdout_str,
+                "stderr": stderr_str
+            })
             all_results.append(
                 {
                     "success": process.returncode == 0,
-                    "error": f"Failed to parse test output for {test_dir}",
-                    "stdout": stdout.decode() if stdout else "",
-                    "stderr": stderr.decode() if stderr else "",
+                    "error": error_msg,
+                    "output": {
+                        "stdout": stdout_str,
+                        "stderr": stderr_str
+                    }
                 }
             )
 
