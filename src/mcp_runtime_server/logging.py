@@ -3,9 +3,7 @@ import json
 import logging
 import re
 import sys
-from typing import Any, Dict, List, Optional, NamedTuple
-from dataclasses import dataclass, asdict
-import mcp.types as types
+from typing import Any, Dict
 from pathlib import Path
 
 # Don't modify root logger - MCP server uses it for stdout

@@ -1,13 +1,9 @@
 """Runtime detection and configuration."""
 
-from pathlib import Path
 from typing import Dict
 
 from mcp_runtime_server.types import Runtime, PackageManager, RuntimeConfig, Sandbox
 from mcp_runtime_server.logging import get_logger
-from mcp_runtime_server.runtimes import (
-    python,
-)
 
 logger = get_logger(__name__)
 

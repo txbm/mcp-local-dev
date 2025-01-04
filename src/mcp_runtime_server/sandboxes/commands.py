@@ -1,8 +1,5 @@
 """Environment command execution."""
 
-import asyncio
-from typing import Dict, Optional
-from pathlib import Path
 
 from mcp_runtime_server.types import PackageManager, Environment
 from mcp_runtime_server.logging import get_logger
