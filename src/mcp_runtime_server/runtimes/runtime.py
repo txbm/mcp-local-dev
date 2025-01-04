@@ -108,7 +108,3 @@ async def install_runtime(
     for key, value in config.env_setup.items():
         sandbox.env_vars[key] = value
         
-    # Add package manager bin path to sandbox PATH
-    from mcp_runtime_server.sandboxes.sandbox import update_sandbox_path
-    update_sandbox_path(sandbox, config.package_manager)
-    

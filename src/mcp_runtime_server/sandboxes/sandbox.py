@@ -121,21 +121,3 @@ async def run_sandboxed_command(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
-def update_sandbox_path(sandbox: Sandbox, pkg_manager: PackageManager) -> None:
-    """Update sandbox PATH to include package manager bin directory."""
-    pkg_bin_path = None
-    
-    match pkg_manager:
-        case PackageManager.UV:
-            pkg_bin_path = sandbox.work_dir / ".venv" / "bin"
-        case PackageManager.NPM | PackageManager.BUN:
-            pkg_bin_path = sandbox.work_dir / "node_modules" / ".bin"
-            
-    if pkg_bin_path:
-        current_path = sandbox.env_vars["PATH"]
-        sandbox.env_vars["PATH"] = f"{pkg_bin_path}:{current_path}"
-        logger.debug({
-            "event": "updated_sandbox_path",
-            "package_manager": pkg_manager.value,
-            "bin_path": str(pkg_bin_path)
-        })
