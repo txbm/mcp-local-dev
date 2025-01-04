@@ -129,12 +129,6 @@ async def init_server() -> Server:
                 type="text",
             )
         ]
-            logger.exception(f"Tool invocation failed: {str(e)}")
-            return [
-                types.TextContent(
-                    text=json.dumps({"success": False, "error": str(e)}), type="text"
-                )
-            ]
 
     @server.progress_notification()
     async def handle_progress(
