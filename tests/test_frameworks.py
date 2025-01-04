@@ -11,7 +11,7 @@ async def test_detect_and_run_pytest(python_environment):
     env = python_environment
     project_path = Path(__file__).parent
     # Copy sample test files to sandbox
-    fixtures_dir = project_path / "fixtures"
+    fixtures_dir = project_path.parent / "test_data" / "pytest"
     test_files = {
         "sample_test.py": "test_sample.py",
         "sample_conftest.py": "conftest.py"
