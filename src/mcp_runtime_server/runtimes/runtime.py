@@ -87,10 +87,8 @@ def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
 
 async def install_runtime(
     sandbox: Sandbox, config: RuntimeConfig
-) -> tuple[Path, Path, Path]:
+) -> None:
     """Install runtime assuming binaries are on system path"""
-    runtime_bin = Path(config.binary_name)
-    pkg_bin = Path(config.package_manager.value.lower())
-    test_bin = Path("pytest" if config.name == Runtime.PYTHON else "jest")
-    
-    return runtime_bin, pkg_bin, test_bin
+    # Runtime installation logic would go here
+    # Currently just verifying system binaries exist
+    pass

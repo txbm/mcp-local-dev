@@ -48,16 +48,13 @@ async def create_environment(path: Path) -> Environment:
     os.chmod(sandbox.bin_dir, 0o700)
 
     runtime_config = detect_runtime(sandbox)
-    runtime_bin, pkg_bin, test_bin = await install_runtime(sandbox, runtime_config)
+    await install_runtime(sandbox, runtime_config)
 
     env = Environment(
         id=env_id,
         runtime_config=runtime_config,
         sandbox=sandbox,
         created_at=datetime.now(timezone.utc),
-        runtime_bin=runtime_bin,
-        pkg_bin=pkg_bin,
-        test_bin=test_bin,
     )
 
     logger.info(
