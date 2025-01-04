@@ -52,7 +52,7 @@ async def create_environment(path: Path) -> Environment:
 
     env = Environment(
         id=env_id,
-        runtime_config=runtime_config,
+        runtime=runtime_config.name,
         sandbox=sandbox,
         created_at=datetime.now(timezone.utc),
     )
