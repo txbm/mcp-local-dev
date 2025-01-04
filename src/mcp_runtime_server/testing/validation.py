@@ -1,62 +1,93 @@
 """Test validation utilities."""
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from mcp_runtime_server.types import Environment
 
 
-def validate_test_environment(env: Environment) -> bool:
-    """Validate that an environment is properly configured for testing."""
+@dataclass(frozen=True)
+class ValidationResult:
+    """Validation result with optional error details"""
+    is_valid: bool
+    errors: List[str] = None
+
+
+def check_test_environment(env: Environment) -> ValidationResult:
+    """Check if an environment is properly configured for testing"""
+    errors = []
+    
     if not isinstance(env.sandbox.work_dir, Path):
-        raise ValueError("Invalid environment: sandbox work_dir must be a Path object")
+        errors.append("sandbox work_dir must be a Path object")
     if not isinstance(env.sandbox.bin_dir, Path):
-        raise ValueError("Invalid environment: sandbox bin_dir must be a Path object")
+        errors.append("sandbox bin_dir must be a Path object") 
     if not env.sandbox.work_dir:
-        raise ValueError("Invalid environment: missing sandbox work directory")
+        errors.append("missing sandbox work directory")
     if not env.sandbox.bin_dir:
-        raise ValueError("Invalid environment: missing sandbox binary directory")
-    return True
+        errors.append("missing sandbox binary directory")
+        
+    return ValidationResult(
+        is_valid=len(errors) == 0,
+        errors=errors
+    )
 
 
-def validate_test_results(results: Dict[str, Any]) -> bool:
-    """Validate test results match expected format."""
+def check_test_results(results: Dict[str, Any]) -> ValidationResult:
+    """Check if test results match expected format"""
+    errors = []
+    
     if results is None:
-        raise ValueError("Invalid test results: cannot be None")
+        return ValidationResult(is_valid=False, errors=["results cannot be None"])
+        
     if not isinstance(results, dict):
-        raise ValueError("Invalid test results: must be a dictionary")
+        return ValidationResult(is_valid=False, errors=["results must be a dictionary"])
 
     # Required fields
     if "framework" not in results:
-        raise ValueError("Invalid test results: missing framework")
+        errors.append("missing framework field")
     if "success" not in results:
-        raise ValueError("Invalid test results: missing success indicator")
+        errors.append("missing success indicator")
 
     # Framework-specific validation
-    framework = results["framework"]
-    if framework == "pytest":
-        _validate_pytest_results(results)
-    elif framework == "unittest":
-        _validate_unittest_results(results)
-    else:
-        raise ValueError(f"Invalid test results: unknown framework {framework}")
+    if "framework" in results:
+        framework = results["framework"]
+        if framework == "pytest":
+            framework_result = _check_pytest_results(results)
+        elif framework == "unittest":
+            framework_result = _check_unittest_results(results)
+        else:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"unknown framework: {framework}"]
+            )
+            
+        if not framework_result.is_valid:
+            errors.extend(framework_result.errors)
 
-    return True
+    return ValidationResult(
+        is_valid=len(errors) == 0,
+        errors=errors
+    )
 
 
-def _validate_pytest_results(results: Dict[str, Any]) -> None:
-    """Validate pytest-specific results."""
+def _check_pytest_results(results: Dict[str, Any]) -> ValidationResult:
+    """Check pytest-specific results format"""
     required_fields = ["total", "passed", "failed", "skipped", "test_cases"]
     missing = [f for f in required_fields if f not in results]
-    if missing:
-        raise ValueError(f"Invalid pytest results: missing fields {', '.join(missing)}")
+    
+    return ValidationResult(
+        is_valid=len(missing) == 0,
+        errors=[f"missing pytest fields: {', '.join(missing)}"] if missing else None
+    )
 
 
-def _validate_unittest_results(results: Dict[str, Any]) -> None:
-    """Validate unittest-specific results."""
+def _check_unittest_results(results: Dict[str, Any]) -> ValidationResult:
+    """Check unittest-specific results format"""
     required_fields = ["test_dirs", "results"]
     missing = [f for f in required_fields if f not in results]
-    if missing:
-        raise ValueError(
-            f"Invalid unittest results: missing fields {', '.join(missing)}"
-        )
+    
+    return ValidationResult(
+        is_valid=len(missing) == 0,
+        errors=[f"missing unittest fields: {', '.join(missing)}"] if missing else None
+    )
