@@ -167,37 +167,15 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
             report = await run_pytest_for_directory(env, test_dir)
             summary = parse_pytest_json(report)
             all_results.append(summary)
-        except RuntimeError as e:
-            logger.error({
-                "event": "pytest_execution_failed",
-                "directory": str(test_dir),
-                "error": str(e)
-            })
-            all_results.append({
-                "success": False,
-                "error": str(e),
-                "test_dir": str(test_dir)
-            })
-        except ValueError as e:
-            logger.error({
-                "event": "pytest_output_invalid",
-                "directory": str(test_dir),
-                "error": str(e)
-            })
-            all_results.append({
-                "success": False,
-                "error": str(e),
-                "test_dir": str(test_dir)
-            })
         except Exception as e:
             logger.error({
-                "event": "pytest_unexpected_error",
+                "event": "pytest_error",
                 "directory": str(test_dir),
                 "error": str(e)
             })
             all_results.append({
                 "success": False,
-                "error": f"Unexpected error running tests: {e}",
+                "error": str(e),
                 "test_dir": str(test_dir)
             })
 
