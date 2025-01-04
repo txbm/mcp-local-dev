@@ -1,17 +1,10 @@
 """Test validation utilities."""
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any
 
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.types import Environment, ValidationResult
 
-
-@dataclass(frozen=True)
-class ValidationResult:
-    """Validation result with optional error details"""
-    is_valid: bool
-    errors: List[str] = None
 
 
 def check_test_environment(env: Environment) -> ValidationResult:

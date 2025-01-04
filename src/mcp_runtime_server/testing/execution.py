@@ -7,9 +7,9 @@ from mcp_runtime_server.environments.environment import Environment
 from mcp_runtime_server.testing.frameworks import (
     detect_frameworks,
     run_framework_tests,
-    RunConfig,
     _find_test_dirs
 )
+from mcp_runtime_server.types import RunConfig
 from mcp_runtime_server.testing.results import format_test_results
 from mcp_runtime_server.logging import get_logger
 

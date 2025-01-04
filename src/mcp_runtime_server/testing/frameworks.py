@@ -272,12 +272,6 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
     return result
 
 
-@dataclass(frozen=True)
-class RunConfig:
-    """Test run configuration"""
-    framework: TestFramework
-    env: Environment
-    test_dirs: List[Path]
 
 async def run_framework_tests(config: RunConfig) -> Dict[str, Any]:
     """Run tests for a specific framework in the environment"""
