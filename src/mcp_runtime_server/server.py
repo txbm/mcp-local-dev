@@ -16,7 +16,7 @@ from mcp_runtime_server.environments.environment import (
     create_environment,
     cleanup_environment,
 )
-from mcp_runtime_server.testing.execution import auto_run_tests
+from mcp_runtime_server.test_runners.execution import auto_run_tests
 from mcp_runtime_server.logging import configure_logging, get_logger
 
 logger = get_logger("server")
