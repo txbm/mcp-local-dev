@@ -24,38 +24,28 @@ async def async_subprocess_run(*args):
     return proc.returncode, stdout.decode(), stderr.decode()
 
 
-async def copy_binaries_to_dest(binaries: list[str], dest_dir: Path):
-    for binary in binaries:
-        if platform.system() == "Windows":
-            which_cmd = ["where", binary]
-        else:
-            which_cmd = ["which", binary]
-
-        returncode, stdout, stderr = await async_subprocess_run(*which_cmd)
-        if returncode and returncode != 0:
-            raise subprocess.CalledProcessError(returncode, which_cmd, stdout, stderr)
-
-        binary_path = stdout.strip()
-        destination_path = os.path.join(dest_dir, os.path.basename(binary_path))
-
-        if platform.system() == "Darwin":
-            cp_command = ["cp", "-p", "-X", binary_path, destination_path]
-            returncode, _, _ = await async_subprocess_run(*cp_command)
-            if returncode and returncode != 0:
-                raise subprocess.CalledProcessError(returncode, cp_command)
-        elif platform.system() == "Linux":
-            cp_command = ["cp", "-p", "--preserve=all", binary_path, destination_path]
-            returncode, _, _ = await async_subprocess_run(*cp_command)
-            if returncode and returncode != 0:
-                raise subprocess.CalledProcessError(returncode, cp_command)
-        elif platform.system() == "Windows":
-            shutil.copy(binary_path, destination_path)
-        else:
-            raise OSError("Unsupported operating system")
-
-        logger.debug(
-            {"event": "copy_sys_binary", "bin": binary, "dest": destination_path}
-        )
+async def copy_binary_to_dest(binary: str, dest_dir: Path) -> Path:
+    """Copy a system binary to destination directory."""
+    # Find binary path using appropriate command
+    which_cmd = ["where", binary] if platform.system() == "Windows" else ["which", binary]
+    
+    returncode, stdout, stderr = await async_subprocess_run(*which_cmd)
+    if returncode != 0:
+        raise RuntimeError(f"Binary {binary} not found: {stderr}")
+        
+    binary_path = stdout.strip()
+    dest_path = dest_dir / os.path.basename(binary_path)
+    
+    # Copy preserving permissions
+    shutil.copy2(binary_path, dest_path)
+    
+    logger.debug({
+        "event": "binary_copied",
+        "source": binary_path,
+        "destination": str(dest_path)
+    })
+    
+    return dest_path
 
 
 def move_files(src: Path, dst: Path):
