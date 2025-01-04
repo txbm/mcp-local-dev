@@ -9,7 +9,9 @@ from tempfile import TemporaryDirectory
 
 Runtime = Enum('Runtime', ['PYTHON', 'NODE', 'BUN'])
 PackageManager = Enum('PackageManager', ['UV', 'NPM', 'BUN'])
-TestFramework = Enum('TestFramework', ['PYTEST'])
+class TestFramework(Enum):
+    """Test framework types"""
+    PYTEST = 'pytest'
 
 @dataclass(frozen=True)
 class RuntimeConfig:
