@@ -4,10 +4,9 @@ import json
 
 import mcp.types as types
 from mcp_runtime_server.environments.environment import Environment
-from mcp_runtime_server.testing.frameworks import (
-    detect_frameworks,
-    run_framework_tests,
-    _find_test_dirs
+from mcp_runtime_server.testing.test_runners import (
+    detect_test_runners,
+    run_test_runner
 )
 from mcp_runtime_server.types import RunConfig
 from mcp_runtime_server.testing.results import format_test_results
@@ -20,24 +19,24 @@ async def auto_run_tests(
     env: Environment,
 ) -> list[types.TextContent]:
     """Auto-detect and run tests in the environment."""
-    frameworks = detect_frameworks(env)
-    if not frameworks:
+    runners = detect_test_runners(env)
+    if not runners:
         logger.info(
-            {"event": "no_frameworks_detected", "working_dir": str(env.sandbox.work_dir)}
+            {"event": "no_test_runners_detected", "working_dir": str(env.sandbox.work_dir)}
         )
         return [
             types.TextContent(
                 text=json.dumps(
-                    {"success": False, "error": "No test frameworks detected"}
+                    {"success": False, "error": "No test runners detected"}
                 ),
                 type="text",
             )
         ]
 
     results = []
-    for framework in frameworks:
-        config = RunConfig(framework=framework, env=env, test_dirs=_find_test_dirs(env.sandbox.work_dir, env))
-        result = await run_framework_tests(config)
+    for runner in runners:
+        config = RunConfig(runner=runner, env=env, test_dirs=[env.sandbox.work_dir])
+        result = await run_test_runner(config)
         results.append(result)
 
     all_passed = all(r.get("success", False) for r in results)
@@ -45,7 +44,7 @@ async def auto_run_tests(
         {
             "event": "test_run_complete",
             "all_passed": all_passed,
-            "framework_count": len(frameworks),
+            "runner_count": len(runners),
         }
     )
-    return format_test_results(frameworks[0].value, results[0] if results else {})
+    return format_test_results(runners[0].value, results[0] if results else {})
