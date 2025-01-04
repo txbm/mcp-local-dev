@@ -6,7 +6,7 @@ import signal
 import sys
 from typing import Dict, Any, List, cast
 
-import mcp.types as types
+from mcp_runtime_server import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server import stdio

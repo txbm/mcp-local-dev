@@ -1,7 +1,6 @@
 """Logging configuration and test output formatting."""
 import json
 import logging
-import re
 import sys
 from typing import Any, Dict
 from pathlib import Path

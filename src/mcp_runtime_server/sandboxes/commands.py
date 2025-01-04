@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 
 async def run_install(env: Environment) -> None:
     """Run install command for environment runtime."""
-    pkg_manager = PackageManager.for_runtime(env.runtime)
+    pkg_manager = env.runtime_config.package_manager
 
     # Get the appropriate install command for package manager
     if pkg_manager == PackageManager.UV:
