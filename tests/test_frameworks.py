@@ -1,8 +1,8 @@
 import pytest
 from pathlib import Path
 
-from mcp_runtime_server.testing.execution import detect_test_runners, run_test_runner
-from mcp_runtime_server.types import FrameworkType, RunConfig
+from mcp_runtime_server.test_runners.frameworks import detect_frameworks, run_framework_tests
+from mcp_runtime_server.types import FrameworkType, RunConfig, TestRunnerType
 
 @pytest.mark.asyncio
 async def test_detect_and_run_pytest(python_environment):
