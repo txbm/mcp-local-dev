@@ -155,7 +155,7 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
     """Run pytest in the environment."""
     result: dict[str, Any] = {"framework": FrameworkType.PYTEST.value}
 
-    pytest_cmd = "python -m pytest -vv --no-header --json-report"
+    pytest_cmd = "pytest -vv --no-header --json-report"
 
     test_dirs = _find_test_dirs(env.sandbox.work_dir, env)
     if not test_dirs:
