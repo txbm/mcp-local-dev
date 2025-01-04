@@ -10,13 +10,15 @@ async def test_detect_and_run_pytest(python_environment):
     # Copy test project files to sandbox
     env = python_environment
     project_path = Path(__file__).parent
-    test_files = [
-        "test_sample.py",
-        "conftest.py"
-    ]
-    for file in test_files:
-        src = project_path / file
-        dst = env.sandbox.work_dir / file
+    # Copy sample test files to sandbox
+    fixtures_dir = project_path / "fixtures"
+    test_files = {
+        "sample_test.py": "test_sample.py",
+        "sample_conftest.py": "conftest.py"
+    }
+    for src_name, dst_name in test_files.items():
+        src = fixtures_dir / src_name
+        dst = env.sandbox.work_dir / dst_name
         dst.write_text(src.read_text())
     
     # Test framework detection
