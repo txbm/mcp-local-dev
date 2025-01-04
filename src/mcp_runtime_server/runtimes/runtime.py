@@ -17,37 +17,25 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
         name=Runtime.NODE,
         config_files=["package.json"],
         package_manager=PackageManager.NPM,
-        env_setup={"NODE_NO_WARNINGS": "1", "NPM_CONFIG_UPDATE_NOTIFIER": "false"},
-        bin_paths=["node_modules/.bin"],
+        env_setup={"NODE_NO_WARNINGS": "1"},
         binary_name="node",
-        url_template="https://nodejs.org/dist/{version_prefix}{version}/node-{version_prefix}{version}-{platform}.{format}",
-        checksum_template="https://nodejs.org/dist/{version_prefix}{version}/SHASUMS256.txt",
     ),
     Runtime.BUN: RuntimeConfig(
         name=Runtime.BUN,
         config_files=["bun.lockb", "package.json"],
         package_manager=PackageManager.BUN,
         env_setup={"NO_INSTALL_HINTS": "1"},
-        bin_paths=["node_modules/.bin"],
         binary_name="bun",
-        url_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/bun-{platform}-{arch}.{format}",
-        checksum_template="https://github.com/oven-sh/bun/releases/download/bun-{version_prefix}{version}/SHASUMS.txt",
     ),
     Runtime.PYTHON: RuntimeConfig(
         name=Runtime.PYTHON,
         config_files=["pyproject.toml", "setup.py", "requirements.txt"],
         package_manager=PackageManager.UV,
         env_setup={
-            "PIP_NO_CACHE_DIR": "1",
             "PYTHONUNBUFFERED": "1",
             "PYTHONDONTWRITEBYTECODE": "1",
         },
-        bin_paths=[".venv/bin", ".venv/Scripts"],  # Scripts for Windows
-        binary_name="uv",
-        url_template="https://github.com/astral-sh/uv/releases/download/{version_prefix}{version}/uv-{platform}.{format}",
-        checksum_template="https://github.com/astral-sh/uv/releases/download/{version}/uv-{platform}.{format}.sha256",
-        platform_style="composite",
-        version_prefix="",
+        binary_name="python",
     ),
 }
 
@@ -100,8 +88,9 @@ def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
 async def install_runtime(
     sandbox: Sandbox, config: RuntimeConfig
 ) -> tuple[Path, Path, Path]:
-    match config.name:
-        case Runtime.PYTHON:
-            return await python.install_runtime(sandbox, config)
-
-    raise RuntimeError(f"Unsupported runtime name {config.name}")
+    """Install runtime assuming binaries are on system path"""
+    runtime_bin = Path(config.binary_name)
+    pkg_bin = Path(config.package_manager.value.lower())
+    test_bin = Path("pytest" if config.name == Runtime.PYTHON else "jest")
+    
+    return runtime_bin, pkg_bin, test_bin
