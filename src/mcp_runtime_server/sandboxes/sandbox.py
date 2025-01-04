@@ -1,135 +1,55 @@
-"""Sandbox directory and security management."""
+"""Sandbox directory and command execution management."""
 
 import json
 import tempfile
 import asyncio
 import os
 import shutil
-import platform
 from pathlib import Path
-from typing import Dict, Tuple, Optional
+from typing import Dict, Optional
 
 from mcp_runtime_server.types import Sandbox
 from mcp_runtime_server.logging import get_logger
-from mcp_runtime_server.utils.fs import copy_binaries_to_dest
 
 logger = get_logger(__name__)
 
-_SYSTEM_BINARIES_TO_BORROW = ("git", "sed", "basename", "uname")
-
-
-def _make_sandbox_dirs(root: Path) -> Tuple[Dict[str, Path], Dict[str, str]]:
-    """Create sandbox directory structure and environment variables.
-
-    Args:
-        root: Root directory for sandbox
-
-    Returns:
-        Tuple of (directory paths dict, environment variables dict)
-
-    Raises:
-        RuntimeError: If directory creation fails
-    """
-    logger.debug({"event": "creating_sandbox_directories", "root": str(root)})
-
-    try:
-        # Define directory structure
-        dirs = {
-            "bin": root / "bin",
-            "tmp": root / "tmp",
-            "work": root / "work",
-            "cache": root / "cache",
-        }
-
-        # Create directories
-        for name, path in dirs.items():
-            path.mkdir(parents=True, exist_ok=True)
-            logger.debug(
-                {"event": "created_sandbox_directory", "name": name, "path": str(path)}
-            )
-
-        # Set base environment variables
-        # base_env = os.environ.copy()
-        base_env = {}
-        sandbox_env = {
-            "TMPDIR": str(dirs["tmp"]),
-            "XDG_CACHE_HOME": str(dirs["cache"]),
-            "XDG_RUNTIME_DIR": str(dirs["tmp"]),
-            "PATH": f"{dirs['bin']}",
-            "HOME": str(dirs["work"]),
-        }
-        base_env.update(sandbox_env)
-
-        # Remove unsafe environment variables
-        unsafe_vars = ["LD_PRELOAD", "LD_LIBRARY_PATH"]
-        for var in unsafe_vars:
-            base_env.pop(var, None)
-
-        logger.debug(
-            {
-                "event": "sandbox_env_prepared",
-                "sandbox_vars": sandbox_env,
-                "removed_vars": unsafe_vars,
-            }
-        )
-
-        return dirs, base_env
-
-    except Exception as e:
-        logger.error(
-            {"event": "sandbox_creation_failed", "error": str(e), "root": str(root)}
-        )
-        if root.exists():
-            shutil.rmtree(root, ignore_errors=True)
-        raise RuntimeError(f"Failed to create sandbox directories: {e}")
-
-
-def _apply_security(sandbox: Sandbox) -> None:
-    """Apply security restrictions to sandbox directory."""
-
-    root = sandbox.root
-    try:
-        if platform.system() == "Linux":
-            logger.debug({"event": "applying_unix_permissions", "root": str(root)})
-            _apply_unix_permissions(root)
-            logger.info({"event": "unix_permissions_applied", "root": str(root)})
-    except Exception as e:
-        logger.error(
-            {"event": "security_application_failed", "error": str(e), "root": str(root)}
-        )
-        raise RuntimeError(f"Failed to apply sandbox security: {e}")
-
-
-def _apply_unix_permissions(path: Path) -> None:
-    """Apply restrictive Unix permissions recursively.
-
-    Args:
-        path: Path to apply permissions to
-    """
-    os.chmod(path, 0o700)  # Changed to 700 to allow execution of binaries
-
-    if path.is_dir():
-        for child in path.iterdir():
-            _apply_unix_permissions(child)
-
 
 async def create_sandbox(prefix: str) -> Sandbox:
-    """Create new sandbox environment within root directory.
-
+    """Create new sandbox environment with isolated directories.
+    
     Args:
-        root: Root directory for sandbox
-
+        prefix: Prefix for temporary directory name
+        
     Returns:
         Sandbox instance
-
+        
     Raises:
         RuntimeError: If sandbox creation fails
     """
     try:
-
-        temp_dir = tempfile.TemporaryDirectory(prefix=prefix, delete=False)
+        # Create temporary directory that will be cleaned up on exit
+        temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
         root = Path(temp_dir.name)
-        dirs, env_vars = _make_sandbox_dirs(root)
+
+        # Create sandbox directory structure
+        dirs = {
+            "bin": root / "bin",
+            "tmp": root / "tmp", 
+            "work": root / "work",
+            "cache": root / "cache"
+        }
+        
+        for path in dirs.values():
+            path.mkdir(parents=True, exist_ok=True)
+            
+        # Set up isolated environment variables
+        env_vars = {
+            "PATH": os.environ["PATH"], # Use system PATH
+            "TMPDIR": str(dirs["tmp"]),
+            "HOME": str(dirs["work"]),
+            "XDG_CACHE_HOME": str(dirs["cache"]),
+            "XDG_RUNTIME_DIR": str(dirs["tmp"])
+        }
 
         sandbox = Sandbox(
             root=root,
@@ -138,91 +58,74 @@ async def create_sandbox(prefix: str) -> Sandbox:
             tmp_dir=dirs["tmp"],
             cache_dir=dirs["cache"],
             env_vars=env_vars,
-            temp_dir=temp_dir,
+            temp_dir=temp_dir
         )
 
-        await copy_binaries_to_dest(_SYSTEM_BINARIES_TO_BORROW, sandbox.bin_dir)
-        _apply_security(sandbox)
-
-        logger.info(
-            {
-                "event": "sandbox_created",
-                "root": str(root),
-                "work_dir": str(sandbox.work_dir),
-                "bin_dir": str(sandbox.bin_dir),
-                "temp_dir": str(temp_dir),
-            }
-        )
+        logger.info({
+            "event": "sandbox_created",
+            "root": str(root),
+            "work_dir": str(dirs["work"])
+        })
 
         return sandbox
 
     except Exception as e:
-        logger.error(
-            {"event": "sandbox_creation_failed", "error": str(e), "root": str(root)}
-        )
-        if root.exists():
+        logger.error({
+            "event": "sandbox_creation_failed", 
+            "error": str(e)
+        })
+        if "root" in locals() and root.exists():
             shutil.rmtree(root, ignore_errors=True)
         raise RuntimeError(f"Failed to create sandbox: {e}")
 
 
 def cleanup_sandbox(sandbox: Sandbox) -> None:
     """Clean up sandbox environment.
-
+    
     Args:
         sandbox: Sandbox instance to clean up
-
-    Raises:
-        RuntimeError: If cleanup fails
     """
     logger.debug({"event": "cleaning_sandbox", "root": str(sandbox.root)})
-
     sandbox.temp_dir.cleanup()
-    if sandbox.root.exists():
-        shutil.rmtree(sandbox.root, ignore_errors=True)
-    logger.info({"event": "sandbox_cleaned", "root": str(sandbox.root)})
-
-
-async def run_system_command(
-    cmd: str, cwd: Path, env_vars: Optional[Dict[str, str]] = None
-):
-
-    try:
-        return await asyncio.create_subprocess_shell(
-            cmd,
-            cwd=cwd,
-            env=env_vars,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    except Exception as e:
-        raise RuntimeError(f"System command execution failed: {e}")
 
 
 async def run_sandboxed_command(
-    sandbox: Sandbox, cmd: str, env_vars: Optional[Dict[str, str]] = None
+    sandbox: Sandbox,
+    cmd: str,
+    env_vars: Optional[Dict[str, str]] = None
 ) -> asyncio.subprocess.Process:
-    """Run a command inside a sandbox."""
-
-    sandbox_env_vars = sandbox.env_vars
+    """Run a command inside sandbox environment.
+    
+    Args:
+        sandbox: Sandbox to run command in
+        cmd: Command string to execute
+        env_vars: Additional environment variables
+        
+    Returns:
+        Process handle
+        
+    Raises:
+        RuntimeError: If command execution fails
+    """
+    # Merge sandbox env with any additional vars
+    cmd_env = sandbox.env_vars.copy()
     if env_vars:
-        sandbox_env_vars.update(env_vars)
+        cmd_env.update(env_vars)
 
-    logger.debug(
-        {
-            "event": "sandbox_cmd_exec",
-            "cmd": cmd,
-            "cwd": sandbox.work_dir,
-            "env": json.dumps(sandbox_env_vars),
-        }
-    )
+    logger.debug({
+        "event": "sandbox_cmd_exec",
+        "cmd": cmd,
+        "cwd": str(sandbox.work_dir),
+        "env": json.dumps(cmd_env)
+    })
 
     try:
         return await asyncio.create_subprocess_shell(
             cmd,
             cwd=sandbox.work_dir,
-            env=sandbox_env_vars,
+            env=cmd_env,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
     except Exception as e:
         raise RuntimeError(f"Sandbox command execution failed: {e}")
