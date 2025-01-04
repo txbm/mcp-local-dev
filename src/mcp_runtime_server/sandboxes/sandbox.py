@@ -34,9 +34,10 @@ async def create_sandbox(prefix: str) -> Sandbox:
         # Create sandbox directory structure
         dirs = {
             "bin": root / "bin",
-            "tmp": root / "tmp", 
+            "tmp": root / "tmp",
             "work": root / "work",
-            "cache": root / "cache"
+            "cache": root / "cache",
+            "bin": root / "bin"
         }
         
         for path in dirs.values():

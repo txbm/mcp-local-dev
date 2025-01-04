@@ -80,6 +80,8 @@ class Sandbox:
     root: Path  # Root directory containing all sandbox contents
     work_dir: Path  # Directory containing project files
     bin_dir: Path  # Directory containing binary files
+    tmp_dir: Path  # Directory for temporary files
+    cache_dir: Path  # Directory for cached files
     temp_dir: TemporaryDirectory  # Manages cleanup of temporary files
     env_vars: Dict[str, str]  # Environment variables for sandbox
 
