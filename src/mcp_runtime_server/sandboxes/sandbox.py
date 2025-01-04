@@ -26,58 +26,47 @@ async def create_sandbox(prefix: str) -> Sandbox:
     Raises:
         RuntimeError: If sandbox creation fails
     """
-    temp_dir = None
-    try:
-        # Create temporary directory that will be cleaned up on exit
-        temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
-        root = Path(temp_dir.name)
+    # Create temporary directory that will be cleaned up on exit
+    temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
+    root = Path(temp_dir.name)
 
-        # Create sandbox directory structure
-        dirs = {
-            "bin": root / "bin",
-            "tmp": root / "tmp", 
-            "work": root / "work",
-            "cache": root / "cache"
-        }
+    # Create sandbox directory structure
+    dirs = {
+        "bin": root / "bin",
+        "tmp": root / "tmp", 
+        "work": root / "work",
+        "cache": root / "cache"
+    }
+    
+    for path in dirs.values():
+        path.mkdir(parents=True, exist_ok=True)
         
-        for path in dirs.values():
-            path.mkdir(parents=True, exist_ok=True)
-            
-        # Set up isolated environment variables
-        env_vars = {
-            "PATH": os.environ["PATH"], # Use system PATH
-            "TMPDIR": str(dirs["tmp"]),
-            "HOME": str(dirs["work"]),
-            "XDG_CACHE_HOME": str(dirs["cache"]),
-            "XDG_RUNTIME_DIR": str(dirs["tmp"])
-        }
+    # Set up isolated environment variables
+    env_vars = {
+        "PATH": os.environ["PATH"], # Use system PATH
+        "TMPDIR": str(dirs["tmp"]),
+        "HOME": str(dirs["work"]),
+        "XDG_CACHE_HOME": str(dirs["cache"]),
+        "XDG_RUNTIME_DIR": str(dirs["tmp"])
+    }
 
-        sandbox = Sandbox(
-            root=root,
-            work_dir=dirs["work"],
-            bin_dir=dirs["bin"],
-            tmp_dir=dirs["tmp"],
-            cache_dir=dirs["cache"],
-            env_vars=env_vars,
-            temp_dir=temp_dir
-        )
+    sandbox = Sandbox(
+        root=root,
+        work_dir=dirs["work"],
+        bin_dir=dirs["bin"],
+        tmp_dir=dirs["tmp"],
+        cache_dir=dirs["cache"],
+        env_vars=env_vars,
+        temp_dir=temp_dir
+    )
 
-        logger.info({
-            "event": "sandbox_created",
-            "root": str(root),
-            "work_dir": str(dirs["work"])
-        })
+    logger.info({
+        "event": "sandbox_created",
+        "root": str(root),
+        "work_dir": str(dirs["work"])
+    })
 
-        return sandbox
-
-    except Exception as e:
-        logger.error({
-            "event": "sandbox_creation_failed", 
-            "error": str(e)
-        })
-        if "root" in locals() and root.exists():
-            shutil.rmtree(root, ignore_errors=True)
-        raise RuntimeError(f"Failed to create sandbox: {e}")
+    return sandbox
 
 
 def cleanup_sandbox(sandbox: Sandbox) -> None:
@@ -120,18 +109,15 @@ async def run_sandboxed_command(
         "env": json.dumps(cmd_env)
     })
 
-    try:
-        # Check if command exists
-        cmd_parts = cmd.split()
-        if not shutil.which(cmd_parts[0]):
-            raise RuntimeError(f"Command not found: {cmd_parts[0]}")
-            
-        return await asyncio.create_subprocess_shell(
-            cmd,
-            cwd=sandbox.work_dir,
-            env=cmd_env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-    except Exception as e:
-        raise RuntimeError(f"Sandbox command execution failed: {e}")
+    # Check if command exists
+    cmd_parts = cmd.split()
+    if not shutil.which(cmd_parts[0]):
+        raise RuntimeError(f"Command not found: {cmd_parts[0]}")
+        
+    return await asyncio.create_subprocess_shell(
+        cmd,
+        cwd=sandbox.work_dir,
+        env=cmd_env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )

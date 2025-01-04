@@ -21,12 +21,10 @@ logger = get_logger(__name__)
 async def create_environment_from_github(
     staging: Sandbox, github_url: str, branch: Optional[str] = None
 ) -> Environment:
-    try:
-        repo = await clone_github_repository(staging, github_url, branch)
-        env = await create_environment(repo)
-        return env
-    finally:
-        cleanup_sandbox(staging)
+    repo = await clone_github_repository(staging, github_url, branch)
+    env = await create_environment(repo)
+    cleanup_sandbox(staging)
+    return env
 
 
 async def create_environment(path: Path) -> Environment:

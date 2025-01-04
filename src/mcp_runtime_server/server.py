@@ -163,24 +163,16 @@ async def serve() -> None:
     logger.info("Starting MCP runtime server")
 
     server = await init_server()
-    try:
-        async with stdio.stdio_server() as (read_stream, write_stream):
-            init_options = InitializationOptions(
-                server_name="mcp-runtime-server",
-                server_version="0.1.0",
-                capabilities=types.ServerCapabilities(
-                    tools=types.ToolsCapability(listChanged=False),
-                    logging=types.LoggingCapability(),
-                ),
-            )
-            await server.run(read_stream, write_stream, init_options)
-    except asyncio.CancelledError:
-        logger.info("Server shutdown initiated")
-        await cleanup_all_environments()
-    except Exception as e:
-        logger.exception(f"Server error: {e}")
-        await cleanup_all_environments()
-        raise
+    async with stdio.stdio_server() as (read_stream, write_stream):
+        init_options = InitializationOptions(
+            server_name="mcp-runtime-server",
+            server_version="0.1.0",
+            capabilities=types.ServerCapabilities(
+                tools=types.ToolsCapability(listChanged=False),
+                logging=types.LoggingCapability(),
+            ),
+        )
+        await server.run(read_stream, write_stream, init_options)
 
 
 def handle_shutdown(signum, frame):
