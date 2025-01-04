@@ -41,11 +41,18 @@ async def create_sandbox(prefix: str) -> Sandbox:
     for path in dirs.values():
         path.mkdir(parents=True, exist_ok=True)
         
+    # Set up package manager bin paths
+    pkg_bin_paths = {
+        "uv": str(dirs["work"] / ".venv" / "bin"),
+        "npm": str(dirs["work"] / "node_modules" / ".bin"),
+        "bun": str(dirs["work"] / "node_modules" / ".bin")
+    }
+    
     # Set up isolated environment variables
     env_vars = {
-        "PATH": f"{dirs['bin']}:{os.environ['PATH']}", # Sandbox bin + system PATH
+        "PATH": f"{dirs['bin']}:{':'.join(pkg_bin_paths.values())}:{os.environ['PATH']}", # Sandbox bin + package manager bins + system PATH
         "TMPDIR": str(dirs["tmp"]),
-        "HOME": str(dirs["work"]),
+        "HOME": str(dirs["work"]), 
         "XDG_CACHE_HOME": str(dirs["cache"]),
         "XDG_RUNTIME_DIR": str(dirs["tmp"])
     }
