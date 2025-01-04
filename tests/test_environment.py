@@ -28,7 +28,7 @@ async def test_create_environment_from_github():
     try:
         env = await create_environment_from_github(
             staging,
-            "https://github.com/pytest-dev/pytest",
+            "https://github.com/pallets/flask",
             "main"
         )
         assert env.runtime_config.name == Runtime.PYTHON
