@@ -1,18 +1,59 @@
 """Test execution module."""
 
 import json
+import shutil
 
 import mcp.types as types
 from mcp_runtime_server.environments.environment import Environment
-from mcp_runtime_server.testing.test_runners import (
-    detect_test_runners,
-    run_test_runner
-)
-from mcp_runtime_server.types import RunConfig
-from mcp_runtime_server.testing.results import format_test_results
+from mcp_runtime_server.types import RunConfig, TestRunnerType, Runtime
+from mcp_runtime_server.test_runners.results import format_test_results, parse_pytest_json
+from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
+
+def detect_test_runners(env: Environment) -> list[TestRunnerType]:
+    """Detect available test runners for the environment"""
+    logger.info({"event": "test_runner_detection_start", "project_dir": str(env.sandbox.work_dir)})
+    
+    # For now we only support pytest in Python environments
+    if env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest"):
+        logger.info({"event": "test_runner_detected", "runner": TestRunnerType.PYTEST.value})
+        return [TestRunnerType.PYTEST]
+            
+    logger.info({"event": "no_test_runners_detected"})
+    return []
+
+async def run_test_runner(config: RunConfig) -> Dict[str, Any]:
+    """Run tests using the specified runner"""
+    logger.info({
+        "event": "test_runner_start", 
+        "runner": config.runner.value,
+        "working_dir": str(config.env.sandbox.work_dir)
+    })
+
+    if config.runner != TestRunnerType.PYTEST:
+        error = f"Unsupported test runner: {config.runner}"
+        logger.error({"event": "test_runner_error", "error": error})
+        raise ValueError(error)
+
+    cmd = f"python -m pytest -v --capture=no --tb=short -p no:warnings"
+    process = await run_sandboxed_command(config.env.sandbox, cmd)
+    stdout, stderr = await process.communicate()
+    
+    result = parse_pytest_json({
+        "stdout": stdout.decode() if stdout else "",
+        "stderr": stderr.decode() if stderr else "",
+        "returncode": process.returncode
+    })
+    
+    logger.info({
+        "event": "test_runner_complete",
+        "runner": config.runner.value,
+        "success": result["success"]
+    })
+
+    return result
 
 
 async def auto_run_tests(
