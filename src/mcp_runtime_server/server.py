@@ -88,49 +88,47 @@ async def init_server() -> Server:
                 "runtime": env.runtime.value,
             }
             return [types.TextContent(text=json.dumps(result), type="text")]
-
-            elif name == "run_tests":
-                if arguments["env_id"] not in ENVIRONMENTS:
-                    return [
-                        types.TextContent(
-                            text=json.dumps(
-                                {
-                                    "success": False,
-                                    "error": f"Unknown environment: {arguments['env_id']}",
-                                }
-                            ),
-                            type="text",
-                        )
-                    ]
-
-                env = ENVIRONMENTS[arguments["env_id"]]
-                return cast(
-                    list[
-                        types.TextContent | types.ImageContent | types.EmbeddedResource
-                    ],
-                    await auto_run_tests(env),
-                )
-
-            elif name == "cleanup":
-                env_id = arguments["env_id"]
-                async with ENVIRONMENTS_LOCK:
-                    if env_id in ENVIRONMENTS:
-                        env = ENVIRONMENTS.pop(env_id)
-                        cleanup_environment(env)
+        
+        elif name == "run_tests":
+            if arguments["env_id"] not in ENVIRONMENTS:
                 return [
-                    types.TextContent(text=json.dumps({"success": True}), type="text")
+                    types.TextContent(
+                        text=json.dumps(
+                            {
+                                "success": False,
+                                "error": f"Unknown environment: {arguments['env_id']}",
+                            }
+                        ),
+                        type="text",
+                    )
                 ]
 
+            env = ENVIRONMENTS[arguments["env_id"]]
+            return cast(
+                list[
+                    types.TextContent | types.ImageContent | types.EmbeddedResource
+                ],
+                await auto_run_tests(env),
+            )
+
+        elif name == "cleanup":
+            env_id = arguments["env_id"]
+            async with ENVIRONMENTS_LOCK:
+                if env_id in ENVIRONMENTS:
+                    env = ENVIRONMENTS.pop(env_id)
+                    cleanup_environment(env)
             return [
-                types.TextContent(
-                    text=json.dumps(
-                        {"success": False, "error": f"Unknown tool: {name}"}
-                    ),
-                    type="text",
-                )
+                types.TextContent(text=json.dumps({"success": True}), type="text")
             ]
 
-        except Exception as e:
+        return [
+            types.TextContent(
+                text=json.dumps(
+                    {"success": False, "error": f"Unknown tool: {name}"}
+                ),
+                type="text",
+            )
+        ]
             logger.exception(f"Tool invocation failed: {str(e)}")
             return [
                 types.TextContent(
