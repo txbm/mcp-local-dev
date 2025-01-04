@@ -91,7 +91,6 @@ async def install_runtime(
     required_binaries = [config.binary_name]
     pkg_bin = sandbox.bin_dir / config.package_manager.value.lower()
     runtime_bin = sandbox.bin_dir / config.binary_name
-    test_bin = sandbox.bin_dir / ("pytest" if config.name == Runtime.PYTHON else "jest")
     
     if config.package_manager == PackageManager.UV:
         required_binaries.append('uv')
