@@ -1,7 +1,7 @@
 """Pytest test runner implementation"""
 from pathlib import Path
 import json
-from typing import Any, dict
+from typing import Any, Dict
 
 from mcp_runtime_server.types import Environment
 from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
