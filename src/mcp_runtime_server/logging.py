@@ -77,7 +77,7 @@ def configure_logging():
     root_logger.setLevel(logging.INFO)
     
     # Configure app logger for everything else on stderr
-    app_logger = logging.getLogger("mcp_runtime_server")
+    app_logger = logging.getLogger("mcp_local_dev")
     app_logger.setLevel(logging.INFO)
     app_logger.addHandler(stderr_handler)
     app_logger.propagate = False

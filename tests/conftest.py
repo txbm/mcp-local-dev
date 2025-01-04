@@ -4,8 +4,8 @@ import asyncio
 from pathlib import Path
 from datetime import datetime, timezone
 
-from mcp_runtime_server.types import Environment, RuntimeConfig, Sandbox, Runtime, PackageManager
-from mcp_runtime_server.sandboxes.sandbox import create_sandbox
+from mcp_local_dev.types import Environment, RuntimeConfig, Sandbox, Runtime, PackageManager
+from mcp_local_dev.sandboxes.sandbox import create_sandbox
 
 @pytest_asyncio.fixture
 async def sandbox():
