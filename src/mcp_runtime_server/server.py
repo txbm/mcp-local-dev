@@ -64,7 +64,7 @@ tools = [
 async def init_server() -> Server:
     logger.info(f"Registered tools: {', '.join(t.name for t in tools)}")
 
-    server = Server("mcp-runtime-server")
+    server = Server("mcp-local-dev")
 
     @server.list_tools()
     async def list_tools() -> List[types.Tool]:
@@ -156,7 +156,7 @@ async def serve() -> None:
     server = await init_server()
     async with stdio.stdio_server() as (read_stream, write_stream):
         init_options = InitializationOptions(
-            server_name="mcp-runtime-server",
+            server_name="mcp-local-dev",
             server_version="0.1.0",
             capabilities=types.ServerCapabilities(
                 tools=types.ToolsCapability(listChanged=False),

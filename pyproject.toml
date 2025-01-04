@@ -30,7 +30,7 @@ dev = [
 ]
 
 [project.scripts]
-mcp-runtime-server = "mcp_runtime_server.server:main"
+mcp-local-dev = "mcp_local_dev.server:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true
