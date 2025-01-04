@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from mcp_runtime_server.testing.frameworks import detect_frameworks, run_framework_tests
+from mcp_runtime_server.test_runners.execution import detect_test_runners, run_test_runner
 from mcp_runtime_server.types import FrameworkType, RunConfig
 
 @pytest.mark.asyncio
