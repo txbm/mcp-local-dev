@@ -1,1 +1,1 @@
-"""MCP Runtime Server."""
+"""MCP Local Development."""
