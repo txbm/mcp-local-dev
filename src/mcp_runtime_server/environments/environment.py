@@ -10,7 +10,11 @@ from fuuid import b58_fuuid
 
 from mcp_runtime_server.types import Environment, Sandbox
 from mcp_runtime_server.runtimes.runtime import detect_runtime, install_runtime
-from mcp_runtime_server.sandboxes.sandbox import create_sandbox, cleanup_sandbox
+from mcp_runtime_server.sandboxes.sandbox import (
+    create_sandbox, 
+    cleanup_sandbox,
+    add_package_manager_bin_path
+)
 from mcp_runtime_server.sandboxes.git import clone_github_repository
 from mcp_runtime_server.logging import get_logger
 
@@ -48,9 +52,8 @@ async def create_environment(path: Path) -> Environment:
 
     runtime_config = detect_runtime(sandbox)
     
-    # Update sandbox paths for detected runtime
-    from mcp_runtime_server.sandboxes.sandbox import update_sandbox_paths
-    update_sandbox_paths(sandbox, runtime_config.package_manager)
+    # Add package manager bin path to sandbox PATH
+    add_package_manager_bin_path(sandbox, runtime_config.package_manager)
     
     await install_runtime(sandbox, runtime_config)
 

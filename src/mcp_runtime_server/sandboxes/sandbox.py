@@ -69,13 +69,8 @@ async def create_sandbox(prefix: str) -> Sandbox:
     return sandbox
 
 
-def update_sandbox_paths(sandbox: Sandbox, pkg_manager: PackageManager) -> None:
-    """Update sandbox PATH to include package manager bin directory.
-    
-    Args:
-        sandbox: Sandbox to update
-        pkg_manager: Package manager to add bin path for
-    """
+def add_package_manager_bin_path(sandbox: Sandbox, pkg_manager: PackageManager) -> None:
+    """Add package manager's bin directory to sandbox PATH"""
     pkg_bin_path = None
     match pkg_manager:
         case PackageManager.UV:
