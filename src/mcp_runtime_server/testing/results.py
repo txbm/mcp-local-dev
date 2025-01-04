@@ -10,8 +10,9 @@ from mcp_runtime_server.logging import get_logger
 logger = get_logger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class TestCase:
+    """Individual test case result"""
     name: str
     status: str
     output: List[str]
@@ -20,35 +21,23 @@ class TestCase:
 
 
 def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
-    """Parse pytest JSON output.
-
-    Args:
-        report: Parsed JSON report from pytest
-
-    Returns:
-        Structured test results dictionary
-    """
+    """Transform pytest JSON output into structured results"""
     tests = report.get("tests", [])
     summary = report.get("summary", {})
 
-    test_cases = []
-    failures = []
-
-    for test in tests:
+    def create_test_case(test: Dict[str, Any]) -> TestCase:
         status = test.get("outcome")
         failure = test.get("call", {}).get("longrepr") if status == "failed" else None
-
-        case = TestCase(
+        return TestCase(
             name=test.get("nodeid"),
             status=status,
             output=test.get("stdout", "").splitlines(),
             failure_message=failure,
             duration=test.get("duration"),
         )
-        test_cases.append(case)
 
-        if failure:
-            failures.append(failure)
+    test_cases = [create_test_case(test) for test in tests]
+    failures = [case.failure_message for case in test_cases if case.failure_message]
 
     result = {
         "success": len(failures) == 0,

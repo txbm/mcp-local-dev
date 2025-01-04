@@ -271,24 +271,21 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
     return result
 
 
-async def run_framework_tests(
-    framework: TestFramework, env: Environment
-) -> Dict[str, Any]:
-    """Run tests for a specific framework in the environment."""
-    logger.info(
-        {
-            "event": "framework_test_start",
-            "framework": framework.value,
-            "working_dir": str(env.sandbox.work_dir),
-        }
-    )
+async def run_framework_tests(config: RunConfig) -> Dict[str, Any]:
+    """Run tests for a specific framework in the environment"""
+    logger.info({
+        "event": "framework_test_start",
+        "framework": config.framework.value,
+        "working_dir": str(config.env.sandbox.work_dir),
+    })
 
-    if framework == TestFramework.PYTEST:
-        result = await run_pytest(env)
-    else:
-        error = f"Unsupported framework: {framework}"
-        logger.error({"event": "framework_test_error", "error": error})
-        raise ValueError(error)
+    match config.framework:
+        case TestFramework.PYTEST:
+            result = await run_pytest(config.env)
+        case _:
+            error = f"Unsupported framework: {config.framework}"
+            logger.error({"event": "framework_test_error", "error": error})
+            raise ValueError(error)
 
     logger.info(
         {
@@ -299,3 +296,9 @@ async def run_framework_tests(
     )
 
     return result
+@dataclass(frozen=True)
+class RunConfig:
+    """Test run configuration"""
+    framework: TestFramework
+    env: Environment
+    test_dirs: List[Path]
