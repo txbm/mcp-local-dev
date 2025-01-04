@@ -6,7 +6,8 @@ from pathlib import Path
 async def test_sandbox_isolation(sandbox):
     """Test sandbox provides proper isolation"""
     # Test directory isolation
-    assert sandbox.work_dir.exists()
+    sb = await sandbox
+    assert sb.work_dir.exists()
     assert sandbox.bin_dir.exists()
     assert sandbox.tmp_dir.exists()
     
@@ -22,7 +23,8 @@ async def test_sandbox_command_execution(sandbox):
     from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
     
     # Create test file
-    test_file = sandbox.work_dir / "test.txt"
+    sb = await sandbox
+    test_file = sb.work_dir / "test.txt"
     test_file.write_text("hello")
     
     # Run command in sandbox

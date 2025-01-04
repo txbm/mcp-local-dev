@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 import asyncio
 from pathlib import Path
 from datetime import datetime, timezone
@@ -6,14 +7,14 @@ from datetime import datetime, timezone
 from mcp_runtime_server.types import Environment, RuntimeConfig, Sandbox, Runtime, PackageManager
 from mcp_runtime_server.sandboxes.sandbox import create_sandbox
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sandbox():
     """Create a real temporary sandbox for testing"""
     sandbox = await create_sandbox("test-")
     yield sandbox
     sandbox.temp_dir.cleanup()
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def python_runtime_config():
     """Standard Python runtime config"""
     return RuntimeConfig(
