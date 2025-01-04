@@ -26,7 +26,7 @@ def _has_test_files(directory: Path, env: Environment) -> bool:
         )
         return False
 
-    pattern = ".py" if env.runtime == Runtime.PYTHON else ".test.js"
+    pattern = ".py" if env.runtime_config.name == Runtime.PYTHON else ".test.js"
     for root, _, files in os.walk(directory):
         test_files = [f for f in files if f.startswith("test_") and f.endswith(pattern)]
         logger.debug(
@@ -93,6 +93,11 @@ def _find_test_dirs(project_dir: Path, env: Environment) -> Set[Path]:
         }
     )
 
+    # First check root directory for test files
+    if _has_test_files(project_dir, env):
+        test_dirs.add(project_dir)
+
+    # Then walk subdirectories
     for root, dirs, _ in os.walk(project_dir):
         root_path = Path(root)
 
