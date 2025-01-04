@@ -10,7 +10,10 @@ logger = get_logger(__name__)
 
 
 async def clone_github_repository(
-    sandbox: Sandbox, url: str, branch: Optional[str], subdir: Optional[str] = None
+    sandbox: Sandbox, 
+    url: str, 
+    branch: Optional[str], 
+    subdir: Optional[str] = None
 ) -> Path:
     target_dir = sandbox.work_dir
 
@@ -20,9 +23,14 @@ async def clone_github_repository(
 
     # Ensure HTTPS URL
     if not url.startswith("https://"):
-        if url.startswith("http://") or url.startswith("git@"):
-            raise ValueError("Only HTTPS URLs are supported")
-        url = f"https://{url}"
+        if url.startswith("http://"):
+            raise ValueError("HTTP URLs are not supported, use HTTPS")
+        if url.startswith("git@"):
+            raise ValueError("SSH URLs are not supported, use HTTPS") 
+        if not url.startswith("github.com"):
+            url = f"https://github.com/{url}"
+        else:
+            url = f"https://{url}"
 
     logger.debug({"event": "clone_url_processed", "final_url": url})
 

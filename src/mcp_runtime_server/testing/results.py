@@ -10,15 +10,6 @@ from mcp_runtime_server.logging import get_logger
 logger = get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class TestCase:
-    """Individual test case result"""
-    name: str
-    status: str
-    output: List[str]
-    failure_message: Optional[str] = None
-    duration: Optional[float] = None
-
 
 def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
     """Transform pytest JSON output into structured results"""
