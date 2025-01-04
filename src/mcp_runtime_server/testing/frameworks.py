@@ -153,57 +153,65 @@ def detect_frameworks(env: Environment) -> List[FrameworkType]:
 
 async def run_pytest(env: Environment) -> dict[str, Any]:
     """Run pytest in the environment."""
+    from mcp_runtime_server.testing.pytest import (
+        run_pytest_for_directory,
+        PytestError,
+        PytestExecutionError,
+        PytestOutputError
+    )
+    
     result: dict[str, Any] = {"framework": FrameworkType.PYTEST.value}
-
-    pytest_cmd = "pytest -vv --no-header --json-report"
-
     test_dirs = _find_test_dirs(env.sandbox.work_dir, env)
+    
     if not test_dirs:
         raise RuntimeError("No test directories found")
 
     all_results = []
-
     for test_dir in test_dirs:
-        process = await run_sandboxed_command(
-            env.sandbox,
-            f"{pytest_cmd} {test_dir}",
-            env.sandbox.env_vars,
-        )
-        stdout, stderr = await process.communicate()
-
         try:
-            report = json.loads(stdout)
+            report = await run_pytest_for_directory(env, test_dir)
             summary = parse_pytest_json(report)
             all_results.append(summary)
-        except json.JSONDecodeError:
-            stdout_str = stdout.decode() if stdout else ""
-            stderr_str = stderr.decode() if stderr else ""
-            error_msg = f"Failed to parse test output for {test_dir}"
+        except PytestExecutionError as e:
             logger.error({
-                "event": "pytest_parse_error",
-                "error": error_msg,
-                "stdout": stdout_str,
-                "stderr": stderr_str
+                "event": "pytest_execution_failed",
+                "directory": str(test_dir),
+                "error": str(e)
             })
-            all_results.append(
-                {
-                    "success": process.returncode == 0,
-                    "error": error_msg,
-                    "output": {
-                        "stdout": stdout_str,
-                        "stderr": stderr_str
-                    }
-                }
-            )
+            all_results.append({
+                "success": False,
+                "error": f"Failed to execute pytest: {e}",
+                "test_dir": str(test_dir)
+            })
+        except PytestOutputError as e:
+            logger.error({
+                "event": "pytest_output_invalid",
+                "directory": str(test_dir),
+                "error": str(e)
+            })
+            all_results.append({
+                "success": False,
+                "error": f"Invalid pytest output: {e}",
+                "test_dir": str(test_dir)
+            })
+        except Exception as e:
+            logger.error({
+                "event": "pytest_unexpected_error",
+                "directory": str(test_dir),
+                "error": str(e)
+            })
+            all_results.append({
+                "success": False,
+                "error": f"Unexpected error running tests: {e}",
+                "test_dir": str(test_dir)
+            })
 
     if all_results:
-        result.update(
-            {
-                "success": all(r.get("success", False) for r in all_results),
-                "test_dirs": [str(d) for d in test_dirs],
-                "results": all_results,
-            }
-        )
+        result.update({
+            "success": all(r.get("success", False) for r in all_results),
+            "test_dirs": [str(d) for d in test_dirs],
+            "results": all_results,
+        })
     else:
         result.update({"success": False, "error": "No test results generated"})
 
