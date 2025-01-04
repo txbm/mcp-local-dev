@@ -27,49 +27,20 @@ def check_test_environment(env: Environment) -> ValidationResult:
 
 
 def check_test_results(results: Dict[str, Any]) -> ValidationResult:
-    """Check if test results match expected format"""
+    """Check test results format"""
     errors = []
     
-    if results is None:
-        return ValidationResult(is_valid=False, errors=["results cannot be None"])
-        
     if not isinstance(results, dict):
         return ValidationResult(is_valid=False, errors=["results must be a dictionary"])
 
-    # Required fields
-    if "framework" not in results:
-        errors.append("missing framework field")
-    if "success" not in results:
-        errors.append("missing success indicator")
-
-    # Framework-specific validation
-    if "framework" in results:
-        framework = results["framework"]
-        if framework == "pytest":
-            framework_result = _check_pytest_results(results)
-        else:
-            return ValidationResult(
-                is_valid=False,
-                errors=[f"unknown framework: {framework}"]
-            )
-            
-        if not framework_result.is_valid:
-            errors.extend(framework_result.errors)
+    required = ["success", "summary", "test_cases"]
+    missing = [f for f in required if f not in results]
+    if missing:
+        errors.append(f"missing required fields: {', '.join(missing)}")
 
     return ValidationResult(
         is_valid=len(errors) == 0,
         errors=errors
-    )
-
-
-def _check_pytest_results(results: Dict[str, Any]) -> ValidationResult:
-    """Check pytest-specific results format"""
-    required_fields = ["total", "passed", "failed", "skipped", "test_cases"]
-    missing = [f for f in required_fields if f not in results]
-    
-    return ValidationResult(
-        is_valid=len(missing) == 0,
-        errors=[f"missing pytest fields: {', '.join(missing)}"] if missing else None
     )
 """Test validation utilities."""
 
