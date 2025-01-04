@@ -77,6 +77,19 @@ class Environment:
     test_bin: Path
 
 @dataclass(frozen=True)
+class ValidationResult:
+    """Validation result with optional error details"""
+    is_valid: bool
+    errors: List[str] = None
+
+@dataclass(frozen=True)
+class RunConfig:
+    """Test run configuration"""
+    framework: TestFramework
+    env: Environment
+    test_dirs: List[Path]
+
+@dataclass(frozen=True)
 class TestCase:
     """Test execution result"""
     name: str
