@@ -1,4 +1,4 @@
-"""Core type definitions."""
+"""Core type definitions"""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -7,89 +7,66 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, NamedTuple
 from tempfile import TemporaryDirectory
 
+Runtime = Enum('Runtime', ['PYTHON', 'NODE', 'BUN'])
+PackageManager = Enum('PackageManager', ['UV', 'NPM', 'BUN'])
 
-class Runtime(str, Enum):
-    """Runtime environment types."""
-
-    PYTHON = "python"
-    NODE = "node"
-    BUN = "bun"
-
-
-class PackageManager(str, Enum):
-    """Package manager types."""
-
-    UV = "uv"  # Python
-    NPM = "npm"  # Node.js
-    BUN = "bun"  # Bun
-
-    @classmethod
-    def for_runtime(cls, runtime: Runtime) -> "PackageManager":
-        """Get default package manager for runtime."""
-        if runtime == Runtime.PYTHON:
-            return cls.UV
-        elif runtime == Runtime.NODE:
-            return cls.NPM
-        elif runtime == Runtime.BUN:
-            return cls.BUN
-        raise ValueError(f"No package manager for runtime: {runtime}")
-
+def get_package_manager(runtime: Runtime) -> PackageManager:
+    """Get default package manager for runtime"""
+    if runtime == Runtime.PYTHON:
+        return PackageManager.UV
+    elif runtime == Runtime.NODE:
+        return PackageManager.NPM
+    elif runtime == Runtime.BUN:
+        return PackageManager.BUN
+    raise ValueError(f"No package manager for runtime: {runtime}")
 
 @dataclass(frozen=True)
 class PlatformInfo:
-    """Platform information."""
-
-    os_name: str
+    """Platform details"""
+    os_name: str 
     arch: str
     format: str
     node_platform: str
     bun_platform: str
     uv_platform: str
 
-
-class PlatformMapping(NamedTuple):
-    """Platform-specific values."""
-
-    node: str
-    bun: str
-    uv: str
-    archive_format: str
-    platform_template: str
-    binary_location: str
-
+PlatformMapping = NamedTuple('PlatformMapping', [
+    ('node', str),
+    ('bun', str), 
+    ('uv', str),
+    ('archive_format', str),
+    ('platform_template', str),
+    ('binary_location', str)
+])
 
 @dataclass(frozen=True)
 class RuntimeConfig:
-    """Runtime configuration details."""
-
+    """Runtime configuration"""
     name: Runtime
-    config_files: List[str]  # Files that indicate this runtime
-    package_manager: PackageManager  # Default package manager
-    env_setup: Dict[str, str]  # Base environment variables
-    bin_paths: List[str]  # Possible binary paths in priority order
-    binary_name: str  # Name of the runtime binary
-    url_template: str  # Download URL template
+    config_files: list[str]
+    package_manager: PackageManager
+    env_setup: dict[str, str]
+    bin_paths: list[str]
+    binary_name: str
+    url_template: str
     checksum_template: str
-    platform_style: str = "simple"  # Platform string style (simple or composite)
-    version_prefix: str = "v"  # Version number prefix in URLs
-
+    platform_style: str = "simple"
+    version_prefix: str = "v"
 
 @dataclass(frozen=True)
 class Sandbox:
-    """Lightweight cross-platform sandbox."""
-    root: Path  # Root directory containing all sandbox contents
-    work_dir: Path  # Directory containing project files
-    bin_dir: Path  # Directory containing binary files
-    tmp_dir: Path  # Directory for temporary files
-    cache_dir: Path  # Directory for cached files
-    temp_dir: TemporaryDirectory  # Manages cleanup of temporary files
-    env_vars: Dict[str, str]  # Environment variables for sandbox
-
+    """Isolated execution environment"""
+    root: Path
+    work_dir: Path
+    bin_dir: Path
+    tmp_dir: Path
+    cache_dir: Path
+    temp_dir: TemporaryDirectory
+    env_vars: dict[str, str]
 
 @dataclass(frozen=True)
 class Environment:
-    """Runtime environment instance."""
-
+    """Runtime environment"""
     id: str
     runtime_config: RuntimeConfig
     created_at: datetime
@@ -98,40 +75,27 @@ class Environment:
     runtime_bin: Path
     test_bin: Path
 
-
-@dataclass
+@dataclass(frozen=True)
 class TestCase:
-    """Test case execution result."""
-
+    """Test execution result"""
     name: str
     status: str
-    output: List[str]
-    failure_message: Optional[str] = None
-    duration: Optional[float] = None
+    output: list[str]
+    failure_message: str | None = None
+    duration: float | None = None
 
-
-@dataclass
+@dataclass(frozen=True)
 class RunTestResult:
-    """Results from a test framework run."""
-
+    """Test run results"""
     success: bool
     framework: str
-    passed: Optional[int] = None
-    failed: Optional[int] = None
-    skipped: Optional[int] = None
-    total: Optional[int] = None
-    failures: List[Dict[str, Any]] = None
-    warnings: List[str] = None
-    test_cases: List[Dict[str, Any]] = None
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
-    error: Optional[str] = None
-
-    def __post_init__(self):
-        """Initialize default values for mutable fields."""
-        if self.failures is None:
-            self.failures = []
-        if self.warnings is None:
-            self.warnings = []
-        if self.test_cases is None:
-            self.test_cases = []
+    passed: int | None = None
+    failed: int | None = None
+    skipped: int | None = None
+    total: int | None = None
+    failures: list[dict[str, Any]] = None
+    warnings: list[str] = None
+    test_cases: list[dict[str, Any]] = None
+    stdout: str | None = None
+    stderr: str | None = None
+    error: str | None = None
