@@ -42,6 +42,14 @@ class Environment:
     runtime_bin: Path
     test_bin: Path
 
+    @property
+    def runtime(self) -> Runtime:
+        return self.runtime_config.name
+
+    @property
+    def work_dir(self) -> Path:
+        return self.sandbox.work_dir
+
 @dataclass(frozen=True)
 class ValidationResult:
     """Validation result with optional error details"""

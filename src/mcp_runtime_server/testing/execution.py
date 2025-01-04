@@ -24,7 +24,7 @@ async def auto_run_tests(
         frameworks = detect_frameworks(env)
         if not frameworks:
             logger.info(
-                {"event": "no_frameworks_detected", "working_dir": str(env.work_dir)}
+                {"event": "no_frameworks_detected", "working_dir": str(env.sandbox.work_dir)}
             )
             return [
                 types.TextContent(

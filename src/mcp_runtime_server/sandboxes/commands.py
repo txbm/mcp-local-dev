@@ -6,7 +6,7 @@ from pathlib import Path
 
 from mcp_runtime_server.types import PackageManager, Environment
 from mcp_runtime_server.logging import get_logger
-from mcp_runtime_server.sandboxes import run_sandboxed_command
+from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
 
 logger = get_logger(__name__)
 
