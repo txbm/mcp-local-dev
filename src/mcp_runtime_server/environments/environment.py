@@ -48,22 +48,9 @@ async def create_environment(path: Path) -> Environment:
 
     runtime_config = detect_runtime(sandbox)
     
-    # Add package manager bin path to sandbox PATH
-    pkg_bin_path = None
-    match runtime_config.package_manager:
-        case PackageManager.UV:
-            pkg_bin_path = sandbox.work_dir / ".venv" / "bin"
-        case PackageManager.NPM | PackageManager.BUN:
-            pkg_bin_path = sandbox.work_dir / "node_modules" / ".bin"
-            
-    if pkg_bin_path:
-        current_path = sandbox.env_vars["PATH"]
-        sandbox.env_vars["PATH"] = f"{pkg_bin_path}:{current_path}"
-        logger.debug({
-            "event": "updated_sandbox_path",
-            "package_manager": runtime_config.package_manager.value,
-            "bin_path": str(pkg_bin_path)
-        })
+    # Update sandbox paths for detected runtime
+    from mcp_runtime_server.sandboxes.sandbox import update_sandbox_paths
+    update_sandbox_paths(sandbox, runtime_config.package_manager)
     
     await install_runtime(sandbox, runtime_config)
 
