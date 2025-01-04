@@ -75,12 +75,3 @@ def _check_pytest_results(results: Dict[str, Any]) -> ValidationResult:
     )
 
 
-def _check_unittest_results(results: Dict[str, Any]) -> ValidationResult:
-    """Check unittest-specific results format"""
-    required_fields = ["test_dirs", "results"]
-    missing = [f for f in required_fields if f not in results]
-    
-    return ValidationResult(
-        is_valid=len(missing) == 0,
-        errors=[f"missing unittest fields: {', '.join(missing)}"] if missing else None
-    )
