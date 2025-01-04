@@ -4,9 +4,15 @@
 - Use functional programming concepts such as higher order functions, composition, pure functions, immutability, and recursion
 - Do not define custom error types, only use ValueError and RuntimeError
 - Do not wrap things in try/except blocks simply for the purpose of logging and re-raising. Only use try/except when it is essential to control flow or program design. Only raise when it is truly a terminal case that cannot be gracefully handled with better value handling.
-- Prefer dataclasses, namedtuples or Enums for data structures.
-- Make tests that actually test real behavior with fixtures. Do not use mocks. Prefer high leverage end-to-end tests at the inferface level over contrived or simplistic low-level tests that do not really test anything likely to break.
-- Document functions with terse, one or two line docstrings that are descriptive. Do not bother with arg, type or return notations
-- You may use Python3 typing but do not go crazy, prefer fairly generic primitives such as list, dict, int, str etc.. versus the more complex typing notation. Try to keep things flexible do not go crazy creating custom types for everything. Only things that benefit from the named concept.
-- If you define types, colocate them all in a types.py to avoid circular dependencies down the road. Also try to avoid circular dependencies in general when doing abstraction design.
-- Never put code in __init__.py files, though you may put docstrings.
+- You may use @dataclass, but do not extend or method or @property
+- You may use namedtuples
+- You may use Enums
+- Make tests that actually test real behavior with fixtures. Do not use mocks.
+- Prefer high leverage end-to-end tests at the inferface level over contrived or simplistic low-level tests that do not really test anything likely to break.
+- Document functions with terse, one or two sentence docstrings that are descriptive.
+- DO NOT make standard Python docstrings with args, return types etc... DO NOT DO THIS EVER.
+- You may use Python3 typing but do not go crazy. Prefer fairly generic primitives such as list, dict, int, str etc.. versus the more complex typing notation or the object versions of primitive types.
+- Try to keep things flexible and do not go creating custom types for everything. Only create custom types for key domain concepts that benefit from the named datastructure.
+- When defining custom types, colocate them all in the TOP LEVEL types.py to avoid circular dependencies.
+- Try to avoid circular dependencies in general when designing abstractions.
+- Never put code in __init__.py files, though you may put docstrings that describe the entire module's purpose in __init__.py files.
