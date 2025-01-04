@@ -1,8 +1,9 @@
 """Test validation utilities."""
 
 from typing import Dict, Any
+from pathlib import Path
 
-from mcp_runtime_server.types import Environment, ValidationResult, Path
+from mcp_runtime_server.types import Environment, ValidationResult
 
 
 
