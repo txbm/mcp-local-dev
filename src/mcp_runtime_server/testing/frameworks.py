@@ -162,7 +162,7 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
         process = await run_sandboxed_command(
             env.sandbox,
             f"{pytest_cmd} {test_dir}",
-            env.env_vars,
+            env.sandbox.env_vars,
         )
         stdout, stderr = await process.communicate()
 
