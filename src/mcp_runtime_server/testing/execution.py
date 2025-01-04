@@ -2,7 +2,7 @@
 
 import json
 
-import mcp.types as types
+from mcp_runtime_server import types
 from mcp_runtime_server.environments.environment import Environment
 from mcp_runtime_server.testing.frameworks import (
     detect_frameworks,
