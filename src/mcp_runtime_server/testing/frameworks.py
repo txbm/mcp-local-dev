@@ -88,16 +88,61 @@ def _check_file_imports(file_path: Path, import_names: List[str]) -> bool:
         return False
 
 
+def _find_test_dirs(project_dir: Path) -> Set[Path]:
+    """Find all potential test directories in the project."""
+    test_dirs = set()
+    test_dir_names = ["tests", "test", "testing", "unit_tests", "integration_tests"]
+
+    logger.debug(
+        {
+            "event": "searching_test_directories",
+            "project_dir": str(project_dir),
+            "looking_for": test_dir_names,
+        }
+    )
+
+    for root, dirs, _ in os.walk(project_dir):
+        root_path = Path(root)
+
+        matched_dirs = [d for d in dirs if d.lower() in test_dir_names]
+        if matched_dirs:
+            logger.debug(
+                {
+                    "event": "found_test_dir_names",
+                    "root": str(root_path),
+                    "matches": matched_dirs,
+                }
+            )
+            test_dirs.update(root_path / d for d in matched_dirs)
+
+        test_file_dirs = [d for d in dirs if _has_test_files(root_path / d, env)]
+        if test_file_dirs:
+            logger.debug(
+                {
+                    "event": "found_dirs_with_test_files",
+                    "root": str(root_path),
+                    "matches": test_file_dirs,
+                }
+            )
+            test_dirs.update(root_path / d for d in test_file_dirs)
+
+    logger.debug(
+        {
+            "event": "test_directory_search_complete",
+            "found_directories": [str(d) for d in test_dirs],
+        }
+    )
+
+    return test_dirs
 
 
 def detect_frameworks(env: Environment) -> List[TestFramework]:
     """Detect test frameworks in a project directory."""
-    path = env.sandbox.work_dir
     frameworks = set()
 
-    logger.info({"event": "framework_detection_start", "project_dir": str(path)})
+    logger.info({"event": "framework_detection_start", "project_dir": str(env.sandbox.work_dir)})
 
-    test_dirs = _find_test_dirs(path)
+    test_dirs = _find_test_dirs(env.sandbox.work_dir)
     if not test_dirs:
         logger.warning({"event": "no_test_directories_found", "project_dir": str(path)})
         return list(frameworks)
