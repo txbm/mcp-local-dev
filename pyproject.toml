@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp-runtime-server"
+name = "mcp-local-dev"
 version = "0.1.0"
-description = "Model Context Protocol Runtime Server - A secure sandbox for managing runtime environments"
+description = "Model Context Protocol Local Development - A sandbox for managing local development environments"
 authors = [
     {name = "MCP Contributors", email = "info@modelcontextprotocol.io"}
 ]
