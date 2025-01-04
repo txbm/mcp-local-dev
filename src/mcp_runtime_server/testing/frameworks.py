@@ -2,20 +2,16 @@
 
 import json
 import os
-from enum import Enum
 from pathlib import Path
 from typing import List, Dict, Any, Set
 
 from mcp_runtime_server.environments.sandbox import run_sandboxed_command
-from mcp_runtime_server.types import Environment
+from mcp_runtime_server.types import Environment, TestFramework
 from mcp_runtime_server.testing.results import parse_pytest_json
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
 
-
-class TestFramework(str, Enum):
-    PYTEST = "pytest"
 
 
 def _has_test_files(directory: Path, pattern: str) -> bool:
