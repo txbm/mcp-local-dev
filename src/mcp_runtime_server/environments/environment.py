@@ -1,5 +1,6 @@
 """Environment lifecycle management."""
 
+import os
 from pathlib import Path
 import shutil
 from datetime import datetime, timezone
