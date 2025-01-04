@@ -6,15 +6,14 @@ from pathlib import Path
 from typing import List, Dict, Any, Set
 
 from mcp_runtime_server.environments.sandbox import run_sandboxed_command
-from mcp_runtime_server.types import Environment, TestFramework, RunConfig
-from mcp_runtime_server.testing.results import parse_pytest_json
+from mcp_runtime_server.types import Environment, TestFramework, RunConfig, Runtime
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 
-def _has_test_files(directory: Path, pattern: str) -> bool:
+def _has_test_files(directory: Path, env: Environment) -> bool:
     """Check if directory contains files matching the test pattern."""
     if not directory.exists():
         logger.debug(
@@ -26,6 +25,7 @@ def _has_test_files(directory: Path, pattern: str) -> bool:
         )
         return False
 
+    pattern = ".py" if env.runtime == Runtime.PYTHON else ".test.js"
     for root, _, files in os.walk(directory):
         test_files = [f for f in files if f.startswith("test_") and f.endswith(pattern)]
         logger.debug(
@@ -86,52 +86,6 @@ def _check_file_imports(file_path: Path, import_names: List[str]) -> bool:
         return False
 
 
-def _find_test_dirs(project_dir: Path) -> Set[Path]:
-    """Find all potential test directories in the project."""
-    test_dirs = set()
-    test_dir_names = ["tests", "test", "testing", "unit_tests", "integration_tests"]
-
-    logger.debug(
-        {
-            "event": "searching_test_directories",
-            "project_dir": str(project_dir),
-            "looking_for": test_dir_names,
-        }
-    )
-
-    for root, dirs, _ in os.walk(project_dir):
-        root_path = Path(root)
-
-        matched_dirs = [d for d in dirs if d.lower() in test_dir_names]
-        if matched_dirs:
-            logger.debug(
-                {
-                    "event": "found_test_dir_names",
-                    "root": str(root_path),
-                    "matches": matched_dirs,
-                }
-            )
-            test_dirs.update(root_path / d for d in matched_dirs)
-
-        test_file_dirs = [d for d in dirs if _has_test_files(root_path / d, ".py")]
-        if test_file_dirs:
-            logger.debug(
-                {
-                    "event": "found_dirs_with_test_files",
-                    "root": str(root_path),
-                    "matches": test_file_dirs,
-                }
-            )
-            test_dirs.update(root_path / d for d in test_file_dirs)
-
-    logger.debug(
-        {
-            "event": "test_directory_search_complete",
-            "found_directories": [str(d) for d in test_dirs],
-        }
-    )
-
-    return test_dirs
 
 
 def detect_frameworks(env: Environment) -> List[TestFramework]:
@@ -227,7 +181,7 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
     """Run pytest in the environment."""
     result: dict[str, Any] = {"framework": TestFramework.PYTEST.value}
 
-    pytest_cmd = "pytest -vv --no-header --json-report"
+    pytest_cmd = f"{env.test_bin} -vv --no-header --json-report"
 
     test_dirs = _find_test_dirs(env.sandbox.work_dir)
     if not test_dirs:
