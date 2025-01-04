@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Set
+from dataclasses import dataclass
 
 from mcp_runtime_server.environments.sandbox import run_sandboxed_command
 from mcp_runtime_server.types import Environment, TestFramework
@@ -290,7 +291,7 @@ async def run_framework_tests(config: RunConfig) -> Dict[str, Any]:
     logger.info(
         {
             "event": "framework_test_complete",
-            "framework": framework.value,
+            "framework": config.framework.value,
             "success": result.get("success", False),
         }
     )
