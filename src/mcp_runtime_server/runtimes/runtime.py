@@ -108,13 +108,3 @@ async def install_runtime(
     for key, value in config.env_setup.items():
         sandbox.env_vars[key] = value
         
-    # Install test dependencies for Python
-    if config.name == Runtime.PYTHON:
-        process = await run_sandboxed_command(
-            sandbox,
-            "uv pip install pytest pytest-json-report",
-            sandbox.env_vars
-        )
-        stdout, stderr = await process.communicate()
-        if process.returncode != 0:
-            raise RuntimeError(f"Failed to install test dependencies: {stderr.decode()}")

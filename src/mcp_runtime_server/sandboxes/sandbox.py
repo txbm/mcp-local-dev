@@ -43,7 +43,7 @@ async def create_sandbox(prefix: str) -> Sandbox:
         
     # Set up isolated environment variables
     env_vars = {
-        "PATH": os.environ["PATH"], # Use system PATH
+        "PATH": f"{dirs['bin']}:{os.environ['PATH']}", # Sandbox bin + system PATH
         "TMPDIR": str(dirs["tmp"]),
         "HOME": str(dirs["work"]),
         "XDG_CACHE_HOME": str(dirs["cache"]),
