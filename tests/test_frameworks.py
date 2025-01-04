@@ -27,7 +27,7 @@ async def test_detect_and_run_pytest(python_environment):
     
     # Test running tests
     config = RunConfig(
-        framework=TestFramework.PYTEST,
+        framework=FrameworkType.PYTEST,
         env=python_environment,
         test_dirs=[python_environment.sandbox.work_dir]
     )
