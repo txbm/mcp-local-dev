@@ -41,16 +41,9 @@ async def create_sandbox(prefix: str) -> Sandbox:
     for path in dirs.values():
         path.mkdir(parents=True, exist_ok=True)
         
-    # Set up package manager bin paths
-    pkg_bin_paths = {
-        "uv": str(dirs["work"] / ".venv" / "bin"),
-        "npm": str(dirs["work"] / "node_modules" / ".bin"),
-        "bun": str(dirs["work"] / "node_modules" / ".bin")
-    }
-    
     # Set up isolated environment variables
     env_vars = {
-        "PATH": f"{dirs['bin']}:{':'.join(pkg_bin_paths.values())}:{os.environ['PATH']}", # Sandbox bin + package manager bins + system PATH
+        "PATH": f"{dirs['bin']}:{os.environ['PATH']}", # Sandbox bin + system PATH
         "TMPDIR": str(dirs["tmp"]),
         "HOME": str(dirs["work"]), 
         "XDG_CACHE_HOME": str(dirs["cache"]),
@@ -128,3 +121,21 @@ async def run_sandboxed_command(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
+def update_sandbox_path(sandbox: Sandbox, pkg_manager: PackageManager) -> None:
+    """Update sandbox PATH to include package manager bin directory."""
+    pkg_bin_path = None
+    
+    match pkg_manager:
+        case PackageManager.UV:
+            pkg_bin_path = sandbox.work_dir / ".venv" / "bin"
+        case PackageManager.NPM | PackageManager.BUN:
+            pkg_bin_path = sandbox.work_dir / "node_modules" / ".bin"
+            
+    if pkg_bin_path:
+        current_path = sandbox.env_vars["PATH"]
+        sandbox.env_vars["PATH"] = f"{pkg_bin_path}:{current_path}"
+        logger.debug({
+            "event": "updated_sandbox_path",
+            "package_manager": pkg_manager.value,
+            "bin_path": str(pkg_bin_path)
+        })
