@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 
 Runtime = Enum('Runtime', ['PYTHON', 'NODE', 'BUN'])
 PackageManager = Enum('PackageManager', ['UV', 'NPM', 'BUN'])
+TestFramework = Enum('TestFramework', ['PYTEST'])
 
 def get_package_manager(runtime: Runtime) -> PackageManager:
     """Get default package manager for runtime"""
