@@ -88,7 +88,7 @@ def _check_file_imports(file_path: Path, import_names: List[str]) -> bool:
         return False
 
 
-def _find_test_dirs(project_dir: Path) -> Set[Path]:
+def _find_test_dirs(project_dir: Path, env: Environment) -> Set[Path]:
     """Find all potential test directories in the project."""
     test_dirs = set()
     test_dir_names = ["tests", "test", "testing", "unit_tests", "integration_tests"]
@@ -142,9 +142,9 @@ def detect_frameworks(env: Environment) -> List[TestFramework]:
 
     logger.info({"event": "framework_detection_start", "project_dir": str(env.sandbox.work_dir)})
 
-    test_dirs = _find_test_dirs(env.sandbox.work_dir)
+    test_dirs = _find_test_dirs(env.sandbox.work_dir, env)
     if not test_dirs:
-        logger.warning({"event": "no_test_directories_found", "project_dir": str(path)})
+        logger.warning({"event": "no_test_directories_found", "project_dir": str(env.sandbox.work_dir)})
         return list(frameworks)
 
     for test_dir in test_dirs:
@@ -152,9 +152,9 @@ def detect_frameworks(env: Environment) -> List[TestFramework]:
 
         pytest_indicators = [
             test_dir / "conftest.py",
-            path / "pytest.ini",
-            path / "setup.cfg",
-            path / "tox.ini",
+            test_dir / "pytest.ini",
+            test_dir / "setup.cfg",
+            test_dir / "tox.ini",
         ]
 
         existing_indicators = [p for p in pytest_indicators if p.exists()]
@@ -190,7 +190,7 @@ def detect_frameworks(env: Environment) -> List[TestFramework]:
                     )
 
     # Check pyproject.toml
-    pyproject_path = path / "pyproject.toml"
+    pyproject_path = test_dir / "pyproject.toml"
     if pyproject_path.exists():
         try:
             with open(pyproject_path, "r", encoding="utf-8") as f:
