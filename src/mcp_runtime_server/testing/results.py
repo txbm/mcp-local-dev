@@ -80,10 +80,10 @@ def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
 
 def format_test_results(
     framework: str, results: Dict[str, Any]
-) -> list[types.TextContent]:
+) -> list[TextContent]:
     """Convert parsed test results into MCP-compatible format."""
     return [
-        types.TextContent(
+        TextContent(
             text=json.dumps(
                 {"success": True, "frameworks": [{"framework": framework, **results}]}
             ),
