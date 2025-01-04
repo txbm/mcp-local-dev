@@ -11,6 +11,10 @@ logger = get_logger(__name__)
 async def run_install(env: Environment) -> None:
     """Run install command for environment runtime."""
     pkg_manager = env.runtime_config.package_manager
+    pkg_bin = env.sandbox.bin_dir / pkg_manager.value.lower()
+    
+    if not pkg_bin.exists():
+        raise RuntimeError(f"Package manager binary not found: {pkg_bin}")
 
     # Get the appropriate install command for package manager
     if pkg_manager == PackageManager.UV:

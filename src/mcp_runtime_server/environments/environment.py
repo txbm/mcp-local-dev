@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from pathlib import Path
 import shutil
 from datetime import datetime, timezone
 from typing import Optional
@@ -52,7 +51,7 @@ async def create_environment(path: Path) -> Environment:
 
     env = Environment(
         id=env_id,
-        runtime=runtime_config.name,
+        runtime_config=runtime_config,
         sandbox=sandbox,
         created_at=datetime.now(timezone.utc),
     )
