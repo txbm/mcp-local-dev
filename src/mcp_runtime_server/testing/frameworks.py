@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Set
 
 from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
-from mcp_runtime_server.types import Environment, TestFramework, RunConfig, Runtime
+from mcp_runtime_server.types import Environment, FrameworkType, RunConfig, Runtime
 from mcp_runtime_server.logging import get_logger
 from mcp_runtime_server.testing.results import parse_pytest_json
 
@@ -133,16 +133,17 @@ def _find_test_dirs(project_dir: Path, env: Environment) -> Set[Path]:
     return test_dirs
 
 
-def detect_frameworks(env: Environment) -> List[TestFramework]:
+def detect_frameworks(env: Environment) -> List[FrameworkType]:
     """Detect test frameworks in a project directory."""
     logger.info({"event": "framework_detection_start", "project_dir": str(env.sandbox.work_dir)})
 
     # Check for installed test runners based on runtime
     if env.runtime_config.name == Runtime.PYTHON:
-        pytest_bin = env.sandbox.bin_dir / "pytest"
-        if pytest_bin.exists() and _find_test_dirs(env.sandbox.work_dir, env):
+        # Check if pytest is available on system path since we haven't installed it yet
+        import shutil
+        if shutil.which("pytest") and _find_test_dirs(env.sandbox.work_dir, env):
             logger.info({"event": "framework_detected", "framework": "pytest"})
-            return [TestFramework.PYTEST]
+            return [FrameworkType.PYTEST]
     
     # Add other runtimes here as needed
     
@@ -152,7 +153,7 @@ def detect_frameworks(env: Environment) -> List[TestFramework]:
 
 async def run_pytest(env: Environment) -> dict[str, Any]:
     """Run pytest in the environment."""
-    result: dict[str, Any] = {"framework": TestFramework.PYTEST.value}
+    result: dict[str, Any] = {"framework": FrameworkType.PYTEST.value}
 
     test_bin = env.sandbox.bin_dir / "pytest"
     pytest_cmd = f"{test_bin} -vv --no-header --json-report"
@@ -209,7 +210,7 @@ async def run_framework_tests(config: RunConfig) -> Dict[str, Any]:
     })
 
     match config.framework:
-        case TestFramework.PYTEST:
+        case FrameworkType.PYTEST:
             result = await run_pytest(config.env)
         case _:
             error = f"Unsupported framework: {config.framework}"
