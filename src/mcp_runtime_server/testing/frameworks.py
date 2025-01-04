@@ -45,37 +45,30 @@ def _check_file_imports(file_path: Path, import_names: List[str]) -> bool:
     """Check if a Python file imports any of the specified modules."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            logger.debug(
-                {
-                    "event": "checking_file_imports",
-                    "file": str(file_path),
-                    "searching_for": import_names,
-                    "content_preview": content[:200],  # First 200 chars for context
-                }
-            )
-            found_imports = [
-                name
-                for name in import_names
-                if f"import {name}" in content or f"from {name}" in content
-            ]
-            if found_imports:
-                logger.debug(
-                    {
-                        "event": "imports_found",
-                        "file": str(file_path),
-                        "found": found_imports,
-                    }
-                )
-                return True
-            logger.debug(
-                {
-                    "event": "no_imports_found",
-                    "file": str(file_path),
-                    "searched_for": import_names,
-                }
-            )
-            return False
+            chunk_size = 8192
+            while chunk := f.read(chunk_size):
+                found_imports = [
+                    name
+                    for name in import_names
+                    if f"import {name}" in chunk or f"from {name}" in chunk
+                ]
+                if found_imports:
+                    logger.debug(
+                        {
+                            "event": "imports_found",
+                            "file": str(file_path),
+                            "found": found_imports,
+                        }
+                    )
+                    return True
+        logger.debug(
+            {
+                "event": "no_imports_found",
+                "file": str(file_path),
+                "searched_for": import_names,
+            }
+        )
+        return False
     except Exception as e:
         logger.error(
             {

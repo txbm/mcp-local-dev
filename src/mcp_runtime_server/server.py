@@ -75,20 +75,19 @@ async def init_server() -> Server:
     async def call_tool(
         name: str, arguments: Dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        try:
-            logger.debug(f"Tool called: {name} with args: {arguments}")
+        logger.debug(f"Tool called: {name} with args: {arguments}")
 
-            if name == "create_environment":
-                env = await create_environment(arguments["github_url"])
-                async with ENVIRONMENTS_LOCK:
-                    ENVIRONMENTS[env.id] = env
-                result = {
-                    "id": env.id,
-                    "working_dir": str(env.work_dir),
-                    "created_at": env.created_at.isoformat(),
-                    "runtime": env.runtime.value,
-                }
-                return [types.TextContent(text=json.dumps(result), type="text")]
+        if name == "create_environment":
+            env = await create_environment(arguments["github_url"])
+            async with ENVIRONMENTS_LOCK:
+                ENVIRONMENTS[env.id] = env
+            result = {
+                "id": env.id,
+                "working_dir": str(env.work_dir),
+                "created_at": env.created_at.isoformat(),
+                "runtime": env.runtime.value,
+            }
+            return [types.TextContent(text=json.dumps(result), type="text")]
 
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
