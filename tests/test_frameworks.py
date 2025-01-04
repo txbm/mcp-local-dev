@@ -8,7 +8,7 @@ from mcp_runtime_server.types import TestFramework, RunConfig
 async def test_detect_and_run_pytest(python_environment):
     """Test framework detection and execution with real pytest project"""
     # Copy test project files to sandbox
-    env = await python_environment
+    env = python_environment
     project_path = Path(__file__).parent
     test_files = [
         "test_sample.py",
