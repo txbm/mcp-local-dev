@@ -5,7 +5,6 @@ import json
 import signal
 import sys
 from typing import Dict, Any, List, cast
-import asyncio
 
 import mcp.types as types
 from mcp.server.lowlevel import Server
@@ -81,7 +80,8 @@ async def init_server() -> Server:
 
             if name == "create_environment":
                 env = await create_environment(arguments["github_url"])
-                ENVIRONMENTS[env.id] = env
+                async with ENVIRONMENTS_LOCK:
+                    ENVIRONMENTS[env.id] = env
                 result = {
                     "id": env.id,
                     "working_dir": str(env.work_dir),
@@ -114,9 +114,10 @@ async def init_server() -> Server:
 
             elif name == "cleanup":
                 env_id = arguments["env_id"]
-                if env_id in ENVIRONMENTS:
-                    env = ENVIRONMENTS.pop(env_id)
-                    cleanup_environment(env)
+                async with ENVIRONMENTS_LOCK:
+                    if env_id in ENVIRONMENTS:
+                        env = ENVIRONMENTS.pop(env_id)
+                        cleanup_environment(env)
                 return [
                     types.TextContent(text=json.dumps({"success": True}), type="text")
                 ]
