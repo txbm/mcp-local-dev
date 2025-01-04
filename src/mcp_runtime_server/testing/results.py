@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from mcp_runtime_server import types
+import mcp.types as types
 from mcp_runtime_server.logging import get_logger
 
 logger = get_logger(__name__)
