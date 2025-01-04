@@ -76,13 +76,12 @@ class RuntimeConfig:
 
 @dataclass(frozen=True)
 class Sandbox:
-    root: Path
-    work_dir: Path
-    bin_dir: Path
-    tmp_dir: Path
-    cache_dir: Path
-    temp_dir: TemporaryDirectory
-    env_vars: Dict[str, str]
+    """Lightweight cross-platform sandbox."""
+    root: Path  # Root directory containing all sandbox contents
+    work_dir: Path  # Directory containing project files
+    bin_dir: Path  # Directory containing binary files
+    temp_dir: TemporaryDirectory  # Manages cleanup of temporary files
+    env_vars: Dict[str, str]  # Environment variables for sandbox
 
 
 @dataclass(frozen=True)
