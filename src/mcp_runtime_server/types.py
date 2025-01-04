@@ -42,12 +42,6 @@ class Environment:
     sandbox: Sandbox
 
 @dataclass(frozen=True)
-class ValidationResult:
-    """Validation result with optional error details"""
-    is_valid: bool
-    errors: List[str] = None
-
-@dataclass(frozen=True)
 class RunConfig:
     """Test run configuration"""
     runner: TestRunnerType
