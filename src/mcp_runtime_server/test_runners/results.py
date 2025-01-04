@@ -65,15 +65,16 @@ def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
 
     return result
 
-def format_test_results(
-    runner: str, results: Dict[str, Any]
-) -> list[TextContent]:
-    """Convert parsed test results into MCP-compatible format."""
+def format_test_results(runner: str, results: Dict[str, Any]) -> list[TextContent]:
+    """Convert test results to MCP format"""
     return [
         TextContent(
-            text=json.dumps(
-                {"success": True, "runners": [{"runner": runner, **results}]}
-            ),
-            type="text",
+            text=json.dumps({
+                "success": True,
+                "runner": runner,
+                "test_cases": results.get("tests", []),
+                "summary": results.get("summary", {})
+            }),
+            type="text"
         )
     ]
