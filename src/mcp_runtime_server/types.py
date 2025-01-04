@@ -9,8 +9,8 @@ from tempfile import TemporaryDirectory
 
 Runtime = Enum('Runtime', ['PYTHON', 'NODE', 'BUN'])
 PackageManager = Enum('PackageManager', ['UV', 'NPM', 'BUN'])
-class FrameworkType(Enum):
-    """Available test framework types"""
+class TestRunnerType(Enum):
+    """Available test runner types"""
     PYTEST = 'pytest'
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ class ValidationResult:
 @dataclass(frozen=True)
 class RunConfig:
     """Test run configuration"""
-    framework: FrameworkType
+    runner: TestRunnerType
     env: Environment
     test_dirs: List[Path]
 
