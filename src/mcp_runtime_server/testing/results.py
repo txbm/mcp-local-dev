@@ -61,6 +61,11 @@ def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
         ],
         "duration": report.get("duration", 0),
         "warnings": report.get("warnings", []),
+        "output": {
+            "stdout": report.get("stdout", ""),
+            "stderr": report.get("stderr", ""),
+            "log_records": report.get("log_records", [])
+        }
     }
 
     logger.info(
