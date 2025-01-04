@@ -85,6 +85,21 @@ async def install_runtime(
     sandbox: Sandbox, config: RuntimeConfig
 ) -> None:
     """Install runtime assuming binaries are on system path"""
-    # Runtime installation logic would go here
-    # Currently just verifying system binaries exist
-    pass
+    import shutil
+    
+    # Verify required binaries exist
+    required_binaries = [config.binary_name]
+    if config.package_manager == PackageManager.UV:
+        required_binaries.append('uv')
+    elif config.package_manager == PackageManager.NPM:
+        required_binaries.append('npm')
+    elif config.package_manager == PackageManager.BUN:
+        required_binaries.append('bun')
+        
+    missing = [bin for bin in required_binaries if not shutil.which(bin)]
+    if missing:
+        raise RuntimeError(f"Required binaries not found: {', '.join(missing)}")
+        
+    # Set up environment variables
+    for key, value in config.env_setup.items():
+        sandbox.env_vars[key] = value

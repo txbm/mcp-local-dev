@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Set
-from typing import List, Dict, Any, Set
 
 from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
 from mcp_runtime_server.types import Environment, TestFramework, RunConfig, Runtime
@@ -230,7 +229,7 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
 
     pytest_cmd = f"{env.test_bin} -vv --no-header --json-report"
 
-    test_dirs = _find_test_dirs(env.sandbox.work_dir)
+    test_dirs = _find_test_dirs(env.sandbox.work_dir, env)
     if not test_dirs:
         raise RuntimeError("No test directories found")
 

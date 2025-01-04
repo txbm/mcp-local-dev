@@ -5,6 +5,7 @@ import json
 import signal
 import sys
 from typing import Dict, Any, List, cast
+import asyncio
 
 import mcp.types as types
 from mcp.server.lowlevel import Server
@@ -22,6 +23,7 @@ from mcp_runtime_server.logging import configure_logging, get_logger
 logger = get_logger("server")
 
 ENVIRONMENTS: Dict[str, Environment] = {}
+ENVIRONMENTS_LOCK = asyncio.Lock()
 
 tools = [
     types.Tool(

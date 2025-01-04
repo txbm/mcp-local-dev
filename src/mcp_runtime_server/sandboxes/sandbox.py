@@ -26,6 +26,7 @@ async def create_sandbox(prefix: str) -> Sandbox:
     Raises:
         RuntimeError: If sandbox creation fails
     """
+    temp_dir = None
     try:
         # Create temporary directory that will be cleaned up on exit
         temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
@@ -120,6 +121,11 @@ async def run_sandboxed_command(
     })
 
     try:
+        # Check if command exists
+        cmd_parts = cmd.split()
+        if not shutil.which(cmd_parts[0]):
+            raise RuntimeError(f"Command not found: {cmd_parts[0]}")
+            
         return await asyncio.create_subprocess_shell(
             cmd,
             cwd=sandbox.work_dir,

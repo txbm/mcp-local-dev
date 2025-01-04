@@ -37,7 +37,7 @@ async def auto_run_tests(
 
         results = []
         for framework in frameworks:
-            config = RunConfig(framework=framework, env=env, test_dirs=_find_test_dirs(env.sandbox.work_dir))
+            config = RunConfig(framework=framework, env=env, test_dirs=_find_test_dirs(env.sandbox.work_dir, env))
             result = await run_framework_tests(config)
             results.append(result)
 
