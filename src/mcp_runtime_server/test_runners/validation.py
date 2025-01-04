@@ -47,8 +47,6 @@ def check_test_results(results: Dict[str, Any]) -> ValidationResult:
         framework = results["framework"]
         if framework == "pytest":
             framework_result = _check_pytest_results(results)
-        elif framework == "unittest":
-            framework_result = _check_unittest_results(results)
         else:
             return ValidationResult(
                 is_valid=False,
