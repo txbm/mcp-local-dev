@@ -153,12 +153,7 @@ def detect_frameworks(env: Environment) -> List[FrameworkType]:
 
 async def run_pytest(env: Environment) -> dict[str, Any]:
     """Run pytest in the environment."""
-    from mcp_runtime_server.testing.pytest import (
-        run_pytest_for_directory,
-        PytestError,
-        PytestExecutionError,
-        PytestOutputError
-    )
+    from mcp_runtime_server.testing.pytest import run_pytest_for_directory
     
     result: dict[str, Any] = {"framework": FrameworkType.PYTEST.value}
     test_dirs = _find_test_dirs(env.sandbox.work_dir, env)
@@ -172,7 +167,7 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
             report = await run_pytest_for_directory(env, test_dir)
             summary = parse_pytest_json(report)
             all_results.append(summary)
-        except PytestExecutionError as e:
+        except RuntimeError as e:
             logger.error({
                 "event": "pytest_execution_failed",
                 "directory": str(test_dir),
@@ -180,10 +175,10 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
             })
             all_results.append({
                 "success": False,
-                "error": f"Failed to execute pytest: {e}",
+                "error": str(e),
                 "test_dir": str(test_dir)
             })
-        except PytestOutputError as e:
+        except ValueError as e:
             logger.error({
                 "event": "pytest_output_invalid",
                 "directory": str(test_dir),
@@ -191,7 +186,7 @@ async def run_pytest(env: Environment) -> dict[str, Any]:
             })
             all_results.append({
                 "success": False,
-                "error": f"Invalid pytest output: {e}",
+                "error": str(e),
                 "test_dir": str(test_dir)
             })
         except Exception as e:
