@@ -15,6 +15,9 @@ async def clone_github_repository(
     branch: Optional[str], 
     subdir: Optional[str] = None
 ) -> Path:
+    if not url:
+        raise ValueError("URL cannot be empty")
+        
     target_dir = sandbox.work_dir
 
     logger.debug(
@@ -22,8 +25,14 @@ async def clone_github_repository(
     )
 
     # Normalize GitHub URL to HTTPS format
-    if url.startswith("git@github.com:"):
-        url = f"https://github.com/{url.split(':', 1)[1]}"
+    if url.startswith("git@"):
+        parts = url.split(":")
+        if "@" in parts[0]:
+            host = parts[0].split("@")[1]
+            if ":" in host:  # Handle custom ports
+                host = host.split(":")[0]
+            repo = parts[1]
+            url = f"https://{host}/{repo}"
     elif url.startswith("http://"):
         raise ValueError("HTTP URLs are not supported, use HTTPS")
     elif not url.startswith("https://"):
