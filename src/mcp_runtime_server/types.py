@@ -47,12 +47,7 @@ class RuntimeConfig:
     config_files: list[str]
     package_manager: PackageManager
     env_setup: dict[str, str]
-    bin_paths: list[str]
     binary_name: str
-    url_template: str
-    checksum_template: str
-    platform_style: str = "simple"
-    version_prefix: str = "v"
 
 @dataclass(frozen=True)
 class Sandbox:
