@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 
 from mcp_runtime_server.testing.frameworks import detect_frameworks, run_framework_tests
-from mcp_runtime_server.types import TestFramework, RunConfig
+from mcp_runtime_server.types import FrameworkType, RunConfig
 
 @pytest.mark.asyncio
 async def test_detect_and_run_pytest(python_environment):
@@ -23,7 +23,7 @@ async def test_detect_and_run_pytest(python_environment):
     
     # Test framework detection
     frameworks = detect_frameworks(python_environment)
-    assert frameworks == [TestFramework.PYTEST]
+    assert frameworks == [FrameworkType.PYTEST]
     
     # Test running tests
     config = RunConfig(
