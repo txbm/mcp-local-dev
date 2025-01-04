@@ -12,7 +12,13 @@ logger = get_logger(__name__)
 
 def build_pytest_command(test_dir: Path) -> str:
     """Build pytest command with proper arguments"""
-    return f"python -m pytest -v --json-report-file=- {test_dir}"
+    # Use --verbose and capture JSON output via --json instead of requiring a plugin
+    return (
+        f"python -m pytest {test_dir} -v "
+        "--capture=no "  # Show test output
+        "--tb=short "    # Shorter traceback format
+        "-p no:warnings" # Disable warning capture to reduce noise
+    )
 
 
 async def run_pytest_for_directory(env: Environment, test_dir: Path) -> dict[str, Any]:
@@ -32,7 +38,7 @@ async def run_pytest_for_directory(env: Environment, test_dir: Path) -> dict[str
     )
     stdout, stderr = await process.communicate()
     
-    if process.returncode != 0 and not stdout:
+    if process.returncode not in (0, 1):  # pytest returns 1 for test failures
         error = stderr.decode() if stderr else "No error output"
         logger.error({
             "event": "pytest_execution_failed", 
@@ -41,13 +47,35 @@ async def run_pytest_for_directory(env: Environment, test_dir: Path) -> dict[str
         })
         raise RuntimeError(f"Failed to execute pytest: {error}")
 
-    try:
-        return json.loads(stdout)
-    except json.JSONDecodeError as e:
-        logger.error({
-            "event": "pytest_output_invalid",
-            "error": str(e),
-            "stdout": stdout.decode() if stdout else None,
-            "stderr": stderr.decode() if stderr else None
-        })
-        raise ValueError("Invalid pytest JSON output")
+    # Parse pytest output into our expected format
+    stdout_text = stdout.decode() if stdout else ""
+    stderr_text = stderr.decode() if stderr else ""
+    
+    # Basic parsing of pytest output
+    result = {
+        "tests": [],
+        "summary": {
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0
+        },
+        "stdout": stdout_text,
+        "stderr": stderr_text
+    }
+
+    # Parse test results from output
+    for line in stdout_text.splitlines():
+        if "PASSED" in line or "FAILED" in line or "SKIPPED" in line:
+            test_name = line.split("::")[1].split()[0] if "::" in line else line
+            status = "passed" if "PASSED" in line else "failed" if "FAILED" in line else "skipped"
+            result["tests"].append({
+                "nodeid": test_name,
+                "outcome": status,
+                "stdout": stdout_text,
+                "duration": 0.0  # We don't parse duration for now
+            })
+            result["summary"][status] += 1
+            result["summary"]["total"] += 1
+
+    return result
