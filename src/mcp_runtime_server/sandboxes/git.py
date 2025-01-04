@@ -2,9 +2,9 @@ from typing import Optional
 from pathlib import Path
 
 
-from mcp_runtime_server.types import Sandbox
-from mcp_runtime_server.logging import get_logger
-from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
+from mcp_local_dev.types import Sandbox
+from mcp_local_dev.logging import get_logger
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 
 logger = get_logger(__name__)
 

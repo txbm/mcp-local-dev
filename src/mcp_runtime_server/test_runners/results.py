@@ -4,8 +4,8 @@ import json
 from typing import Any, Dict
 
 from mcp.types import TextContent
-from mcp_runtime_server.types import TestCase
-from mcp_runtime_server.logging import get_logger
+from mcp_local_dev.types import TestCase
+from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
 

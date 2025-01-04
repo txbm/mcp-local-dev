@@ -3,11 +3,11 @@
 import json
 
 import mcp.types as types
-from mcp_runtime_server.environments.environment import Environment
-from mcp_runtime_server.test_runners.runners import detect_test_runners, run_test_runner
-from mcp_runtime_server.types import RunConfig, TestRunnerType
-from mcp_runtime_server.test_runners.results import format_test_results
-from mcp_runtime_server.logging import get_logger
+from mcp_local_dev.environments.environment import Environment
+from mcp_local_dev.test_runners.runners import detect_test_runners, run_test_runner
+from mcp_local_dev.types import RunConfig, TestRunnerType
+from mcp_local_dev.test_runners.results import format_test_results
+from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
 

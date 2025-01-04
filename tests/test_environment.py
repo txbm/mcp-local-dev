@@ -1,8 +1,8 @@
 import pytest
 from pathlib import Path
 
-from mcp_runtime_server.environments.environment import create_environment
-from mcp_runtime_server.types import Runtime
+from mcp_local_dev.environments.environment import create_environment
+from mcp_local_dev.types import Runtime
 
 @pytest.mark.asyncio
 async def test_create_environment_from_python_project():

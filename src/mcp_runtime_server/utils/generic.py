@@ -1,7 +1,7 @@
 import json
 import hashlib
 
-from mcp_runtime_server.logging import get_logger
+from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
 

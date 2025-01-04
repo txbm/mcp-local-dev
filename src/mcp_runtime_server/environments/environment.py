@@ -8,15 +8,15 @@ from typing import Optional
 
 from fuuid import b58_fuuid
 
-from mcp_runtime_server.types import Environment, Sandbox
-from mcp_runtime_server.runtimes.runtime import detect_runtime, install_runtime
-from mcp_runtime_server.sandboxes.sandbox import (
+from mcp_local_dev.types import Environment, Sandbox
+from mcp_local_dev.runtimes.runtime import detect_runtime, install_runtime
+from mcp_local_dev.sandboxes.sandbox import (
     create_sandbox, 
     cleanup_sandbox,
     add_package_manager_bin_path
 )
-from mcp_runtime_server.sandboxes.git import clone_github_repository
-from mcp_runtime_server.logging import get_logger
+from mcp_local_dev.sandboxes.git import clone_github_repository
+from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
 
