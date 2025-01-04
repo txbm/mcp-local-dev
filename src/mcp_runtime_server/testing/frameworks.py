@@ -130,58 +130,19 @@ def _find_test_dirs(project_dir: Path, env: Environment) -> Set[Path]:
 
 def detect_frameworks(env: Environment) -> List[TestFramework]:
     """Detect test frameworks in a project directory."""
-    frameworks = set()
-    
     logger.info({"event": "framework_detection_start", "project_dir": str(env.sandbox.work_dir)})
 
-    # First check if test runners are installed via project dependencies
+    # Check for installed test runners based on runtime
     if env.runtime == Runtime.PYTHON:
         pytest_bin = env.sandbox.bin_dir / "pytest"
-        if pytest_bin.exists():
-            # Only look for pytest tests if pytest is actually installed
-            test_dirs = _find_test_dirs(env.sandbox.work_dir, env)
-            if test_dirs:
-                for test_dir in test_dirs:
-                    logger.info({"event": "checking_test_dir", "path": str(test_dir)})
-                    
-                    if _check_file_imports(test_dir, ["pytest"]):
-                        frameworks.add(TestFramework.PYTEST)
-                        logger.info({"event": "pytest_imports_found", "dir": str(test_dir)})
-                        break
-                        
-                    # Check pytest config files
-                    pytest_indicators = [
-                        test_dir / "conftest.py",
-                        test_dir / "pytest.ini",
-                        test_dir / "setup.cfg",
-                        test_dir / "tox.ini",
-                    ]
-                    if any(p.exists() for p in pytest_indicators):
-                        frameworks.add(TestFramework.PYTEST)
-                        logger.info({"event": "pytest_config_found", "dir": str(test_dir)})
-                        break
-
-                    # Check pyproject.toml
-                    pyproject_path = test_dir / "pyproject.toml"
-                    if pyproject_path.exists():
-                        try:
-                            with open(pyproject_path, "r", encoding="utf-8") as f:
-                                if "pytest" in f.read():
-                                    frameworks.add(TestFramework.PYTEST)
-                                    logger.info({"event": "pytest_in_pyproject", "file": str(pyproject_path)})
-                                    break
-                        except Exception as e:
-                            logger.warning({"event": "pyproject_read_error", "error": str(e)})
-
-    logger.info(
-        {
-            "event": "framework_detection_complete",
-            "detected_frameworks": [f.value for f in frameworks],
-            "test_directories": [str(d) for d in test_dirs],
-        }
-    )
-
-    return list(frameworks)
+        if pytest_bin.exists() and _find_test_dirs(env.sandbox.work_dir, env):
+            logger.info({"event": "framework_detected", "framework": "pytest"})
+            return [TestFramework.PYTEST]
+    
+    # Add other runtimes here as needed
+    
+    logger.info({"event": "no_frameworks_detected"})
+    return []
 
 
 async def run_pytest(env: Environment) -> dict[str, Any]:
