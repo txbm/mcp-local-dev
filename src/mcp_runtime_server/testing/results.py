@@ -14,8 +14,19 @@ logger = get_logger(__name__)
 
 def parse_pytest_json(report: Dict[str, Any]) -> Dict[str, Any]:
     """Transform pytest JSON output into structured results"""
+    if not isinstance(report, dict):
+        logger.error({"event": "invalid_pytest_report", "error": "Report must be a dictionary"})
+        raise ValueError("Invalid pytest report format")
+        
     tests = report.get("tests", [])
+    if not isinstance(tests, list):
+        logger.error({"event": "invalid_pytest_tests", "error": "Tests must be a list"})
+        raise ValueError("Invalid pytest tests format")
+        
     summary = report.get("summary", {})
+    if not isinstance(summary, dict):
+        logger.error({"event": "invalid_pytest_summary", "error": "Summary must be a dictionary"})
+        raise ValueError("Invalid pytest summary format")
 
     def create_test_case(test: Dict[str, Any]) -> TestCase:
         status = test.get("outcome")

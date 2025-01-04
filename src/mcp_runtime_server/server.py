@@ -181,8 +181,6 @@ async def serve() -> None:
         logger.exception(f"Server error: {e}")
         await cleanup_all_environments()
         raise
-    finally:
-        await cleanup_all_environments()
 
 
 def handle_shutdown(signum, frame):

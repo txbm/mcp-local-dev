@@ -21,16 +21,20 @@ async def clone_github_repository(
         {"event": "clone_github_repository", "url": url, "target_dir": str(target_dir)}
     )
 
-    # Ensure HTTPS URL
-    if not url.startswith("https://"):
-        if url.startswith("http://"):
-            raise ValueError("HTTP URLs are not supported, use HTTPS")
-        if url.startswith("git@"):
-            raise ValueError("SSH URLs are not supported, use HTTPS") 
-        if not url.startswith("github.com"):
+    # Normalize GitHub URL to HTTPS format
+    if url.startswith("git@github.com:"):
+        url = f"https://github.com/{url.split(':', 1)[1]}"
+    elif url.startswith("http://"):
+        raise ValueError("HTTP URLs are not supported, use HTTPS")
+    elif not url.startswith("https://"):
+        # Handle shorthand formats like "owner/repo"
+        if "/" in url and not url.startswith("github.com"):
             url = f"https://github.com/{url}"
         else:
             url = f"https://{url}"
+    
+    if not url.startswith("https://github.com"):
+        raise ValueError("Only GitHub repositories are supported")
 
     logger.debug({"event": "clone_url_processed", "final_url": url})
 
