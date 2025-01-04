@@ -42,8 +42,18 @@ def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
     work_dir = sandbox.work_dir
     logger.debug({"event": "detecting_runtime", "work_dir": str(work_dir)})
 
-    files = set(str(p) for p in work_dir.rglob("*"))
-    logger.debug({"event": "found_project_files", "files": list(files)})
+    SKIP_DIRS = {'.git', '.svn', '.hg', '.pytest_cache', '__pycache__', 'node_modules', '.venv'}
+    
+    files = set()
+    for p in work_dir.rglob("*"):
+        # Skip hidden directories
+        if any(part.startswith('.') or part in SKIP_DIRS for part in p.parts):
+            continue
+        # Get path relative to work_dir
+        rel_path = p.relative_to(work_dir)
+        files.add(str(rel_path))
+        
+    logger.debug({"event": "found_project_files", "files": sorted(list(files))})
 
     for runtime, config in RUNTIME_CONFIGS.items():
         if runtime == Runtime.BUN:
