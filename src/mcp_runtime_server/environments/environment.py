@@ -38,7 +38,13 @@ async def create_environment(path: Path) -> Environment:
         }
     )
     sandbox = await create_sandbox(f"mcp-{env_id}-")
+    
+    # Copy project files to sandbox work directory
     shutil.copytree(path, sandbox.work_dir, dirs_exist_ok=True)
+    
+    # Ensure proper permissions
+    os.chmod(sandbox.work_dir, 0o700)
+    os.chmod(sandbox.bin_dir, 0o700)
 
     runtime_config = detect_runtime(sandbox)
     runtime_bin, pkg_bin, test_bin = await install_runtime(sandbox, runtime_config)

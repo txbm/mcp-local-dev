@@ -16,7 +16,7 @@ async def auto_run_tests(
 ) -> list[types.TextContent]:
     """Auto-detect and run tests in the environment."""
     try:
-        frameworks = detect_frameworks(str(env.work_dir))
+        frameworks = detect_frameworks(env)
         if not frameworks:
             logger.info(
                 {"event": "no_frameworks_detected", "working_dir": str(env.work_dir)}
