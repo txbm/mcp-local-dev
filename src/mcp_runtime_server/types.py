@@ -38,38 +38,6 @@ class Environment:
     runtime_config: RuntimeConfig
     created_at: datetime
     sandbox: Sandbox
-    _pkg_bin: Path
-    _runtime_bin: Path
-    _test_bin: Path
-
-    def __init__(self, id: str, runtime_config: RuntimeConfig, sandbox: Sandbox, created_at: datetime):
-        object.__setattr__(self, 'id', id)
-        object.__setattr__(self, 'runtime_config', runtime_config)
-        object.__setattr__(self, 'sandbox', sandbox)
-        object.__setattr__(self, 'created_at', created_at)
-        object.__setattr__(self, '_pkg_bin', sandbox.bin_dir / runtime_config.package_manager.value.lower())
-        object.__setattr__(self, '_runtime_bin', sandbox.bin_dir / runtime_config.binary_name)
-        object.__setattr__(self, '_test_bin', sandbox.bin_dir / ("pytest" if runtime_config.name == Runtime.PYTHON else "jest"))
-
-    @property
-    def runtime(self) -> Runtime:
-        return self.runtime_config.name
-
-    @property
-    def work_dir(self) -> Path:
-        return self.sandbox.work_dir
-        
-    @property
-    def pkg_bin(self) -> Path:
-        return self._pkg_bin
-        
-    @property
-    def runtime_bin(self) -> Path:
-        return self._runtime_bin
-        
-    @property
-    def test_bin(self) -> Path:
-        return self._test_bin
 
 @dataclass(frozen=True)
 class ValidationResult:
