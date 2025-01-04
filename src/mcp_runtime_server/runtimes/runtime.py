@@ -86,6 +86,7 @@ async def install_runtime(
 ) -> None:
     """Install runtime assuming binaries are on system path"""
     import shutil
+    from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
     
     # Verify required binaries exist
     required_binaries = [config.binary_name]
@@ -106,3 +107,14 @@ async def install_runtime(
     # Set up environment variables
     for key, value in config.env_setup.items():
         sandbox.env_vars[key] = value
+        
+    # Install test dependencies for Python
+    if config.name == Runtime.PYTHON:
+        process = await run_sandboxed_command(
+            sandbox,
+            "uv pip install pytest pytest-json-report",
+            sandbox.env_vars
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"Failed to install test dependencies: {stderr.decode()}")
