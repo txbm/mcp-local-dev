@@ -35,5 +35,5 @@ async def test_detect_and_run_pytest(python_environment):
     
     assert results["success"] is True
     assert results["framework"] == "pytest"
-    assert results["total"] > 0
+    assert results["results"][0]["summary"]["total"] > 0  # Fix: Access total through the nested structure
     assert results["passed"] > 0
