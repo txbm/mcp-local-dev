@@ -38,9 +38,6 @@ class Environment:
     runtime_config: RuntimeConfig
     created_at: datetime
     sandbox: Sandbox
-    pkg_bin: Path
-    runtime_bin: Path
-    test_bin: Path
 
     @property
     def runtime(self) -> Runtime:
@@ -49,6 +46,18 @@ class Environment:
     @property
     def work_dir(self) -> Path:
         return self.sandbox.work_dir
+        
+    @property
+    def pkg_bin(self) -> Path:
+        return self.sandbox.bin_dir / self.runtime_config.package_manager.value.lower()
+        
+    @property
+    def runtime_bin(self) -> Path:
+        return self.sandbox.bin_dir / self.runtime_config.binary_name
+        
+    @property
+    def test_bin(self) -> Path:
+        return self.sandbox.bin_dir / ("pytest" if self.runtime == Runtime.PYTHON else "jest")
 
 @dataclass(frozen=True)
 class ValidationResult:
