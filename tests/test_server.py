@@ -40,8 +40,8 @@ async def create_test_streams() -> AsyncGenerator[tuple[anyio.abc.ObjectSendStre
 async def send_request(send_stream: anyio.abc.ObjectSendStream,
                       method: str,
                       params: Dict[str, Any] | None = None,
-                      request_id: int = 1) -> None:
-    """Send a JSON-RPC request."""
+                      request_id: int | None = 1) -> None:
+    """Send a JSON-RPC request or notification."""
     if method == "initialize":
         # Add required fields for initialization
         params = {
@@ -53,15 +53,25 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
             "clientInfo": params.get("clientInfo", {}) if params else {}
         }
     
-    request = JSONRPCMessage(
-        root=JSONRPCRequest(
-            jsonrpc="2.0",
-            id=request_id,
-            method=method,
-            params=params or {}
+    # For notifications like "initialized", don't include an id
+    if method == "initialized":
+        message = JSONRPCMessage(
+            root=JSONRPCRequest(
+                jsonrpc="2.0",
+                method=method,
+                params=params or {}
+            )
         )
-    )
-    await send_stream.send(request)
+    else:
+        message = JSONRPCMessage(
+            root=JSONRPCRequest(
+                jsonrpc="2.0",
+                id=request_id,
+                method=method,
+                params=params or {}
+            )
+        )
+    await send_stream.send(message)
 
 async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
                          timeout: float = 2.0) -> Dict[str, Any]:
@@ -125,8 +135,8 @@ async def test_server_initialization():
             assert "version" in init_response["serverInfo"]
             assert "capabilities" in init_response
 
-            # Send initialized notification to complete initialization
-            await send_request(client_send, "initialized")
+            # Send initialized notification without request id
+            await send_request(client_send, "initialized", None, None)
 
             # Now test tools listing
             await send_request(client_send, "tools/list")
@@ -187,8 +197,8 @@ async def test_tool_execution():
             init_response = await receive_response(client_receive)
             assert "serverInfo" in init_response
             
-            # Send initialized notification
-            await send_request(client_send, "initialized")
+            # Send initialized notification without request id
+            await send_request(client_send, "initialized", None, None)
 
             # Now test tool execution
             await send_request(
@@ -261,8 +271,8 @@ async def test_error_handling():
             init_response = await receive_response(client_receive)
             assert "serverInfo" in init_response
             
-            # Send initialized notification
-            await send_request(client_send, "initialized")
+            # Send initialized notification without request id
+            await send_request(client_send, "initialized", None, None)
 
             # Now test invalid tool name
             await send_request(
