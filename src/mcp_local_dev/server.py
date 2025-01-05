@@ -1,35 +1,28 @@
 """MCP server implementation."""
-
-import asyncio
 import json
-import signal
-import sys
 from typing import Dict, Any, List, cast
-
-from mcp.types import CallToolResult
 
 import mcp.types as types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server import stdio
 
-from mcp_local_dev.types import Environment
 from mcp_local_dev.environments.environment import (
-    create_environment,
+    create_environment_from_github,
+    create_environment_from_path,
+    run_environment_tests,
     cleanup_environment,
+    get_environment,
 )
 from mcp_local_dev.test_runners.execution import auto_run_tests
 from mcp_local_dev.logging import configure_logging, get_logger
 
 logger = get_logger("server")
 
-ENVIRONMENTS: Dict[str, Environment] = {}
-ENVIRONMENTS_LOCK = asyncio.Lock()
-
 tools = [
     types.Tool(
-        name="create_environment",
-        description="Create a new runtime environment with sandbox isolation",
+        name="local_dev_from_github",
+        description="Create a new local development environment from a GitHub repository",
         inputSchema={
             "type": "object",
             "properties": {
@@ -39,8 +32,19 @@ tools = [
         },
     ),
     types.Tool(
-        name="run_tests",
-        description="Auto-detect and run tests in a sandboxed environment",
+        name="local_dev_from_filesystem",
+        description="Create a new local development environment from a filesystem path",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Local filesystem path"}
+            },
+            "required": ["path"],
+        },
+    ),
+    types.Tool(
+        name="local_dev_run_tests",
+        description="Auto-detect and run tests in a local development environment",
         inputSchema={
             "type": "object",
             "properties": {
@@ -50,8 +54,8 @@ tools = [
         },
     ),
     types.Tool(
-        name="cleanup",
-        description="Clean up a sandboxed environment",
+        name="local_dev_cleanup",
+        description="Clean up a local development environment",
         inputSchema={
             "type": "object",
             "properties": {
@@ -77,14 +81,10 @@ async def init_server() -> Server:
     async def call_tool(
         name: str, arguments: Dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        logger.debug(f"Tool called: {name} with args: {arguments}")
-
         try:
-            if name == "create_environment":
-                env = await create_environment(arguments["github_url"])
-                async with ENVIRONMENTS_LOCK:
-                    ENVIRONMENTS[env.id] = env
-                result = {
+            if name == "local_dev_from_github":
+                env = await create_environment_from_github(arguments["github_url"])
+                return [types.TextContent(type="text", text=json.dumps({
                     "success": True,
                     "data": {
                         "id": env.id,
@@ -92,54 +92,55 @@ async def init_server() -> Server:
                         "created_at": env.created_at.isoformat(),
                         "runtime": env.runtime.value,
                     }
-                }
-                return [types.TextContent(type="text", text=json.dumps(result))]
+                }))]
                 
-            elif name == "run_tests":
-                if arguments["env_id"] not in ENVIRONMENTS:
-                    return [types.TextContent(
-                        type="text",
-                        text=json.dumps({
-                            "success": False,
-                            "error": f"Unknown environment: {arguments['env_id']}"
-                        })
-                    )]
-
-                env = ENVIRONMENTS[arguments["env_id"]]
+            elif name == "local_dev_from_filesystem":
+                env = await create_environment_from_path(arguments["path"])
+                return [types.TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "data": {
+                        "id": env.id,
+                        "working_dir": str(env.work_dir),
+                        "created_at": env.created_at.isoformat(),
+                        "runtime": env.runtime.value,
+                    }
+                }))]
+                
+            elif name == "local_dev_run_tests":
+                env = get_environment(arguments["env_id"])
+                if not env:
+                    return [types.TextContent(type="text", text=json.dumps({
+                        "success": False,
+                        "error": f"Unknown environment: {arguments['env_id']}"
+                    }))]
                 return cast(
                     list[types.TextContent | types.ImageContent | types.EmbeddedResource],
-                    await auto_run_tests(env),
+                    await run_environment_tests(env),
                 )
 
-            elif name == "cleanup":
-                env_id = arguments["env_id"]
-                async with ENVIRONMENTS_LOCK:
-                    if env_id in ENVIRONMENTS:
-                        env = ENVIRONMENTS.pop(env_id)
-                        cleanup_environment(env)
-                return [types.TextContent(
-                    type="text",
-                    text=json.dumps({
-                        "success": True,
-                        "data": {"message": "Environment cleaned up successfully"}
-                    })
-                )]
+            elif name == "local_dev_cleanup":
+                env = get_environment(arguments["env_id"])
+                if not env:
+                    return [types.TextContent(type="text", text=json.dumps({
+                        "success": False,
+                        "error": f"Unknown environment: {arguments['env_id']}"
+                    }))]
+                cleanup_environment(env)
+                return [types.TextContent(type="text", text=json.dumps({
+                    "success": True,
+                    "data": {"message": "Environment cleaned up successfully"}
+                }))]
 
-            return [types.TextContent(
-                type="text",
-                text=json.dumps({
-                    "success": False,
-                    "error": f"Unknown tool: {name}"
-                })
-            )]
+            return [types.TextContent(type="text", text=json.dumps({
+                "success": False,
+                "error": f"Unknown tool: {name}"
+            }))]
+
         except Exception as e:
-            return [types.TextContent(
-                type="text",
-                text=json.dumps({
-                    "success": False,
-                    "error": str(e)
-                })
-            )]
+            return [types.TextContent(type="text", text=json.dumps({
+                "success": False,
+                "error": str(e)
+            }))]
 
     @server.progress_notification()
     async def handle_progress(
@@ -151,19 +152,9 @@ async def init_server() -> Server:
     return server
 
 
-async def cleanup_all_environments():
-    for env_id, env in list(ENVIRONMENTS.items()):
-        try:
-            cleanup_environment(env)
-            ENVIRONMENTS.pop(env_id)
-        except Exception as e:
-            logger.error(f"Failed to cleanup environment {env_id}: {e}")
-
-
 async def serve() -> None:
     configure_logging()
     logger.info("Starting MCP runtime server")
-
     server = await init_server()
     async with stdio.stdio_server() as (read_stream, write_stream):
         init_options = InitializationOptions(
@@ -176,18 +167,6 @@ async def serve() -> None:
         )
         await server.run(read_stream, write_stream, init_options)
 
-
-def handle_shutdown(signum, frame):
-    logger.info(f"Shutting down on signal {signum}")
-    sys.exit(0)
-
-
-def setup_handlers() -> None:
-    signal.signal(signal.SIGINT, handle_shutdown)
-    signal.signal(signal.SIGTERM, handle_shutdown)
-
-
 def main() -> None:
     """Run the MCP server."""
-    setup_handlers()
     asyncio.run(serve())
