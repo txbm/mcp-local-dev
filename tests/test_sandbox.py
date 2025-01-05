@@ -1,5 +1,6 @@
 import pytest
 import os
+import shutil
 from pathlib import Path
 from mcp_local_dev.types import Sandbox, PackageManager
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, add_package_manager_bin_path
