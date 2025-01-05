@@ -17,21 +17,25 @@ async def create_test_streams() -> AsyncGenerator[tuple[anyio.abc.ObjectSendStre
                                                       anyio.abc.ObjectReceiveStream,
                                                       anyio.abc.ObjectSendStream,
                                                       anyio.abc.ObjectReceiveStream], None]:
-    """Create bidirectional streams for testing."""
-    client_to_server_send, client_to_server_receive = anyio.create_memory_object_stream(100)
-    server_to_client_send, server_to_client_receive = anyio.create_memory_object_stream(100)
+    """Create bidirectional streams for testing.
+    Returns (client_send, server_receive, server_send, client_receive)
+    """
+    # Create two separate memory streams for bidirectional communication
+    client_send, server_receive = anyio.create_memory_object_stream(100)  # Client -> Server
+    server_send, client_receive = anyio.create_memory_object_stream(100)  # Server -> Client
     
     try:
-        yield client_to_server_send, server_to_client_receive, server_to_client_send, client_to_server_receive
+        # Return the streams in the correct order:
+        # client_send -> server_receive -> server processes -> server_send -> client_receive
+        yield client_send, server_receive, server_send, client_receive
     finally:
-        # Only close after all operations are complete
         async with anyio.create_task_group() as tg:
             async def close_stream(stream):
                 await stream.aclose()
-            tg.start_soon(close_stream, client_to_server_send)
-            tg.start_soon(close_stream, client_to_server_receive) 
-            tg.start_soon(close_stream, server_to_client_send)
-            tg.start_soon(close_stream, server_to_client_receive)
+            tg.start_soon(close_stream, client_send)
+            tg.start_soon(close_stream, server_receive)
+            tg.start_soon(close_stream, server_send)
+            tg.start_soon(close_stream, client_receive)
 
 async def send_request(send_stream: anyio.abc.ObjectSendStream,
                       method: str,
