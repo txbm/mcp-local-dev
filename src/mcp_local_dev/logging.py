@@ -27,29 +27,25 @@ LEVEL_COLORS = {
     "CRITICAL": ColorCodes.MAGENTA + ColorCodes.BOLD
 }
 
-def format_json_log(record: logging.LogRecord) -> str:
-    """Format log record as color-coded JSON."""
-    color = LEVEL_COLORS.get(record.levelname, "")
-    
-    output = {
-        "ts": record.asctime if hasattr(record, 'asctime') else '',
-        "level": record.levelname,
-        "msg": record.getMessage()
-    }
+class JsonFormatter(logging.Formatter):
+    """Format log records as color-coded JSON."""
+    def format(self, record: logging.LogRecord) -> str:
+        color = LEVEL_COLORS.get(record.levelname, "")
+        
+        output = {
+            "ts": record.asctime if hasattr(record, 'asctime') else '',
+            "level": record.levelname,
+            "msg": record.getMessage()
+        }
 
-    if hasattr(record, "data"):
-        output["data"] = record.data
+        if hasattr(record, "data"):
+            output["data"] = record.data
 
-    json_str = json.dumps(output)
-    return f"{color}{json_str}{ColorCodes.RESET}"
+        json_str = json.dumps(output)
+        return f"{color}{json_str}{ColorCodes.RESET}"
 
 def configure_logging():
     """Set up application logging with JSON formatting."""
-    # Create a custom Formatter class that uses our format function
-    class JsonFormatter(logging.Formatter):
-        def format(self, record):
-            return format_json_log(record)
-    
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(JsonFormatter())
     handler.setLevel(logging.INFO)
