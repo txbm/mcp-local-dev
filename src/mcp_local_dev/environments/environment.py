@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from typing import Optional, Dict
 
 from fuuid import b58_fuuid
+import mcp.types as mcp_types
 
-from mcp_local_dev.types import Environment, Sandbox, Runtime, TextContent
+from mcp_local_dev.types import Environment, Sandbox, Runtime
 from mcp_local_dev.runtimes.runtime import detect_runtime, install_runtime
 from mcp_local_dev.sandboxes.sandbox import (
     create_sandbox,
@@ -53,7 +54,7 @@ async def create_environment_from_path(path: Path) -> Environment:
     _ENVIRONMENTS[env_id] = env
     return env
 
-async def run_environment_tests(env: Environment) -> list[TextContent]:
+async def run_environment_tests(env: Environment) -> list[mcp_types.TextContent]:
     """Run tests in environment."""
     # This should be implemented to return properly formatted test results
     # Will need to integrate with test_runners/execution.py
