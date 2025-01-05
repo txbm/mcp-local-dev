@@ -62,3 +62,12 @@ async def test_sandbox_environment_isolation(sandbox: Sandbox):
     assert env_vars["HOME"] == str(sandbox.work_dir)
     assert env_vars["TMPDIR"] == str(sandbox.tmp_dir)
     assert str(sandbox.bin_dir) in env_vars["PATH"]
+
+def test_package_manager_path_order(sandbox: Sandbox):
+    """Test package manager PATH is prepended correctly"""
+    original_path = sandbox.env_vars["PATH"]
+    add_package_manager_bin_path(sandbox, PackageManager.UV)
+    new_path = sandbox.env_vars["PATH"]
+    
+    assert new_path.startswith(str(sandbox.work_dir / ".venv" / "bin"))
+    assert original_path in new_path

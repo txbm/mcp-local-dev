@@ -15,6 +15,9 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
     ("https://github.com/user/repo.git", "https://github.com/user/repo.git"),
     ("", ValueError),
     (None, ValueError),
+    ("https://github.com/user/repo?token=abc", ValueError),
+    ("https://github.com/user/repo#branch", ValueError),
+    ("github.com/user/repo", "https://github.com/user/repo")
 ])
 def test_normalize_github_url(input_url, expected):
     """Test GitHub URL normalization with various formats"""
