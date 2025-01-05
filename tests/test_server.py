@@ -47,17 +47,10 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
 async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
                          timeout: float = 2.0) -> Dict[str, Any]:
     """Receive and validate JSON-RPC response with timeout."""
-    try:
-        async with anyio.create_task_group() as tg:
-            async def receive():
-                response = await receive_stream.receive()
-                assert isinstance(response.root, JSONRPCResponse)
-                return response.root.result
-                
-            result = await anyio.wait_for(receive(), timeout)
-            return result
-    except TimeoutError:
-        raise RuntimeError(f"No response received within {timeout} seconds")
+    async with anyio.fail_after(timeout):
+        response = await receive_stream.receive()
+        assert isinstance(response.root, JSONRPCResponse)
+        return response.root.result
 
 @pytest.mark.asyncio 
 async def test_server_initialization():
