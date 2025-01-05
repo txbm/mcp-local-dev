@@ -19,7 +19,7 @@ async def test_detect_runners(fixture_path: Path):
         assert len(runners) == 1
         assert runners[0] == TestRunnerType.PYTEST
     finally:
-        env.sandbox.temp_dir.cleanup()
+        cleanup_environment(env)
 
 @pytest.mark.asyncio
 async def test_run_tests(fixture_path: Path):
@@ -37,7 +37,7 @@ async def test_run_tests(fixture_path: Path):
         assert result["summary"]["total"] > 0
         assert result["summary"]["passed"] > 0
     finally:
-        env.sandbox.temp_dir.cleanup()
+        cleanup_environment(env)
 
 @pytest.mark.asyncio
 async def test_auto_run_tests(fixture_path: Path):
@@ -54,4 +54,4 @@ async def test_auto_run_tests(fixture_path: Path):
         assert data["summary"]["total"] > 0
         assert data["summary"]["passed"] > 0
     finally:
-        env.sandbox.temp_dir.cleanup()
+        cleanup_environment(env)
