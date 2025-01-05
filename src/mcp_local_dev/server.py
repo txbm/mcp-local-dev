@@ -77,58 +77,68 @@ async def init_server() -> Server:
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         logger.debug(f"Tool called: {name} with args: {arguments}")
 
-        if name == "create_environment":
-            env = await create_environment(arguments["github_url"])
-            async with ENVIRONMENTS_LOCK:
-                ENVIRONMENTS[env.id] = env
-            result = {
-                "id": env.id,
-                "working_dir": str(env.work_dir),
-                "created_at": env.created_at.isoformat(),
-                "runtime": env.runtime.value,
-            }
-            return [types.TextContent(text=json.dumps(result), type="text")]
-        
-        elif name == "run_tests":
-            if arguments["env_id"] not in ENVIRONMENTS:
+        try:
+            if name == "create_environment":
+                env = await create_environment(arguments["github_url"])
+                async with ENVIRONMENTS_LOCK:
+                    ENVIRONMENTS[env.id] = env
+                result = {
+                    "id": env.id,
+                    "working_dir": str(env.work_dir),
+                    "created_at": env.created_at.isoformat(),
+                    "runtime": env.runtime.value,
+                }
+                return [types.TextContent(text=json.dumps(result), type="text")]
+            
+            elif name == "run_tests":
+                if arguments["env_id"] not in ENVIRONMENTS:
+                    return [
+                        types.TextContent(
+                            text=json.dumps(
+                                {
+                                    "success": False,
+                                    "error": f"Unknown environment: {arguments['env_id']}",
+                                }
+                            ),
+                            type="text",
+                        )
+                    ]
+
+                env = ENVIRONMENTS[arguments["env_id"]]
+                return cast(
+                    list[
+                        types.TextContent | types.ImageContent | types.EmbeddedResource
+                    ],
+                    await auto_run_tests(env),
+                )
+
+            elif name == "cleanup":
+                env_id = arguments["env_id"]
+                async with ENVIRONMENTS_LOCK:
+                    if env_id in ENVIRONMENTS:
+                        env = ENVIRONMENTS.pop(env_id)
+                        cleanup_environment(env)
                 return [
-                    types.TextContent(
-                        text=json.dumps(
-                            {
-                                "success": False,
-                                "error": f"Unknown environment: {arguments['env_id']}",
-                            }
-                        ),
-                        type="text",
-                    )
+                    types.TextContent(text=json.dumps({"success": True}), type="text")
                 ]
 
-            env = ENVIRONMENTS[arguments["env_id"]]
-            return cast(
-                list[
-                    types.TextContent | types.ImageContent | types.EmbeddedResource
-                ],
-                await auto_run_tests(env),
-            )
-
-        elif name == "cleanup":
-            env_id = arguments["env_id"]
-            async with ENVIRONMENTS_LOCK:
-                if env_id in ENVIRONMENTS:
-                    env = ENVIRONMENTS.pop(env_id)
-                    cleanup_environment(env)
             return [
-                types.TextContent(text=json.dumps({"success": True}), type="text")
+                types.TextContent(
+                    text=json.dumps(
+                        {"success": False, "error": f"Unknown tool: {name}"}
+                    ),
+                    type="text",
+                )
             ]
-
-        return [
-            types.TextContent(
-                text=json.dumps(
-                    {"success": False, "error": f"Unknown tool: {name}"}
-                ),
-                type="text",
-            )
-        ]
+        except Exception as e:
+            return [
+                types.TextContent(
+                    text=json.dumps(
+                        {"success": False, "error": str(e)}
+                    ),
+                    type="text"
+                )
+            ]
 
     @server.progress_notification()
     async def handle_progress(
