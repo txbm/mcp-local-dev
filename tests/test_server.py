@@ -24,16 +24,31 @@ async def create_test_streams() -> AsyncGenerator[tuple[anyio.abc.ObjectSendStre
     try:
         yield client_to_server_send, server_to_client_receive, server_to_client_send, client_to_server_receive
     finally:
-        await client_to_server_send.aclose()
-        await client_to_server_receive.aclose()
-        await server_to_client_send.aclose() 
-        await server_to_client_receive.aclose()
+        # Only close after all operations are complete
+        async with anyio.create_task_group() as tg:
+            async def close_stream(stream):
+                await stream.aclose()
+            tg.start_soon(close_stream, client_to_server_send)
+            tg.start_soon(close_stream, client_to_server_receive) 
+            tg.start_soon(close_stream, server_to_client_send)
+            tg.start_soon(close_stream, server_to_client_receive)
 
 async def send_request(send_stream: anyio.abc.ObjectSendStream,
                       method: str,
                       params: Dict[str, Any] | None = None,
                       request_id: int = 1) -> None:
     """Send a JSON-RPC request."""
+    if method == "initialize":
+        # Add required fields for initialization
+        params = {
+            "protocolVersion": "1.0",
+            "capabilities": {
+                "tools": {"listChanged": False},
+                "logging": {}
+            },
+            "clientInfo": params.get("clientInfo", {}) if params else {}
+        }
+    
     request = JSONRPCMessage(
         root=JSONRPCRequest(
             jsonrpc="2.0",
