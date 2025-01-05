@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import shutil
+import json
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
@@ -15,6 +16,7 @@ from mcp_local_dev.sandboxes.sandbox import (
     cleanup_sandbox,
 )
 from mcp_local_dev.sandboxes.git import clone_github_repository
+from mcp_local_dev.test_runners.execution import auto_run_tests
 from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
@@ -56,16 +58,27 @@ async def create_environment_from_path(path: Path) -> Environment:
 
 async def run_environment_tests(env: Environment) -> list[mcp_types.TextContent]:
     """Run tests in environment."""
-    # This should be implemented to return properly formatted test results
-    # Will need to integrate with test_runners/execution.py
-    pass
+    try:
+        test_results = await auto_run_tests(env)
+        return [mcp_types.TextContent(
+            type="text",
+            text=json.dumps({
+                "success": True,
+                "data": test_results
+            })
+        )]
+    except Exception as e:
+        return [mcp_types.TextContent(
+            type="text",
+            text=json.dumps({
+                "success": False,
+                "error": str(e)
+            })
+        )]
 
 def get_environment(env_id: str) -> Optional[Environment]:
     """Get environment by ID."""
     return _ENVIRONMENTS.get(env_id)
-
-# Alias for backward compatibility 
-create_environment = create_environment_from_path
 
 def cleanup_environment(env: Environment) -> None:
     """Clean up environment and its resources."""
