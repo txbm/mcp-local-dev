@@ -125,32 +125,36 @@ async def run_sandboxed_command(
         stderr=asyncio.subprocess.PIPE,
     )
 
-    # Wrap the process to intercept and log output while preserving it for caller
-    stdout, stderr = await process.communicate()
-    
-    if stdout:
-        logger.debug(
-            {"event": "sandbox_cmd_stdout", "cmd": cmd, "output": stdout.decode()}
-        )
-    if stderr:
-        logger.debug(
-            {"event": "sandbox_cmd_stderr", "cmd": cmd, "output": stderr.decode()}
-        )
+    # Create wrapper class to intercept and log output
+    class LoggingPipe:
+        def __init__(self, pipe, event_type):
+            self.pipe = pipe
+            self.event_type = event_type
+            
+        async def read(self):
+            data = await self.pipe.read()
+            if data:
+                logger.debug(
+                    {"event": f"sandbox_cmd_{self.event_type}", 
+                     "cmd": cmd, 
+                     "output": data.decode()}
+                )
+            return data
 
-    logger.debug(
-        {"event": "sandbox_cmd_complete", "cmd": cmd, "returncode": process.returncode}
-    )
+    # Wrap stdout/stderr with logging interceptors
+    if process.stdout:
+        process._stdout = LoggingPipe(process.stdout, "stdout")
+    if process.stderr:
+        process._stderr = LoggingPipe(process.stderr, "stderr")
 
-    # Create new process with the captured output
-    new_process = asyncio.subprocess.Process(
-        process._transport,
-        process._protocol,
-        process._loop
-    )
-    new_process._returncode = process.returncode
-    
-    # Make output available for caller
-    new_process._stdout = stdout
-    new_process._stderr = stderr
-    
-    return new_process
+    # Add completion callback
+    orig_wait = process.wait
+    async def logging_wait():
+        code = await orig_wait()
+        logger.debug(
+            {"event": "sandbox_cmd_complete", "cmd": cmd, "returncode": code}
+        )
+        return code
+    process.wait = logging_wait
+
+    return process
