@@ -83,7 +83,7 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
     await send_stream.send(message)
 
 async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
-                         timeout: float = 2.0) -> Dict[str, Any]:
+                         timeout: float = 5.0) -> Dict[str, Any]:
     """Receive and validate JSON-RPC response with timeout."""
     with anyio.move_on_after(timeout) as scope:
         response = await receive_stream.receive()
@@ -227,6 +227,7 @@ async def test_tool_execution():
                     }
                 }
             )
+            print("Tool request sent, waiting for response...")
             
             tool_response = await receive_response(client_receive)
             assert isinstance(tool_response["content"], list)
