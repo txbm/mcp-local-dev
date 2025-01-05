@@ -8,7 +8,8 @@ from mcp_local_dev.server import init_server
 async def test_server_tool_registration():
     """Test server tool registration"""
     server = await init_server()
-    tools = server.list_tools()  # Property, no await needed
+    # Need to await the list_tools handler function
+    tools = await server.list_tools_handler()
     
     assert len(tools) > 0
     assert any(t.name == "create_environment" for t in tools)
@@ -21,11 +22,14 @@ async def test_server_tool_execution():
     server = await init_server()
     
     request = types.CallToolRequest(
-        method="create_environment",
-        params={"github_url": "https://github.com/txbm/mcp-python-repo-fixture"}
+        method="tools/call",  # Required literal value
+        params=types.CallToolParams(
+            name="create_environment",
+            arguments={"github_url": "https://github.com/txbm/mcp-python-repo-fixture"}
+        )
     )
     
-    result = await server.call_tool(request)
+    result = await server.call_tool_handler(request)
     
     assert len(result) == 1
     assert result[0].type == "text"
