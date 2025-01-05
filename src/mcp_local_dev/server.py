@@ -92,9 +92,9 @@ async def init_server() -> Server:
                     "success": True,
                     "data": {
                         "id": env.id,
-                        "working_dir": str(env.work_dir),
+                        "working_dir": str(env.sandbox.work_dir),
                         "created_at": env.created_at.isoformat(),
-                        "runtime": env.runtime.value,
+                        "runtime": env.runtime_config.name.value,
                     }
                 }
                 logger.debug(f"Environment created successfully: {result}")
@@ -106,9 +106,9 @@ async def init_server() -> Server:
                     "success": True,
                     "data": {
                         "id": env.id,
-                        "working_dir": str(env.work_dir),
+                        "working_dir": str(env.sandbox.work_dir),
                         "created_at": env.created_at.isoformat(),
-                        "runtime": env.runtime.value,
+                        "runtime": env.runtime_config.name.value,
                     }
                 }))]
                 
