@@ -36,10 +36,13 @@ async def test_clone_github_repository(sandbox: Sandbox):
     
     target_dir = await clone_github_repository(sandbox, url, branch)
     
-    # Verify clone succeeded
-    assert target_dir.exists()
-    assert (target_dir / ".git").exists()
-    assert (target_dir / "pyproject.toml").exists()
+    try:
+        # Verify clone succeeded
+        assert target_dir.exists()
+        assert (target_dir / ".git").exists()
+        assert (target_dir / "pyproject.toml").exists()
+    finally:
+        cleanup_sandbox(sandbox)
 
 
 @pytest.mark.asyncio
