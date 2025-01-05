@@ -1,6 +1,7 @@
 import pytest
 import os
 from pathlib import Path
+from mcp_local_dev.types import Sandbox
 
 @pytest.mark.asyncio
 async def test_sandbox_isolation(sandbox: Sandbox):
