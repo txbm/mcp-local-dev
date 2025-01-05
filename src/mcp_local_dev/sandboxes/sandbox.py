@@ -103,7 +103,7 @@ def cleanup_sandbox(sandbox: Sandbox) -> None:
         sandbox: Sandbox instance to clean up
     """
     logger.debug({"event": "cleaning_sandbox", "root": str(sandbox.root)})
-    # sandbox.temp_dir.cleanup()
+    sandbox.temp_dir.cleanup()
 
 
 async def run_sandboxed_command(
