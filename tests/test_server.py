@@ -90,12 +90,10 @@ async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream,
         assert isinstance(response.root, JSONRPCResponse)
         result = response.root.result
         
-        # Extract the list from the response based on the structure
-        if isinstance(result, dict):
-            if 'tools' in result:
-                return result['tools']
-            if 'content' in result:
-                return result['content']
+        # Special case for tools listing
+        if isinstance(result, dict) and 'tools' in result:
+            return result['tools']
+            
         return result
         
     if scope.cancel_called:
@@ -230,11 +228,12 @@ async def test_tool_execution():
             )
             
             tool_response = await receive_response(client_receive)
-            assert isinstance(tool_response, list)
-            assert len(tool_response) == 1
-            assert tool_response[0]["type"] == "text"
+            assert not tool_response.get("isError", False)
+            assert isinstance(tool_response["content"], list)
+            assert len(tool_response["content"]) == 1
+            assert tool_response["content"][0]["type"] == "text"
             
-            result = json.loads(tool_response[0]["text"])
+            result = json.loads(tool_response["content"][0]["text"])
             assert "id" in result
             assert "working_dir" in result
             assert "runtime" in result
@@ -302,11 +301,9 @@ async def test_error_handling():
             )
             
             tool_response = await receive_response(client_receive)
-            assert isinstance(tool_response, list)
-            assert len(tool_response) == 1
-            assert tool_response[0]["type"] == "text"
-            
+            assert isinstance(tool_response, dict)
             assert tool_response["isError"]
+            assert isinstance(tool_response["content"], list)
             assert len(tool_response["content"]) == 1
             assert tool_response["content"][0]["type"] == "text"
             assert "Error: Unknown tool" in tool_response["content"][0]["text"]
