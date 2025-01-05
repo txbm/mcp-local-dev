@@ -40,3 +40,18 @@ def test_log_with_data():
     log_with_data(logger, logging.INFO, "Test message", test_data)
     assert len(handler.records) == 1
     assert handler.records[0].data == test_data
+
+def test_get_logger():
+    """Test logger retrieval"""
+    logger = get_logger("test_module")
+    assert logger.name == "mcp_runtime_server.test_module"
+    
+def test_configure_logging():
+    """Test logging configuration"""
+    configure_logging()
+    logger = logging.getLogger("mcp_local_dev")
+    
+    assert logger.level == logging.INFO
+    assert len(logger.handlers) == 1
+    assert isinstance(logger.handlers[0], logging.StreamHandler)
+    assert not logger.propagate

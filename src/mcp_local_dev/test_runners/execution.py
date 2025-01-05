@@ -21,7 +21,7 @@ async def auto_run_tests(env: Environment) -> list[types.TextContent]:
         )]
         
     config = RunConfig(
-        framework=frameworks[0],
+        runner=frameworks[0],
         env=env,
         test_dirs=[env.sandbox.work_dir]
     )
