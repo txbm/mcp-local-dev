@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from mcp_local_dev.types import Environment, RuntimeConfig, Sandbox, Runtime, PackageManager
+from mcp_local_dev.environments.environment import cleanup_environment
 from mcp_local_dev.sandboxes.sandbox import create_sandbox
 from mcp_local_dev.runtimes.runtime import install_runtime
 
