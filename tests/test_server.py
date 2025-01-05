@@ -159,9 +159,10 @@ async def test_server_initialization():
             
             assert isinstance(tools_response, list)
             assert all(isinstance(tool, dict) for tool in tools_response)
-            assert any(t["name"] == "create_environment" for t in tools_response)
-            assert any(t["name"] == "run_tests" for t in tools_response)
-            assert any(t["name"] == "cleanup" for t in tools_response)
+            assert any(t["name"] == "local_dev_from_github" for t in tools_response)
+            assert any(t["name"] == "local_dev_from_filesystem" for t in tools_response)
+            assert any(t["name"] == "local_dev_run_tests" for t in tools_response)
+            assert any(t["name"] == "local_dev_cleanup" for t in tools_response)
 
             # Clean up
             tg.cancel_scope.cancel()
@@ -220,7 +221,7 @@ async def test_tool_execution():
                 client_send,
                 "tools/call",
                 {
-                    "name": "create_environment",
+                    "name": "local_dev_from_github",
                     "arguments": {
                         "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
                     }
@@ -296,7 +297,7 @@ async def test_error_handling():
                 client_send,
                 "tools/call",
                 {
-                    "name": "nonexistent_tool",
+                    "name": "invalid_tool_name",
                     "arguments": {}
                 }
             )
