@@ -90,6 +90,6 @@ async def test_auto_run_tests(python_environment: Environment):
     data = json.loads(results[0].text)
     
     assert data["success"] is True
-    assert data["framework"] == "pytest"
+    assert data["runner"] == "pytest"
     assert len(data["test_cases"]) > 0
     assert data["summary"]["passed"] > 0

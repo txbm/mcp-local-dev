@@ -48,10 +48,18 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         "stderr": stderr_text
     }
 
+async def run_module_check(env: Environment, module: str) -> bool:
+    """Check if a Python module is available in the environment."""
+    process = await run_sandboxed_command(
+        env.sandbox,
+        f"python -c 'import {module}'"
+    )
+    return process.returncode == 0
+
 # Runner registry as a dict of detection and execution functions
 RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], bool], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
     TestRunnerType.PYTEST: (
-        lambda env: env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest") is not None,
+        lambda env: env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest") is not None and run_module_check(env, "pytest"),
         run_pytest
     )
 }
