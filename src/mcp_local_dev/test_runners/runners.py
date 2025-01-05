@@ -56,15 +56,14 @@ async def run_module_check(env: Environment, module: str) -> bool:
     )
     return process.returncode == 0
 
+async def check_pytest(env: Environment) -> bool:
+    """Check if pytest can run in this environment."""
+    return (env.runtime_config.name == Runtime.PYTHON and 
+            await run_module_check(env, "pytest"))
+
 # Runner registry as a dict of detection and execution functions
 RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], Awaitable[bool]], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
-    TestRunnerType.PYTEST: (
-        async lambda env: (
-            env.runtime_config.name == Runtime.PYTHON and 
-            await run_module_check(env, "pytest")
-        ),
-        run_pytest
-    )
+    TestRunnerType.PYTEST: (check_pytest, run_pytest)
 }
 
 async def detect_runners(env: Environment) -> List[TestRunnerType]:
