@@ -20,7 +20,13 @@ async def test_detect_runners(python_environment: Environment):
         "python -m pip uninstall -y pytest"
     )
     
-    runners = detect_runners(python_environment)
+    # Wait for uninstall to complete and verify
+    await run_sandboxed_command(
+        python_environment.sandbox,
+        "python -c 'import pytest' 2>/dev/null || exit 0"
+    )
+    
+    runners = await detect_runners(python_environment)
     assert len(runners) == 0
     
     # Install pytest
@@ -29,7 +35,7 @@ async def test_detect_runners(python_environment: Environment):
         "python -m pip install pytest"
     )
     
-    runners = detect_runners(python_environment)
+    runners = await detect_runners(python_environment)
     assert len(runners) == 1
     assert runners[0] == TestRunnerType.PYTEST
 

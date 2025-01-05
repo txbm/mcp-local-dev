@@ -57,24 +57,25 @@ async def run_module_check(env: Environment, module: str) -> bool:
     return process.returncode == 0
 
 # Runner registry as a dict of detection and execution functions
-RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], bool], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
+RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], Awaitable[bool]], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
     TestRunnerType.PYTEST: (
         lambda env: env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest") is not None and run_module_check(env, "pytest"),
         run_pytest
     )
 }
 
-def detect_runners(env: Environment) -> List[TestRunnerType]:
+async def detect_runners(env: Environment) -> List[TestRunnerType]:
     """Detect available test runners for the environment"""
     logger.info({"event": "runner_detection_start", "project_dir": str(env.sandbox.work_dir)})
     
+    detected = []
     for runner_type, (can_run, _) in RUNNERS.items():
-        if can_run(env):
+        if await can_run(env):
             logger.info({"event": "runner_detected", "runner": runner_type.value})
-            return [runner_type]  # Return first runner found
+            detected.append(runner_type)
             
     logger.info({"event": "no_runners_detected"})
-    return []
+    return detected
 
 async def run_tests(config: RunConfig) -> Dict[str, Any]:
     """Run tests using the specified runner"""
