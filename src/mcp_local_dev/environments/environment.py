@@ -40,7 +40,6 @@ async def create_environment(path: Path) -> Environment:
     os.chmod(sandbox.bin_dir, 0o700)
 
     runtime_config = detect_runtime(sandbox)
-    add_package_manager_bin_path(sandbox, runtime_config.package_manager)
     await install_runtime(sandbox, runtime_config)
 
     return Environment(
