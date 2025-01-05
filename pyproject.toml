@@ -26,7 +26,8 @@ dev = [
     "pytest-mock",
     "black",
     "mypy",
-    "ruff"
+    "ruff",
+    "tomli"
 ]
 
 [project.scripts]
