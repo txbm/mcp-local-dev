@@ -1,6 +1,5 @@
 import json
 import pytest
-import asyncio
 import mcp.types as types
 from mcp_local_dev.server import init_server
 
@@ -8,8 +7,10 @@ from mcp_local_dev.server import init_server
 async def test_server_tool_registration():
     """Test server tool registration"""
     server = await init_server()
-    # Need to await the list_tools handler function
-    tools = await server.list_tools_handler()
+    
+    # Use handle_list_tools_request() which is the internal handler
+    request = types.ListToolsRequest()
+    tools = await server.handle_list_tools_request(request)
     
     assert len(tools) > 0
     assert any(t.name == "create_environment" for t in tools)
@@ -21,15 +22,18 @@ async def test_server_tool_execution():
     """Test server tool execution"""
     server = await init_server()
     
+    # Create request with correct structure
     request = types.CallToolRequest(
-        method="tools/call",  # Required literal value
-        params=types.CallToolParams(
-            name="create_environment",
-            arguments={"github_url": "https://github.com/txbm/mcp-python-repo-fixture"}
-        )
+        method="tools/call",
+        params={
+            "name": "create_environment",
+            "arguments": {
+                "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
+            }
+        }
     )
     
-    result = await server.call_tool_handler(request)
+    result = await server.handle_call_tool_request(request)
     
     assert len(result) == 1
     assert result[0].type == "text"
