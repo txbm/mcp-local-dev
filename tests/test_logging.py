@@ -79,7 +79,13 @@ def test_log_with_data_json_structure():
     
     # Verify JSON can be parsed and has expected structure
     output = stream.getvalue()
-    data = json.loads(output.strip("\033[32m\033[0m"))  # Remove color codes
+    
+    # Strip ANSI color codes using a more robust approach
+    import re
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    cleaned_output = ansi_escape.sub('', output.strip())
+    
+    data = json.loads(cleaned_output)
     assert "ts" in data
     assert data["level"] == "INFO" 
     assert data["msg"] == "Test message"
