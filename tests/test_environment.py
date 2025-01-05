@@ -11,7 +11,7 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 async def test_create_environment_from_python_project(tmp_path: Path):
     """Test creating environment from real Python project"""
     # Copy pytest fixture project
-    fixture_dir = Path(__file__).parent.parent / "fixtures_data" / "pytest-project"
+    fixture_dir = Path(__file__).parent.parent / "fixtures_data" / "python" / "pytest-project"
     project_dir = tmp_path / "pytest-project"
     shutil.copytree(fixture_dir, project_dir)
     
@@ -37,7 +37,7 @@ async def test_create_environment_from_python_project(tmp_path: Path):
 async def test_cleanup_environment(tmp_path: Path):
     """Test environment cleanup"""
     # Copy pytest fixture project
-    fixture_dir = Path(__file__).parent.parent / "fixtures_data" / "pytest-project"
+    fixture_dir = Path(__file__).parent.parent / "fixtures_data" / "python" / "pytest-project"
     project_dir = tmp_path / "pytest-project"
     shutil.copytree(fixture_dir, project_dir)
     
