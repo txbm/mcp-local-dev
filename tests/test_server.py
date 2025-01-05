@@ -306,10 +306,10 @@ async def test_error_handling():
             assert len(tool_response) == 1
             assert tool_response[0]["type"] == "text"
             
-            result = json.loads(tool_response[0]["text"])
-            assert not result["success"]
-            assert "error" in result
-            assert "Unknown tool" in result["error"]
+            assert tool_response["isError"]
+            assert len(tool_response["content"]) == 1
+            assert tool_response["content"][0]["type"] == "text"
+            assert "Error: Unknown tool" in tool_response["content"][0]["text"]
 
             # Clean up
             tg.cancel_scope.cancel()
