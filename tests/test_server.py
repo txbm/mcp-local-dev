@@ -42,36 +42,44 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
                       params: Dict[str, Any] | None = None,
                       request_id: int | None = 1) -> None:
     """Send a JSON-RPC request or notification."""
-    if method == "initialize":
-        # Add required fields for initialization
-        params = {
-            "protocolVersion": "1.0",
-            "capabilities": {
-                "tools": {"listChanged": False},
-                "logging": {}
-            },
-            "clientInfo": params.get("clientInfo", {}) if params else {}
-        }
+    match method:
+        case "initialize":
+            # Special case: initialize request needs specific params
+            message = JSONRPCMessage(
+                root=JSONRPCRequest(
+                    jsonrpc="2.0",
+                    id=request_id,
+                    method=method,
+                    params={
+                        "protocolVersion": "1.0",
+                        "capabilities": {
+                            "tools": {"listChanged": False},
+                            "logging": {}
+                        },
+                        "clientInfo": params.get("clientInfo", {}) if params else {}
+                    }
+                )
+            )
+        case "initialized":
+            # Special case: initialized is a notification with specific method name
+            message = JSONRPCMessage(
+                root=JSONRPCNotification(
+                    jsonrpc="2.0",
+                    method="notifications/initialized",
+                    params=params or {}
+                )
+            )
+        case _:
+            # Default case: regular request
+            message = JSONRPCMessage(
+                root=JSONRPCRequest(
+                    jsonrpc="2.0",
+                    id=request_id,
+                    method=method,
+                    params=params or {}
+                )
+            )
     
-    if method == "initialized":
-        # Use JSONRPCNotification for notifications
-        message = JSONRPCMessage(
-            root=JSONRPCNotification(
-                jsonrpc="2.0",
-                method=method,
-                params=params or {}
-            )
-        )
-    else:
-        # Use JSONRPCRequest for regular requests
-        message = JSONRPCMessage(
-            root=JSONRPCRequest(
-                jsonrpc="2.0",
-                id=request_id,
-                method=method,
-                params=params or {}
-            )
-        )
     await send_stream.send(message)
 
 async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
