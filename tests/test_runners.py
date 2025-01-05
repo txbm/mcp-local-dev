@@ -52,6 +52,16 @@ async def test_run_framework_tests(python_environment: Environment):
     assert result["summary"]["passed"] > 0
 
 @pytest.mark.asyncio
+async def test_detect_runtime_invalid():
+    """Test runtime detection with invalid project"""
+    sandbox = await create_sandbox("test-")
+    try:
+        with pytest.raises(ValueError, match="No supported runtime detected"):
+            detect_runtime(sandbox)
+    finally:
+        sandbox.temp_dir.cleanup()
+
+@pytest.mark.asyncio
 async def test_auto_run_tests(python_environment: Environment):
     """Test auto-detecting and running tests"""
     # Install pytest first
