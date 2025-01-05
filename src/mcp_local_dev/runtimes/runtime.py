@@ -60,7 +60,7 @@ async def install_runtime(
 ) -> None:
     """Install runtime assuming binaries are on system path"""
     import shutil
-    from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
+    from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
     
     # Verify required binaries exist
     required_binaries = [config.binary_name]
