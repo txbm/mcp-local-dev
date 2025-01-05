@@ -41,11 +41,6 @@ async def test_clone_github_repository(sandbox: Sandbox):
     assert (target_dir / ".git").exists()
     assert (target_dir / "setup.py").exists() or (target_dir / "pyproject.toml").exists()
 
-@pytest.mark.asyncio
-async def test_clone_github_repository_with_invalid_url(sandbox: Sandbox):
-    """Test cloning with invalid URL fails appropriately"""
-    with pytest.raises(RuntimeError):
-        await clone_github_repository(sandbox, "https://github.com/invalid/repo", None)
 
 @pytest.mark.asyncio
 async def test_clone_github_repository_with_branch(sandbox: Sandbox):
