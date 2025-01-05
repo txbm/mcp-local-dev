@@ -1,34 +1,51 @@
 """Test MCP server implementation."""
+import anyio
 import json
 import pytest
-from mcp.client.stdio import StdioServerParameters, stdio_client
-from mcp.types import JSONRPCMessage
+from mcp.types import JSONRPCMessage, JSONRPCRequest, JSONRPCResponse
+from mcp.server.models import InitializationOptions
+from mcp.types import ServerCapabilities, ToolsCapability
 
 from mcp_local_dev.server import init_server
 
-@pytest.mark.asyncio 
+@pytest.mark.asyncio
 async def test_server_tool_registration():
     """Test server tool registration via JSON-RPC."""
     server = await init_server()
     
-    params = StdioServerParameters(
-        command="python",
-        args=["-m", "mcp_local_dev.server"]
-    )
+    # Create memory streams for client/server communication
+    server_to_client_send, server_to_client_receive = anyio.create_memory_object_stream[JSONRPCMessage](1)
+    client_to_server_send, client_to_server_receive = anyio.create_memory_object_stream[JSONRPCMessage](1)
     
-    async with stdio_client(params) as (reader, writer):
+    # Start server in background
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(
+            server.run,
+            client_to_server_receive,
+            server_to_client_send,
+            InitializationOptions(
+                server_name="mcp-local-dev",
+                server_version="0.1.0",
+                capabilities=ServerCapabilities(
+                    tools=ToolsCapability(listChanged=False)
+                )
+            )
+        )
+        
         # Send tools/list request
         request = JSONRPCMessage(
-            jsonrpc="2.0",
-            id=1,
-            method="tools/list"
+            root=JSONRPCRequest(
+                jsonrpc="2.0",
+                id=1,
+                method="tools/list"
+            )
         )
-        await writer.send(request)
+        await client_to_server_send.send(request)
         
-        response = await reader.receive()
-        assert isinstance(response, JSONRPCMessage)
-        assert "result" in response.model_dump()
-        tools = response.result
+        # Get response
+        response = await server_to_client_receive.receive()
+        assert isinstance(response.root, JSONRPCResponse)
+        tools = response.root.result
         
         assert len(tools) > 0
         assert any(t["name"] == "create_environment" for t in tools)
@@ -38,30 +55,47 @@ async def test_server_tool_registration():
 @pytest.mark.asyncio
 async def test_server_tool_execution():
     """Test server tool execution via JSON-RPC."""
-    params = StdioServerParameters(
-        command="python",
-        args=["-m", "mcp_local_dev.server"]
-    )
+    server = await init_server()
     
-    async with stdio_client(params) as (reader, writer):
+    server_to_client_send, server_to_client_receive = anyio.create_memory_object_stream[JSONRPCMessage](1)
+    client_to_server_send, client_to_server_receive = anyio.create_memory_object_stream[JSONRPCMessage](1)
+    
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(
+            server.run,
+            client_to_server_receive,
+            server_to_client_send,
+            InitializationOptions(
+                server_name="mcp-local-dev",
+                server_version="0.1.0",
+                capabilities=ServerCapabilities(
+                    tools=ToolsCapability(listChanged=False)
+                )
+            )
+        )
+        
         # Send tools/call request
         request = JSONRPCMessage(
-            jsonrpc="2.0",
-            id=1,
-            method="tools/call",
-            params={
-                "name": "create_environment",
-                "arguments": {
-                    "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
+            root=JSONRPCRequest(
+                jsonrpc="2.0",
+                id=1,
+                method="tools/call",
+                params={
+                    "name": "create_environment",
+                    "arguments": {
+                        "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
+                    }
                 }
-            }
+            )
         )
-        await writer.send(request)
+        await client_to_server_send.send(request)
         
-        response = await reader.receive()
-        assert isinstance(response, JSONRPCMessage)
-        assert "result" in response.model_dump()
-        result = json.loads(response.result[0]["text"])
+        # Get response
+        response = await server_to_client_receive.receive()
+        assert isinstance(response.root, JSONRPCResponse)
+        result = response.root.result[0]
         
-        assert "id" in result
-        assert "working_dir" in result
+        assert result["type"] == "text"
+        data = json.loads(result["text"])
+        assert "id" in data
+        assert "working_dir" in data
