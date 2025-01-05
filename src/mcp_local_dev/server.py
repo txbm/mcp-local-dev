@@ -83,9 +83,12 @@ async def init_server() -> Server:
         name: str, arguments: Dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         try:
+            logger.debug(f"Tool call received: {name} with arguments {arguments}")
+            
             if name == "local_dev_from_github":
+                logger.debug("Creating environment from GitHub")
                 env = await create_environment_from_github(arguments["github_url"])
-                return [types.TextContent(type="text", text=json.dumps({
+                result = {
                     "success": True,
                     "data": {
                         "id": env.id,
@@ -93,7 +96,9 @@ async def init_server() -> Server:
                         "created_at": env.created_at.isoformat(),
                         "runtime": env.runtime.value,
                     }
-                }))]
+                }
+                logger.debug(f"Environment created successfully: {result}")
+                return [types.TextContent(type="text", text=json.dumps(result))]
                 
             elif name == "local_dev_from_filesystem":
                 env = await create_environment_from_path(arguments["path"])
