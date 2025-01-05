@@ -31,49 +31,24 @@ async def create_environment_from_github(
 
 
 async def create_environment(path: Path) -> Environment:
-    """Create new environment from a filesystem path."""
-
+    """Create new environment from filesystem path."""
     env_id = b58_fuuid()
-    logger.info(
-        {
-            "event": "creating_environment",
-            "env_id": env_id,
-            "path": path,
-        }
-    )
     sandbox = await create_sandbox(f"mcp-{env_id}-")
     
-    # Copy project files to sandbox work directory
     shutil.copytree(path, sandbox.work_dir, dirs_exist_ok=True)
-    
-    # Ensure proper permissions
     os.chmod(sandbox.work_dir, 0o700)
     os.chmod(sandbox.bin_dir, 0o700)
 
     runtime_config = detect_runtime(sandbox)
-    
-    # Add package manager bin path to sandbox PATH
     add_package_manager_bin_path(sandbox, runtime_config.package_manager)
-    
     await install_runtime(sandbox, runtime_config)
 
-    env = Environment(
+    return Environment(
         id=env_id,
-        runtime_config=runtime_config,
+        runtime_config=runtime_config, 
         sandbox=sandbox,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc)
     )
-
-    logger.info(
-        {
-            "event": "environment_created",
-            "env_id": env_id,
-            "runtime": runtime_config.name.value,
-            "work_dir": sandbox.work_dir,
-        }
-    )
-
-    return env
 
 
 def cleanup_environment(env: Environment) -> None:

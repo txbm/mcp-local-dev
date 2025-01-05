@@ -38,56 +38,20 @@ RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
 
 def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
     """Detect runtime from project files."""
-
     work_dir = sandbox.work_dir
-    logger.debug({"event": "detecting_runtime", "work_dir": str(work_dir)})
-
+    
     SKIP_DIRS = {'.git', '.svn', '.hg', '.pytest_cache', '__pycache__', 'node_modules', '.venv'}
     
-    files = set()
-    for p in work_dir.rglob("*"):
-        # Skip hidden directories
-        if any(part.startswith('.') or part in SKIP_DIRS for part in p.parts):
-            continue
-        # Get path relative to work_dir
-        rel_path = p.relative_to(work_dir)
-        files.add(str(rel_path))
-        
-    logger.debug({"event": "found_project_files", "files": sorted(list(files))})
+    files = {
+        str(p.relative_to(work_dir))
+        for p in work_dir.rglob("*")
+        if not any(part.startswith('.') or part in SKIP_DIRS for part in p.parts)
+    }
 
     for runtime, config in RUNTIME_CONFIGS.items():
-        if runtime == Runtime.BUN:
-            if all(any(f.endswith(c) for f in files) for c in config.config_files):
-                logger.info(
-                    {
-                        "event": "runtime_detected",
-                        "runtime": runtime.value,
-                        "matched_files": config.config_files,
-                    }
-                )
-                return config
-        else:
-            if any(any(f.endswith(c) for f in files) for c in config.config_files):
-                matched_file = next(
-                    c for c in config.config_files if any(f.endswith(c) for f in files)
-                )
-                logger.info(
-                    {
-                        "event": "runtime_detected",
-                        "runtime": runtime.value,
-                        "matched_file": matched_file,
-                        "files_checked": config.config_files,
-                    }
-                )
-                return config
+        if any(any(f.endswith(c) for f in files) for c in config.config_files):
+            return config
 
-    logger.error(
-        {
-            "event": "no_runtime_detected",
-            "work_dir": str(work_dir),
-            "files_found": list(files),
-        }
-    )
     raise ValueError("No supported runtime detected")
 
 
