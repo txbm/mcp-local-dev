@@ -96,45 +96,50 @@ async def test_server_initialization():
                         )
                     )
                 except anyio.get_cancelled_exc_class():
-                    pass  # Expected when we cancel the task
-            
+                    pass
+
+            # Start server task
             tg.start_soon(run_server)
-            
-            # Wait for server initialization
-            await asyncio.sleep(0.1)
-            
-            try:
-                # Send initialization request first
-                await send_request(
-                    client_send,
-                    "initialize",
-                    {
-                        "clientInfo": {
-                            "name": "test-client",
-                            "version": "0.1.0"
-                        }
+
+            # Send initialize request with proper protocol version
+            await send_request(
+                client_send,
+                "initialize",
+                {
+                    "protocolVersion": "1.0",
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "0.1.0"
+                    },
+                    "capabilities": {
+                        "tools": {"listChanged": False},
+                        "logging": {}
                     }
-                )
+                }
+            )
 
-                # Wait for initialization response
-                init_response = await receive_response(client_receive)
-                assert "serverInfo" in init_response
-                assert "name" in init_response["serverInfo"]
-                assert "version" in init_response["serverInfo"]
-                assert "capabilities" in init_response
+            # Wait for initialization response
+            init_response = await receive_response(client_receive)
+            assert "serverInfo" in init_response
+            assert "name" in init_response["serverInfo"]
+            assert "version" in init_response["serverInfo"]
+            assert "capabilities" in init_response
 
-                # Test tools listing
-                await send_request(client_send, "tools/list")
-                tools_response = await receive_response(client_receive)
-                
-                assert isinstance(tools_response, list)
-                assert all(isinstance(tool, dict) for tool in tools_response)
-                assert any(t["name"] == "create_environment" for t in tools_response)
-                assert any(t["name"] == "run_tests" for t in tools_response)
-                assert any(t["name"] == "cleanup" for t in tools_response)
-            finally:
-                # Ensure server task is cancelled
-                tg.cancel_scope.cancel()
+            # Send initialized notification to complete initialization
+            await send_request(client_send, "initialized")
+
+            # Now test tools listing
+            await send_request(client_send, "tools/list")
+            tools_response = await receive_response(client_receive)
+            
+            assert isinstance(tools_response, list)
+            assert all(isinstance(tool, dict) for tool in tools_response)
+            assert any(t["name"] == "create_environment" for t in tools_response)
+            assert any(t["name"] == "run_tests" for t in tools_response)
+            assert any(t["name"] == "cleanup" for t in tools_response)
+
+            # Clean up
+            tg.cancel_scope.cancel()
 
 @pytest.mark.asyncio
 async def test_tool_execution():
@@ -161,53 +166,54 @@ async def test_tool_execution():
                     pass
             
             tg.start_soon(run_server)
+
+            # Initialize properly
+            await send_request(
+                client_send,
+                "initialize",
+                {
+                    "protocolVersion": "1.0",
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "0.1.0"
+                    },
+                    "capabilities": {
+                        "tools": {"listChanged": False},
+                        "logging": {}
+                    }
+                }
+            )
+
+            init_response = await receive_response(client_receive)
+            assert "serverInfo" in init_response
             
-            try:
-                # Send initialization request first
-                await send_request(
-                    client_send,
-                    "initialize",
-                    {
-                        "clientInfo": {
-                            "name": "test-client",
-                            "version": "0.1.0"
-                        }
-                    }
-                )
+            # Send initialized notification
+            await send_request(client_send, "initialized")
 
-                # Wait for initialization response
-                init_response = await receive_response(client_receive)
-                assert "serverInfo" in init_response
-                assert "name" in init_response["serverInfo"]
-                assert "version" in init_response["serverInfo"]
-                assert "capabilities" in init_response
-
-                # Test tool execution
-                await send_request(
-                    client_send,
-                    "tools/call",
-                    {
-                        "name": "create_environment",
-                        "arguments": {
-                            "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
-                        }
+            # Now test tool execution
+            await send_request(
+                client_send,
+                "tools/call",
+                {
+                    "name": "create_environment",
+                    "arguments": {
+                        "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
                     }
-                )
-                
-                # Wait for server initialization
-                await asyncio.sleep(0.1)
-                
-                tool_response = await receive_response(client_receive)
-                assert isinstance(tool_response, list)
-                assert len(tool_response) == 1
-                assert tool_response[0]["type"] == "text"
-                
-                result = json.loads(tool_response[0]["text"])
-                assert "id" in result
-                assert "working_dir" in result
-                assert "runtime" in result
-            finally:
-                tg.cancel_scope.cancel()
+                }
+            )
+            
+            tool_response = await receive_response(client_receive)
+            assert isinstance(tool_response, list)
+            assert len(tool_response) == 1
+            assert tool_response[0]["type"] == "text"
+            
+            result = json.loads(tool_response[0]["text"])
+            assert "id" in result
+            assert "working_dir" in result
+            assert "runtime" in result
+
+            # Clean up
+            tg.cancel_scope.cancel()
 
 @pytest.mark.asyncio
 async def test_error_handling():
@@ -234,42 +240,49 @@ async def test_error_handling():
                     pass
             
             tg.start_soon(run_server)
+
+            # Initialize properly
+            await send_request(
+                client_send,
+                "initialize",
+                {
+                    "protocolVersion": "1.0",
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "0.1.0"
+                    },
+                    "capabilities": {
+                        "tools": {"listChanged": False},
+                        "logging": {}
+                    }
+                }
+            )
+
+            init_response = await receive_response(client_receive)
+            assert "serverInfo" in init_response
             
-            try:
-                # Send initialization request first
-                await send_request(
-                    client_send,
-                    "initialize",
-                    {
-                        "clientInfo": {
-                            "name": "test-client",
-                            "version": "0.1.0"
-                        }
-                    }
-                )
+            # Send initialized notification
+            await send_request(client_send, "initialized")
 
-                # Wait for initialization response
-                init_response = await receive_response(client_receive)
-                assert "serverInfo" in init_response
-                assert "name" in init_response["serverInfo"]
-                assert "version" in init_response["serverInfo"]
-                assert "capabilities" in init_response
+            # Now test invalid tool name
+            await send_request(
+                client_send,
+                "tools/call",
+                {
+                    "name": "nonexistent_tool",
+                    "arguments": {}
+                }
+            )
+            
+            tool_response = await receive_response(client_receive)
+            assert isinstance(tool_response, list)
+            assert len(tool_response) == 1
+            assert tool_response[0]["type"] == "text"
+            
+            result = json.loads(tool_response[0]["text"])
+            assert not result["success"]
+            assert "error" in result
+            assert "Unknown tool" in result["error"]
 
-                # Test invalid tool name
-                await send_request(
-                    client_send,
-                    "tools/call",
-                    {
-                        "name": "nonexistent_tool",
-                        "arguments": {}
-                    }
-                )
-                
-                # Wait for server initialization
-                await asyncio.sleep(0.1)
-                
-                error_response = await receive_response(client_receive)
-                assert isinstance(error_response.root, JSONRPCResponse)
-                assert error_response.root.error is not None
-            finally:
-                tg.cancel_scope.cancel()
+            # Clean up
+            tg.cancel_scope.cancel()
