@@ -34,3 +34,30 @@ async def test_sandbox_command_execution(sandbox):
     
     assert process.returncode == 0
     assert stdout.decode().strip() == "hello"
+
+@pytest.mark.asyncio
+async def test_add_package_manager_bin_path(sandbox: Sandbox):
+    """Test package manager PATH updates"""
+    original_path = sandbox.env_vars["PATH"]
+    
+    # Test UV
+    add_package_manager_bin_path(sandbox, PackageManager.UV)
+    assert str(sandbox.work_dir / ".venv" / "bin") in sandbox.env_vars["PATH"]
+    
+    # Test NPM
+    add_package_manager_bin_path(sandbox, PackageManager.NPM)
+    assert str(sandbox.work_dir / "node_modules" / ".bin") in sandbox.env_vars["PATH"]
+
+@pytest.mark.asyncio
+async def test_sandbox_environment_isolation(sandbox: Sandbox):
+    """Test sandbox environment isolation"""
+    process = await run_sandboxed_command(
+        sandbox,
+        "env"
+    )
+    stdout, _ = await process.communicate()
+    env_vars = dict(line.split("=", 1) for line in stdout.decode().splitlines() if "=" in line)
+    
+    assert env_vars["HOME"] == str(sandbox.work_dir)
+    assert env_vars["TMPDIR"] == str(sandbox.tmp_dir)
+    assert str(sandbox.bin_dir) in env_vars["PATH"]
