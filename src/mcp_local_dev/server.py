@@ -85,30 +85,29 @@ async def init_server() -> Server:
                 async with ENVIRONMENTS_LOCK:
                     ENVIRONMENTS[env.id] = env
                 result = {
-                    "id": env.id,
-                    "working_dir": str(env.work_dir),
-                    "created_at": env.created_at.isoformat(),
-                    "runtime": env.runtime.value,
+                    "success": True,
+                    "data": {
+                        "id": env.id,
+                        "working_dir": str(env.work_dir),
+                        "created_at": env.created_at.isoformat(),
+                        "runtime": env.runtime.value,
+                    }
                 }
-                return [types.TextContent(text=json.dumps(result), type="text")]
-            
+                return [types.TextContent(type="text", text=json.dumps(result))]
+                
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
-                    return CallToolResult(
-                        isError=True,
-                        content=[
-                            types.TextContent(
-                                text=f"Error: Unknown environment: {arguments['env_id']}",
-                                type="text"
-                            )
-                        ]
-                    )
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "success": False,
+                            "error": f"Unknown environment: {arguments['env_id']}"
+                        })
+                    )]
 
                 env = ENVIRONMENTS[arguments["env_id"]]
                 return cast(
-                    list[
-                        types.TextContent | types.ImageContent | types.EmbeddedResource
-                    ],
+                    list[types.TextContent | types.ImageContent | types.EmbeddedResource],
                     await auto_run_tests(env),
                 )
 
@@ -118,32 +117,29 @@ async def init_server() -> Server:
                     if env_id in ENVIRONMENTS:
                         env = ENVIRONMENTS.pop(env_id)
                         cleanup_environment(env)
-                return CallToolResult(
-                    isError=False,
-                    content=[
-                        types.TextContent(text=json.dumps({"success": True}), type="text")
-                    ]
-                )
+                return [types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "success": True,
+                        "data": {"message": "Environment cleaned up successfully"}
+                    })
+                )]
 
-            return CallToolResult(
-                isError=True,
-                content=[
-                    types.TextContent(
-                        text=f"Error: Unknown tool: {name}",
-                        type="text"
-                    )
-                ]
-            )
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": False,
+                    "error": f"Unknown tool: {name}"
+                })
+            )]
         except Exception as e:
-            return CallToolResult(
-                isError=True,
-                content=[
-                    types.TextContent(
-                        text=f"Error: {str(e)}",
-                        type="text"
-                    )
-                ]
-            )
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": False,
+                    "error": str(e)
+                })
+            )]
 
     @server.progress_notification()
     async def handle_progress(
