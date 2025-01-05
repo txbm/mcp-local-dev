@@ -51,11 +51,10 @@ async def test_clone_github_repository_with_branch(sandbox: Sandbox):
     target_dir = await clone_github_repository(sandbox, url, branch)
     
     # Verify correct branch was cloned
-    process = await run_sandboxed_command(
+    returncode, stdout, _ = await run_sandboxed_command(
         sandbox,
         "git rev-parse --abbrev-ref HEAD"
     )
-    stdout, _ = await process.communicate()
     assert stdout.decode().strip() == branch
 
 @pytest.mark.asyncio

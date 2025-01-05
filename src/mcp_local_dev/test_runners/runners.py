@@ -68,13 +68,12 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
 
 async def run_module_check(env: Environment, module: str) -> bool:
     """Check if a Python module is available in the environment."""
-    process = await run_sandboxed_command(
+    returncode, stdout, stderr = await run_sandboxed_command(
         env.sandbox,
         f"uv pip list --format=json"
     )
-    stdout, stderr = await process.communicate()
     
-    if process.returncode != 0:
+    if returncode != 0:
         logger.debug({
             "event": "module_check_failed",
             "module": module,

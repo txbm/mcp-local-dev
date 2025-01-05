@@ -31,11 +31,10 @@ async def test_create_environment_from_python_project(tmp_path: Path):
         package_name = pyproject["project"]["name"]
 
         # Verify Python works and can import project
-        process = await run_sandboxed_command(
+        returncode, stdout, _ = await run_sandboxed_command(
             env.sandbox,
             f"python -c 'import {package_name}; print({package_name}.__name__)'")
-        stdout, _ = await process.communicate()
-        assert process.returncode == 0
+        assert returncode == 0
         assert stdout.decode().strip() == package_name
     finally:
         cleanup_environment(env)
