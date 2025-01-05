@@ -62,11 +62,8 @@ async def install_runtime(
     import shutil
     from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
     
-    # Verify required binaries exist
+    # Verify required binaries exist on host system
     required_binaries = [config.binary_name]
-    pkg_bin = sandbox.bin_dir / config.package_manager.name.lower()
-    runtime_bin = sandbox.bin_dir / config.binary_name
-    
     if config.package_manager == PackageManager.UV:
         required_binaries.append('uv')
     elif config.package_manager == PackageManager.NPM:
@@ -77,6 +74,14 @@ async def install_runtime(
     missing = [bin for bin in required_binaries if not shutil.which(bin)]
     if missing:
         raise RuntimeError(f"Required binaries not found: {', '.join(missing)}")
+
+    # Create symlinks to required binaries in sandbox bin directory
+    for binary in required_binaries:
+        host_path = shutil.which(binary)
+        if host_path:
+            target = sandbox.bin_dir / binary
+            if not target.exists():
+                target.symlink_to(host_path)
         
     # Set up environment variables
     for key, value in config.env_setup.items():
