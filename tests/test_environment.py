@@ -1,6 +1,7 @@
 import pytest
 import tempfile
 import shutil
+import tomli
 from pathlib import Path
 
 from mcp_local_dev.environments.environment import create_environment, cleanup_environment
