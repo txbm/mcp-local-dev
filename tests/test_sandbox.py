@@ -21,7 +21,7 @@ async def test_sandbox_isolation(sandbox: Sandbox):
     assert sandbox.env_vars["HOME"] == str(sandbox.work_dir)
 
 @pytest.mark.asyncio
-async def test_sandbox_command_execution(sandbox):
+async def test_sandbox_command_execution(sandbox, fixture_path):
     """Test running commands in sandbox"""
     from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
     
