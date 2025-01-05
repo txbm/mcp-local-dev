@@ -64,6 +64,9 @@ def get_environment(env_id: str) -> Optional[Environment]:
     """Get environment by ID."""
     return _ENVIRONMENTS.get(env_id)
 
+# Alias for backward compatibility 
+create_environment = create_environment_from_path
+
 def cleanup_environment(env: Environment) -> None:
     """Clean up environment and its resources."""
     if env.id in _ENVIRONMENTS:
