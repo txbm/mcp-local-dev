@@ -32,7 +32,7 @@ version = "0.1.0"
 @pytest.mark.asyncio 
 async def test_create_environment_from_github():
     """Test creating environment from GitHub repo"""
-    from mcp_local_dev.environments.environment import create_environment_from_github
+    from mcp_local_dev.environments.environment import create_environment_from_github 
     from mcp_local_dev.sandboxes.sandbox import create_sandbox
     
     staging = await create_sandbox("staging-")
