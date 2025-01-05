@@ -4,7 +4,7 @@ import tomli
 from pathlib import Path
 
 from mcp_local_dev.environments.environment import (
-    create_environment,
+    create_environment_from_path,
     cleanup_environment,
 )
 from mcp_local_dev.types import Runtime
@@ -21,7 +21,7 @@ async def test_create_environment_from_python_project(tmp_path: Path):
     project_dir = tmp_path / "pytest-project"
     shutil.copytree(fixture_dir, project_dir)
 
-    env = await create_environment(project_dir)
+    env = await create_environment_from_path(project_dir)
     try:
         assert env.runtime_config.name == Runtime.PYTHON
         assert env.sandbox.work_dir.exists()
@@ -55,7 +55,7 @@ async def test_cleanup_environment(tmp_path: Path):
     project_dir = tmp_path / "pytest-project"
     shutil.copytree(fixture_dir, project_dir)
 
-    env = await create_environment(project_dir)
+    env = await create_environment_from_path(project_dir)
     work_dir = env.sandbox.work_dir
     assert work_dir.exists()
     assert (work_dir / "pyproject.toml").exists()
@@ -73,7 +73,7 @@ async def test_create_environment_from_github():
     staging = await create_sandbox("staging-")
     try:
         env = await create_environment_from_github(
-            staging, "https://github.com/txbm/mcp-python-repo-fixture", "main"
+            "https://github.com/txbm/mcp-python-repo-fixture", "main"
         )
         try:
             assert env.runtime_config.name == Runtime.PYTHON
