@@ -13,7 +13,7 @@ from mcp_local_dev.types import RunConfig, RunnerType
 async def test_detect_runners(fixture_path: Path):
     """Test runner detection using fixture project."""
     project_dir = fixture_path / "python" / "pytest-project"
-    env = await create_environment(project_dir)
+    env = await create_environment_from_path(project_dir)
     try:
         runners = await detect_runners(env)
         assert len(runners) == 1
@@ -25,7 +25,7 @@ async def test_detect_runners(fixture_path: Path):
 async def test_run_tests(fixture_path: Path):
     """Test running tests using fixture project."""
     project_dir = fixture_path / "python" / "pytest-project"
-    env = await create_environment(project_dir)
+    env = await create_environment_from_path(project_dir)
     try:
         config = RunConfig(
             runner=RunnerType.PYTEST,
@@ -43,7 +43,7 @@ async def test_run_tests(fixture_path: Path):
 async def test_auto_run_tests(fixture_path: Path):
     """Test auto-detecting and running tests using fixture project."""
     project_dir = fixture_path / "python" / "pytest-project"
-    env = await create_environment(project_dir)
+    env = await create_environment_from_path(project_dir)
     try:
         results = await auto_run_tests(env)
         assert len(results) == 1
