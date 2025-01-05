@@ -1,0 +1,1 @@
+"""Example statistical functions package."""
