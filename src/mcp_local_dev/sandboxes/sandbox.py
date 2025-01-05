@@ -119,10 +119,35 @@ async def run_sandboxed_command(
         raise ValueError(f"Command not found: {cmd.split()[0]}")
 
     logger.debug({"event": "sandbox_cmd_exec", "cmd": cmd})
-    return await asyncio.create_subprocess_shell(
+    
+    process = await asyncio.create_subprocess_shell(
         cmd,
         cwd=sandbox.work_dir,
         env=cmd_env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
+    
+    # Capture output but don't wait for completion
+    stdout, stderr = await process.communicate()
+    
+    if stdout:
+        logger.debug({
+            "event": "sandbox_cmd_stdout",
+            "cmd": cmd,
+            "output": stdout.decode()
+        })
+    if stderr:
+        logger.debug({
+            "event": "sandbox_cmd_stderr", 
+            "cmd": cmd,
+            "output": stderr.decode()
+        })
+    
+    logger.debug({
+        "event": "sandbox_cmd_complete",
+        "cmd": cmd,
+        "returncode": process.returncode
+    })
+
+    return process
