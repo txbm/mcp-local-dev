@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 async def auto_run_tests(env: Environment) -> list[types.TextContent]:
     """Auto-detect and run tests in environment."""
-    runners = detect_runners(env)
+    runners = await detect_runners(env)
     if not runners:
         return [types.TextContent(
             text=json.dumps({"success": False, "error": "No test runners detected"}),
