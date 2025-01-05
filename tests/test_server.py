@@ -82,10 +82,22 @@ async def test_server_initialization():
             tg.start_soon(run_server)
             
             try:
-                # Wait for initialization response with timeout
+                # Send initialization request first
+                await send_request(
+                    client_send,
+                    "initialize",
+                    {
+                        "clientInfo": {
+                            "name": "test-client",
+                            "version": "0.1.0"
+                        }
+                    }
+                )
+
+                # Wait for initialization response
                 init_response = await receive_response(server_receive)
                 assert init_response["status"] == "success"
-                
+
                 # Test tools listing
                 await send_request(client_send, "tools/list")
                 tools_response = await receive_response(server_receive)
@@ -126,10 +138,22 @@ async def test_tool_execution():
             tg.start_soon(run_server)
             
             try:
-                # Wait for initialization
+                # Send initialization request first
+                await send_request(
+                    client_send,
+                    "initialize",
+                    {
+                        "clientInfo": {
+                            "name": "test-client",
+                            "version": "0.1.0"
+                        }
+                    }
+                )
+
+                # Wait for initialization response
                 init_response = await receive_response(server_receive)
                 assert init_response["status"] == "success"
-                
+
                 # Test tool execution
                 await send_request(
                     client_send,
@@ -181,10 +205,22 @@ async def test_error_handling():
             tg.start_soon(run_server)
             
             try:
-                # Wait for initialization
+                # Send initialization request first
+                await send_request(
+                    client_send,
+                    "initialize",
+                    {
+                        "clientInfo": {
+                            "name": "test-client",
+                            "version": "0.1.0"
+                        }
+                    }
+                )
+
+                # Wait for initialization response
                 init_response = await receive_response(server_receive)
                 assert init_response["status"] == "success"
-                
+
                 # Test invalid tool name
                 await send_request(
                     client_send,
