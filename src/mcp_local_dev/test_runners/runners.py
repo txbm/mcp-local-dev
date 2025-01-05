@@ -23,7 +23,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             "error": stderr.decode()
         })
         return {
-            "runner": TestRunnerType.PYTEST.value,
+            "runner": RunnerType.PYTEST.value,
             "success": False,
             "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
             "tests": [],

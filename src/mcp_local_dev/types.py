@@ -44,7 +44,7 @@ class Environment:
 @dataclass(frozen=True)
 class RunConfig:
     """Test run configuration"""
-    runner: TestRunnerType
+    runner: RunnerType
     env: Environment
     test_dirs: List[Path]
 
