@@ -3,9 +3,52 @@ import pytest
 import shutil
 from pathlib import Path
 
-from mcp_local_dev.test_runners.execution import auto_run_tests
-from mcp_local_dev.types import Environment 
+from mcp_local_dev.test_runners.runners import detect_frameworks, run_framework_tests
+from mcp_local_dev.types import Environment, RunConfig, TestRunnerType
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
+
+@pytest.mark.asyncio
+async def test_detect_frameworks(python_environment: Environment):
+    """Test framework detection"""
+    # First test with no frameworks
+    frameworks = detect_frameworks(python_environment)
+    assert len(frameworks) == 0
+    
+    # Install pytest
+    await run_sandboxed_command(
+        python_environment.sandbox,
+        "python -m pip install pytest"
+    )
+    
+    frameworks = detect_frameworks(python_environment)
+    assert len(frameworks) == 1
+    assert frameworks[0] == TestRunnerType.PYTEST
+
+@pytest.mark.asyncio
+async def test_run_framework_tests(python_environment: Environment):
+    """Test running specific framework"""
+    # Install pytest
+    await run_sandboxed_command(
+        python_environment.sandbox,
+        "python -m pip install pytest"
+    )
+    
+    # Setup test files
+    fixtures_dir = Path(__file__).parent.parent / "fixtures_data" / "pytest"
+    for src in fixtures_dir.glob("*.py"):
+        shutil.copy(src, python_environment.sandbox.work_dir)
+        
+    config = RunConfig(
+        framework=TestRunnerType.PYTEST,
+        env=python_environment,
+        test_dirs=[python_environment.sandbox.work_dir]
+    )
+    
+    result = await run_framework_tests(config)
+    assert result["success"] is True
+    assert result["framework"] == "pytest"
+    assert len(result["tests"]) > 0
+    assert result["summary"]["passed"] > 0
 
 @pytest.mark.asyncio
 async def test_auto_run_tests(python_environment: Environment):
