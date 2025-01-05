@@ -4,6 +4,7 @@ import json
 import pytest
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Dict, Any
+import asyncio
 
 from mcp.types import JSONRPCMessage, JSONRPCRequest, JSONRPCResponse, Tool
 from mcp.server.models import InitializationOptions
@@ -43,11 +44,16 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
     )
     await send_stream.send(request)
 
-async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream) -> Dict[str, Any]:
-    """Receive and validate JSON-RPC response."""
-    response = await receive_stream.receive()
-    assert isinstance(response.root, JSONRPCResponse)
-    return response.root.result
+async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
+                         timeout: float = 2.0) -> Dict[str, Any]:
+    """Receive and validate JSON-RPC response with timeout."""
+    try:
+        async with anyio.fail_after(timeout):
+            response = await receive_stream.receive()
+            assert isinstance(response.root, JSONRPCResponse)
+            return response.root.result
+    except TimeoutError:
+        raise RuntimeError(f"No response received within {timeout} seconds")
 
 @pytest.mark.asyncio 
 async def test_server_initialization():
@@ -57,38 +63,41 @@ async def test_server_initialization():
             server = await init_server()
             
             async def run_server():
-                await server.run(
-                    client_receive,
-                    server_send,
-                    InitializationOptions(
-                        server_name="test-server",
-                        server_version="0.1.0",
-                        capabilities=ServerCapabilities(
-                            tools=ToolsCapability(listChanged=False),
-                            logging=LoggingCapability()
+                try:
+                    await server.run(
+                        client_receive,
+                        server_send,
+                        InitializationOptions(
+                            server_name="test-server",
+                            server_version="0.1.0",
+                            capabilities=ServerCapabilities(
+                                tools=ToolsCapability(listChanged=False),
+                                logging=LoggingCapability()
+                            )
                         )
                     )
-                )
+                except anyio.get_cancelled_exc_class():
+                    pass  # Expected when we cancel the task
             
             tg.start_soon(run_server)
             
-            # Wait for initialization response
-            init_response = await server_receive.receive()
-            assert isinstance(init_response.root, JSONRPCResponse)
-            assert init_response.root.result["status"] == "success"
-            
-            # Test tools listing
-            await send_request(client_send, "tools/list")
-            tools_response = await receive_response(server_receive)
-            
-            assert isinstance(tools_response, list)
-            assert all(isinstance(tool, dict) for tool in tools_response)
-            assert any(t["name"] == "create_environment" for t in tools_response)
-            assert any(t["name"] == "run_tests" for t in tools_response)
-            assert any(t["name"] == "cleanup" for t in tools_response)
-
-            # Cancel server task
-            tg.cancel_scope.cancel()
+            try:
+                # Wait for initialization response with timeout
+                init_response = await receive_response(server_receive)
+                assert init_response["status"] == "success"
+                
+                # Test tools listing
+                await send_request(client_send, "tools/list")
+                tools_response = await receive_response(server_receive)
+                
+                assert isinstance(tools_response, list)
+                assert all(isinstance(tool, dict) for tool in tools_response)
+                assert any(t["name"] == "create_environment" for t in tools_response)
+                assert any(t["name"] == "run_tests" for t in tools_response)
+                assert any(t["name"] == "cleanup" for t in tools_response)
+            finally:
+                # Ensure server task is cancelled
+                tg.cancel_scope.cancel()
 
 @pytest.mark.asyncio
 async def test_tool_execution():
@@ -98,49 +107,52 @@ async def test_tool_execution():
             server = await init_server()
             
             async def run_server():
-                await server.run(
-                    client_receive,
-                    server_send,
-                    InitializationOptions(
-                        server_name="test-server",
-                        server_version="0.1.0",
-                        capabilities=ServerCapabilities(
-                            tools=ToolsCapability(listChanged=False),
-                            logging=LoggingCapability()
+                try:
+                    await server.run(
+                        client_receive,
+                        server_send,
+                        InitializationOptions(
+                            server_name="test-server",
+                            server_version="0.1.0",
+                            capabilities=ServerCapabilities(
+                                tools=ToolsCapability(listChanged=False),
+                                logging=LoggingCapability()
+                            )
                         )
                     )
-                )
+                except anyio.get_cancelled_exc_class():
+                    pass
             
             tg.start_soon(run_server)
             
-            # Wait for initialization
-            init_response = await server_receive.receive()
-            assert isinstance(init_response.root, JSONRPCResponse)
-            
-            # Test tool execution
-            await send_request(
-                client_send,
-                "tools/call",
-                {
-                    "name": "create_environment",
-                    "arguments": {
-                        "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
+            try:
+                # Wait for initialization
+                init_response = await receive_response(server_receive)
+                assert init_response["status"] == "success"
+                
+                # Test tool execution
+                await send_request(
+                    client_send,
+                    "tools/call",
+                    {
+                        "name": "create_environment",
+                        "arguments": {
+                            "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
+                        }
                     }
-                }
-            )
-            
-            tool_response = await receive_response(server_receive)
-            assert isinstance(tool_response, list)
-            assert len(tool_response) == 1
-            assert tool_response[0]["type"] == "text"
-            
-            result = json.loads(tool_response[0]["text"])
-            assert "id" in result
-            assert "working_dir" in result
-            assert "runtime" in result
-
-            # Cancel server task
-            tg.cancel_scope.cancel()
+                )
+                
+                tool_response = await receive_response(server_receive)
+                assert isinstance(tool_response, list)
+                assert len(tool_response) == 1
+                assert tool_response[0]["type"] == "text"
+                
+                result = json.loads(tool_response[0]["text"])
+                assert "id" in result
+                assert "working_dir" in result
+                assert "runtime" in result
+            finally:
+                tg.cancel_scope.cancel()
 
 @pytest.mark.asyncio
 async def test_error_handling():
@@ -150,38 +162,41 @@ async def test_error_handling():
             server = await init_server()
             
             async def run_server():
-                await server.run(
-                    client_receive,
-                    server_send,
-                    InitializationOptions(
-                        server_name="test-server",
-                        server_version="0.1.0",
-                        capabilities=ServerCapabilities(
-                            tools=ToolsCapability(listChanged=False),
-                            logging=LoggingCapability()
+                try:
+                    await server.run(
+                        client_receive,
+                        server_send,
+                        InitializationOptions(
+                            server_name="test-server",
+                            server_version="0.1.0",
+                            capabilities=ServerCapabilities(
+                                tools=ToolsCapability(listChanged=False),
+                                logging=LoggingCapability()
+                            )
                         )
                     )
-                )
+                except anyio.get_cancelled_exc_class():
+                    pass
             
             tg.start_soon(run_server)
             
-            # Wait for initialization
-            init_response = await server_receive.receive()
-            assert isinstance(init_response.root, JSONRPCResponse)
-            
-            # Test invalid tool name
-            await send_request(
-                client_send,
-                "tools/call",
-                {
-                    "name": "nonexistent_tool",
-                    "arguments": {}
-                }
-            )
-            
-            error_response = await server_receive.receive()
-            assert isinstance(error_response.root, JSONRPCResponse)
-            assert error_response.root.error is not None
-            
-            # Cancel server task
-            tg.cancel_scope.cancel()
+            try:
+                # Wait for initialization
+                init_response = await receive_response(server_receive)
+                assert init_response["status"] == "success"
+                
+                # Test invalid tool name
+                await send_request(
+                    client_send,
+                    "tools/call",
+                    {
+                        "name": "nonexistent_tool",
+                        "arguments": {}
+                    }
+                )
+                
+                error_response = await receive_response(server_receive)
+                assert isinstance(error_response.root, JSONRPCResponse)
+                assert error_response.root.error is not None
+            finally:
+                tg.cancel_scope.cancel()
