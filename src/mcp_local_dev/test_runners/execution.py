@@ -13,17 +13,17 @@ logger = get_logger(__name__)
 
 async def auto_run_tests(env: Environment) -> list[types.TextContent]:
     """Auto-detect and run tests in environment."""
-    frameworks = detect_frameworks(env)
-    if not frameworks:
+    runners = detect_runners(env)
+    if not runners:
         return [types.TextContent(
             text=json.dumps({"success": False, "error": "No test runners detected"}),
             type="text"
         )]
         
     config = RunConfig(
-        runner=frameworks[0],
+        runner=runners[0],
         env=env,
         test_dirs=[env.sandbox.work_dir]
     )
-    result = await run_framework_tests(config)
+    result = await run_tests(config)
     return format_test_results(result)

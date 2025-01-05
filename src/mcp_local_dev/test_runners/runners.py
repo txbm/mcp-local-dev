@@ -1,4 +1,4 @@
-"""Test framework utilities."""
+"""Test runner utilities."""
 import shutil
 from typing import Dict, Any, List, Callable, Awaitable
 
@@ -40,7 +40,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             summary["total"] += 1
 
     return {
-        "framework": TestRunnerType.PYTEST.value,
+        "runner": TestRunnerType.PYTEST.value,
         "success": process.returncode in (0, 1),
         "summary": summary,
         "tests": tests,
@@ -48,8 +48,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         "stderr": stderr_text
     }
 
-# Framework registry as a dict of detection and execution functions
-FRAMEWORKS: Dict[TestRunnerType, tuple[Callable[[Environment], bool], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
+# Runner registry as a dict of detection and execution functions
+RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], bool], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
     TestRunnerType.PYTEST: (
         lambda env: env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest") is not None,
         run_pytest
@@ -68,26 +68,26 @@ def detect_frameworks(env: Environment) -> List[TestRunnerType]:
     logger.info({"event": "no_frameworks_detected"})
     return []
 
-async def run_framework_tests(config: RunConfig) -> Dict[str, Any]:
-    """Run tests using the specified framework"""
+async def run_tests(config: RunConfig) -> Dict[str, Any]:
+    """Run tests using the specified runner"""
     logger.info({
-        "event": "framework_test_start",
-        "framework": config.framework.value,
+        "event": "test_run_start",
+        "runner": config.runner.value,
         "working_dir": str(config.env.sandbox.work_dir)
     })
 
-    framework_funcs = FRAMEWORKS.get(config.framework)
-    if not framework_funcs:
-        error = f"Unsupported framework: {config.framework}"
-        logger.error({"event": "framework_test_error", "error": error})
+    runner_funcs = RUNNERS.get(config.runner)
+    if not runner_funcs:
+        error = f"Unsupported test runner: {config.runner}"
+        logger.error({"event": "test_run_error", "error": error})
         raise ValueError(error)
 
-    _, run_tests = framework_funcs
+    _, run_tests = runner_funcs
     result = await run_tests(config.env)
     
     logger.info({
-        "event": "framework_test_complete",
-        "framework": config.framework.value,
+        "event": "test_run_complete",
+        "runner": config.runner.value,
         "success": result["success"],
         "summary": result.get("summary", {})
     })

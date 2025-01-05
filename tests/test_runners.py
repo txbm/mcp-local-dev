@@ -11,11 +11,11 @@ from mcp_local_dev.types import Environment, RunConfig, TestRunnerType
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 
 @pytest.mark.asyncio
-async def test_detect_frameworks(python_environment: Environment):
-    """Test framework detection"""
-    # First test with no frameworks
-    frameworks = detect_frameworks(python_environment)
-    assert len(frameworks) == 0
+async def test_detect_runners(python_environment: Environment):
+    """Test runner detection"""
+    # First test with no runners
+    runners = detect_runners(python_environment)
+    assert len(runners) == 0
     
     # Install pytest
     await run_sandboxed_command(
@@ -23,13 +23,13 @@ async def test_detect_frameworks(python_environment: Environment):
         "python -m pip install pytest"
     )
     
-    frameworks = detect_frameworks(python_environment)
-    assert len(frameworks) == 1
-    assert frameworks[0] == TestRunnerType.PYTEST
+    runners = detect_runners(python_environment)
+    assert len(runners) == 1
+    assert runners[0] == TestRunnerType.PYTEST
 
 @pytest.mark.asyncio
-async def test_run_framework_tests(python_environment: Environment):
-    """Test running specific framework"""
+async def test_run_tests(python_environment: Environment):
+    """Test running specific runner"""
     # Install pytest
     await run_sandboxed_command(
         python_environment.sandbox,
@@ -47,7 +47,7 @@ async def test_run_framework_tests(python_environment: Environment):
         test_dirs=[python_environment.sandbox.work_dir]
     )
     
-    result = await run_framework_tests(config)
+    result = await run_tests(config)
     assert result["success"] is True
     assert result["framework"] == "pytest"
     assert len(result["tests"]) > 0
