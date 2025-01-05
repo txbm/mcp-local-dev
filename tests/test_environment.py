@@ -1,5 +1,6 @@
 import pytest
 import tempfile
+import shutil
 from pathlib import Path
 
 from mcp_local_dev.environments.environment import create_environment, cleanup_environment
