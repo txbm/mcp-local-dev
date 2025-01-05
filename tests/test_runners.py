@@ -49,7 +49,7 @@ async def test_run_tests(python_environment: Environment):
     
     result = await run_tests(config)
     assert result["success"] is True
-    assert result["framework"] == "pytest"
+    assert result["runner"] == "pytest"
     assert len(result["tests"]) > 0
     assert result["summary"]["passed"] > 0
 
