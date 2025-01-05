@@ -17,17 +17,17 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     stdout_text = stdout.decode() if stdout else ""
     stderr_text = stderr.decode() if stderr else ""
     
+    tests = []
     summary = {
         "total": 0,
         "passed": 0,
         "failed": 0,
         "skipped": 0
     }
-    tests = []
 
     for line in stdout_text.splitlines():
-        if "PASSED" in line or "FAILED" in line or "SKIPPED" in line:
-            test_name = line.split("::")[1].split()[0] if "::" in line else line
+        if "::" in line and any(status in line for status in ["PASSED", "FAILED", "SKIPPED"]):
+            test_name = line.split("::")[1].split()[0]
             status = "passed" if "PASSED" in line else "failed" if "FAILED" in line else "skipped"
             test = {
                 "nodeid": test_name,
@@ -41,7 +41,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
 
     return {
         "runner": TestRunnerType.PYTEST.value,
-        "success": process.returncode in (0, 1),
+        "success": process.returncode == 0,
         "summary": summary,
         "tests": tests,
         "stdout": stdout_text,
@@ -59,7 +59,10 @@ async def run_module_check(env: Environment, module: str) -> bool:
 # Runner registry as a dict of detection and execution functions
 RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], Awaitable[bool]], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
     TestRunnerType.PYTEST: (
-        lambda env: env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest") is not None and run_module_check(env, "pytest"),
+        async lambda env: (
+            env.runtime_config.name == Runtime.PYTHON and 
+            await run_module_check(env, "pytest")
+        ),
         run_pytest
     )
 }
