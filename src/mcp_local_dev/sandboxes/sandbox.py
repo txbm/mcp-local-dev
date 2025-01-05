@@ -108,8 +108,8 @@ def cleanup_sandbox(sandbox: Sandbox) -> None:
 
 async def run_sandboxed_command(
     sandbox: Sandbox, cmd: str, env_vars: dict[str, str] | None = None
-) -> asyncio.subprocess.Process:
-    """Run command in sandbox environment."""
+) -> tuple[int, bytes, bytes]:
+    """Run command in sandbox environment and return (returncode, stdout, stderr)."""
     cmd_env = {**sandbox.env_vars, **(env_vars or {})}
 
     if not shutil.which(cmd.split()[0]):
@@ -125,36 +125,19 @@ async def run_sandboxed_command(
         stderr=asyncio.subprocess.PIPE,
     )
 
-    # Create wrapper class to intercept and log output
-    class LoggingPipe:
-        def __init__(self, pipe, event_type):
-            self.pipe = pipe
-            self.event_type = event_type
-            
-        async def read(self):
-            data = await self.pipe.read()
-            if data:
-                logger.debug(
-                    {"event": f"sandbox_cmd_{self.event_type}", 
-                     "cmd": cmd, 
-                     "output": data.decode()}
-                )
-            return data
+    stdout, stderr = await process.communicate()
 
-    # Wrap stdout/stderr with logging interceptors
-    if process.stdout:
-        process._stdout = LoggingPipe(process.stdout, "stdout")
-    if process.stderr:
-        process._stderr = LoggingPipe(process.stderr, "stderr")
-
-    # Add completion callback
-    orig_wait = process.wait
-    async def logging_wait():
-        code = await orig_wait()
+    if stdout:
         logger.debug(
-            {"event": "sandbox_cmd_complete", "cmd": cmd, "returncode": code}
+            {"event": "sandbox_cmd_stdout", "cmd": cmd, "output": stdout.decode()}
         )
-        return code
-    process.wait = logging_wait
+    if stderr:
+        logger.debug(
+            {"event": "sandbox_cmd_stderr", "cmd": cmd, "output": stderr.decode()}
+        )
 
-    return process
+    logger.debug(
+        {"event": "sandbox_cmd_complete", "cmd": cmd, "returncode": process.returncode}
+    )
+
+    return process.returncode, stdout, stderr

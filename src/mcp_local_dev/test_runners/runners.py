@@ -16,10 +16,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     }
     
     cmd = "python -m pytest -v --capture=no --tb=short -p no:warnings"
-    process = await run_sandboxed_command(env.sandbox, cmd, env_vars)
-    stdout, stderr = await process.communicate()
-    
-    if process.returncode not in (0, 1):  # pytest returns 1 for test failures
+    returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)
+    if returncode not in (0, 1):  # pytest returns 1 for test failures
         logger.error({
             "event": "pytest_execution_failed",
             "error": stderr.decode()
