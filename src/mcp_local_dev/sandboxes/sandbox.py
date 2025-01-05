@@ -8,8 +8,8 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional
 
-from mcp_runtime_server.types import Sandbox, PackageManager
-from mcp_runtime_server.logging import get_logger
+from mcp_local_dev.types import Sandbox, PackageManager
+from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
 

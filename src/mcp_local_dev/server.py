@@ -11,13 +11,13 @@ from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server import stdio
 
-from mcp_runtime_server.types import Environment
-from mcp_runtime_server.environments.environment import (
+from mcp_local_dev.types import Environment
+from mcp_local_dev.environments.environment import (
     create_environment,
     cleanup_environment,
 )
-from mcp_runtime_server.test_runners.execution import auto_run_tests
-from mcp_runtime_server.logging import configure_logging, get_logger
+from mcp_local_dev.test_runners.execution import auto_run_tests
+from mcp_local_dev.logging import configure_logging, get_logger
 
 logger = get_logger("server")
 
