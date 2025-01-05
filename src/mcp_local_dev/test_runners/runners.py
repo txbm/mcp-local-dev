@@ -2,7 +2,7 @@
 import shutil
 from typing import Dict, Any, List, Callable, Awaitable
 
-from mcp_local_dev.types import Environment, TestRunnerType, RunConfig, Runtime
+from mcp_local_dev.types import Environment, RunnerType, RunConfig, Runtime
 from mcp_local_dev.logging import get_logger
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 
@@ -58,7 +58,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             summary["total"] += 1
 
     return {
-        "runner": TestRunnerType.PYTEST.value,
+        "runner": RunnerType.PYTEST.value,
         "success": returncode == 0,
         "summary": summary,
         "tests": tests,
@@ -99,11 +99,11 @@ async def check_pytest(env: Environment) -> bool:
             await run_module_check(env, "pytest"))
 
 # Runner registry as a dict of detection and execution functions
-RUNNERS: Dict[TestRunnerType, tuple[Callable[[Environment], Awaitable[bool]], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
-    TestRunnerType.PYTEST: (check_pytest, run_pytest)
+RUNNERS: Dict[RunnerType, tuple[Callable[[Environment], Awaitable[bool]], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
+    RunnerType.PYTEST: (check_pytest, run_pytest)
 }
 
-async def detect_runners(env: Environment) -> List[TestRunnerType]:
+async def detect_runners(env: Environment) -> List[RunnerType]:
     """Detect available test runners for the environment"""
     logger.info({"event": "runner_detection_start", "project_dir": str(env.sandbox.work_dir)})
     
