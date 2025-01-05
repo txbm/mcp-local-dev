@@ -32,7 +32,7 @@ def format_json_log(record: logging.LogRecord) -> str:
     color = LEVEL_COLORS.get(record.levelname, "")
     
     output = {
-        "ts": record.asctime,
+        "ts": record.asctime if hasattr(record, 'asctime') else '',
         "level": record.levelname,
         "msg": record.getMessage()
     }
@@ -45,8 +45,13 @@ def format_json_log(record: logging.LogRecord) -> str:
 
 def configure_logging():
     """Set up application logging with JSON formatting."""
+    # Create a custom Formatter class that uses our format function
+    class JsonFormatter(logging.Formatter):
+        def format(self, record):
+            return format_json_log(record)
+    
     handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(logging.Formatter(fmt=format_json_log))
+    handler.setFormatter(JsonFormatter())
     handler.setLevel(logging.INFO)
 
     app_logger = logging.getLogger("mcp_local_dev")
@@ -61,7 +66,9 @@ def get_logger(name: str) -> logging.Logger:
 def log_with_data(logger: logging.Logger, level: int, msg: str, data: Dict[str, Any] = None):
     """Log a message with optional structured data."""
     if data:
-        logger = logger.makeRecord(
+        record = logger.makeRecord(
             logger.name, level, "(unknown)", 0, msg, (), None, extra={"data": data}
         )
-    logger.log(level, msg)
+        logger.handle(record)
+    else:
+        logger.log(level, msg)
