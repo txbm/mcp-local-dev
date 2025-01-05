@@ -25,7 +25,6 @@ async def test_create_environment_from_python_project(tmp_path: Path):
         assert (env.sandbox.work_dir / "src").exists()
 
         # Read package name from pyproject.toml
-        import tomli
         with open(project_dir / "pyproject.toml", "rb") as f:
             pyproject = tomli.load(f)
         package_name = pyproject["project"]["name"]

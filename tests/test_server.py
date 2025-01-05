@@ -7,7 +7,7 @@ from mcp_local_dev.server import init_server
 async def test_server_tool_registration():
     """Test server tool registration"""
     server = await init_server()
-    tools = await server.list_tools()
+    tools = server.list_tools
     
     assert len(tools) > 0
     assert any(t.name == "create_environment" for t in tools)
@@ -19,10 +19,9 @@ async def test_server_tool_execution():
     """Test server tool execution"""
     server = await init_server()
     
-    result = await server.call_tool(
-        "create_environment",
-        {"github_url": "https://github.com/txbm/mcp-python-repo-fixture"}
-    )
+    result = await server.call_tool("create_environment", {
+        "github_url": "https://github.com/txbm/mcp-python-repo-fixture"
+    })
     
     assert len(result) == 1
     assert result[0].type == "text"
