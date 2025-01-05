@@ -31,7 +31,7 @@ def test_normalize_github_url(input_url, expected):
 async def test_clone_github_repository(sandbox: Sandbox):
     """Test cloning a GitHub repository"""
     # Use a small, public repo for testing
-    url = "https://github.com/pallets/click"
+    url = "https://github.com/txbm/mcp-python-repo-fixture"
     branch = "main"
     
     target_dir = await clone_github_repository(sandbox, url, branch)
@@ -39,13 +39,13 @@ async def test_clone_github_repository(sandbox: Sandbox):
     # Verify clone succeeded
     assert target_dir.exists()
     assert (target_dir / ".git").exists()
-    assert (target_dir / "setup.py").exists() or (target_dir / "pyproject.toml").exists()
+    assert (target_dir / "pyproject.toml").exists()
 
 
 @pytest.mark.asyncio
 async def test_clone_github_repository_with_branch(sandbox: Sandbox):
     """Test cloning specific branch"""
-    url = "https://github.com/pallets/click"
+    url = "https://github.com/txbm/mcp-python-repo-fixture"
     branch = "main"  # Changed from "8.0-maintenance" to "main"
     
     target_dir = await clone_github_repository(sandbox, url, branch)
