@@ -1,7 +1,7 @@
 import logging
 import json
 import pytest
-from mcp_local_dev.logging import format_json_log, configure_logging, log_with_data, get_logger
+from mcp_local_dev.logging import JsonFormatter, configure_logging, log_with_data, get_logger
 
 def test_format_json_log():
     """Test JSON log formatting"""
