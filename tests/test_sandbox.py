@@ -23,12 +23,8 @@ async def test_sandbox_isolation(sandbox: Sandbox):
 @pytest.mark.asyncio
 async def test_sandbox_command_execution(sandbox, fixture_path):
     """Test running commands in sandbox"""
-    from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
-    
-    # Copy test file from fixtures
-    fixture_file = fixture_path / "test.txt"
     test_file = sandbox.work_dir / "test.txt"
-    shutil.copy(fixture_file, test_file)
+    test_file.write_text("hello")
     
     # Run command in sandbox
     returncode, stdout, stderr = await run_sandboxed_command(sandbox, f"cat {test_file.name}")
