@@ -48,11 +48,14 @@ async def test_cleanup_environment(tmp_path: Path):
     
     env = await create_environment(project_dir)
     work_dir = env.sandbox.work_dir
-    assert work_dir.exists()
-    assert (work_dir / "pyproject.toml").exists()
-    
-    cleanup_environment(env)
-    assert not work_dir.exists()
+    try:
+        assert work_dir.exists()
+        assert (work_dir / "pyproject.toml").exists()
+        
+        cleanup_environment(env)
+        assert not work_dir.exists()
+    finally:
+        cleanup_environment(env)
 
 @pytest.mark.asyncio 
 async def test_create_environment_from_github():
