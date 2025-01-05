@@ -88,7 +88,15 @@ async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream,
     with anyio.move_on_after(timeout) as scope:
         response = await receive_stream.receive()
         assert isinstance(response.root, JSONRPCResponse)
-        return response.root.result
+        result = response.root.result
+        
+        # Extract the list from the response based on the structure
+        if isinstance(result, dict):
+            if 'tools' in result:
+                return result['tools']
+            if 'content' in result:
+                return result['content']
+        return result
         
     if scope.cancel_called:
         raise RuntimeError(f"No response received within {timeout} seconds")
