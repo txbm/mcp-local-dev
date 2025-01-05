@@ -47,12 +47,12 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
 async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
                          timeout: float = 2.0) -> Dict[str, Any]:
     """Receive and validate JSON-RPC response with timeout."""
-    try:
-        async with anyio.fail_after(timeout):
-            response = await receive_stream.receive()
-            assert isinstance(response.root, JSONRPCResponse)
-            return response.root.result
-    except TimeoutError:
+    async with anyio.move_on_after(timeout) as scope:
+        response = await receive_stream.receive()
+        assert isinstance(response.root, JSONRPCResponse)
+        return response.root.result
+        
+    if scope.cancel_called:
         raise RuntimeError(f"No response received within {timeout} seconds")
 
 @pytest.mark.asyncio 
