@@ -5,7 +5,7 @@ import json
 import mcp.types as types
 from mcp_local_dev.environments.environment import Environment
 from mcp_local_dev.test_runners.runners import detect_runners, run_tests
-from mcp_local_dev.types import RunConfig, TestRunnerType
+from mcp_local_dev.types import RunConfig, RunnerType
 from mcp_local_dev.test_runners.results import format_test_results
 from mcp_local_dev.logging import get_logger
 
