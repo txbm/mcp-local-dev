@@ -1,9 +1,12 @@
 """Runtime detection and configuration."""
 
+import shutil
 from typing import Dict
 
 from mcp_local_dev.types import Runtime, PackageManager, RuntimeConfig, Sandbox
 from mcp_local_dev.logging import get_logger
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, add_package_manager_bin_path
+from mcp_local_dev.sandboxes.commands import install_packages
 
 logger = get_logger(__name__)
 
@@ -55,35 +58,44 @@ def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
     raise ValueError("No supported runtime detected")
 
 
-async def install_runtime(
-    sandbox: Sandbox, config: RuntimeConfig
-) -> None:
-    """Install runtime assuming binaries are on system path"""
-    import shutil
-    from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
-    
-    # Verify required binaries exist on host system
-    required_binaries = [config.binary_name]
+async def install_runtime(sandbox: Sandbox, config: RuntimeConfig) -> None:
+    """Install runtime by setting up package manager and installing dependencies"""
+    # Only symlink package manager binaries from host system
     if config.package_manager == PackageManager.UV:
-        required_binaries.append('uv')
+        required_binaries = ['uv']
     elif config.package_manager == PackageManager.NPM:
-        required_binaries.append('npm')
+        required_binaries = ['npm']
     elif config.package_manager == PackageManager.BUN:
-        required_binaries.append('bun')
+        required_binaries = ['bun']
+    else:
+        raise RuntimeError(f"Unsupported package manager: {config.package_manager}")
         
+    # Verify and symlink package manager
     missing = [bin for bin in required_binaries if not shutil.which(bin)]
     if missing:
-        raise RuntimeError(f"Required binaries not found: {', '.join(missing)}")
+        raise RuntimeError(f"Required package manager not found: {', '.join(missing)}")
 
-    # Create symlinks to required binaries in sandbox bin directory
+    # Create symlinks to package manager in sandbox bin directory
     for binary in required_binaries:
         host_path = shutil.which(binary)
         if host_path:
             target = sandbox.bin_dir / binary
             if not target.exists():
                 target.symlink_to(host_path)
-        
+
     # Set up environment variables
     for key, value in config.env_setup.items():
         sandbox.env_vars[key] = value
+
+    # For Python/UV, create virtualenv first
+    if config.package_manager == PackageManager.UV:
+        process = await run_sandboxed_command(sandbox, "uv venv")
+        if process.returncode != 0:
+            raise RuntimeError("Failed to create virtual environment")
+
+    # Add package manager bin paths before installing packages
+    add_package_manager_bin_path(sandbox, config.package_manager)
+
+    # Install project dependencies
+    await install_packages(sandbox, config.package_manager)
         
