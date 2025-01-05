@@ -125,9 +125,9 @@ async def run_sandboxed_command(
         stderr=asyncio.subprocess.PIPE,
     )
 
-    # Capture output but don't wait for completion
+    # Wrap the process to intercept and log output while preserving it for caller
     stdout, stderr = await process.communicate()
-
+    
     if stdout:
         logger.debug(
             {"event": "sandbox_cmd_stdout", "cmd": cmd, "output": stdout.decode()}
@@ -141,4 +141,16 @@ async def run_sandboxed_command(
         {"event": "sandbox_cmd_complete", "cmd": cmd, "returncode": process.returncode}
     )
 
-    return process
+    # Create new process with the captured output
+    new_process = asyncio.subprocess.Process(
+        process._transport,
+        process._protocol,
+        process._loop
+    )
+    new_process._returncode = process.returncode
+    
+    # Make output available for caller
+    new_process._stdout = stdout
+    new_process._stderr = stderr
+    
+    return new_process
