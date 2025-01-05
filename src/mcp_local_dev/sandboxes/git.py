@@ -64,19 +64,12 @@ async def clone_github_repository(
         }
     )
 
-    process = await run_sandboxed_command(sandbox, cmd)
-    stdout, stderr = await process.communicate()
-
-    if stdout:
-        logger.debug({"event": "clone_stdout", "output": stdout.decode()})
-    if stderr:
-        logger.debug({"event": "clone_stderr", "output": stderr.decode()})
-
-    if process.returncode != 0:
+    returncode, stdout, stderr = await run_sandboxed_command(sandbox, cmd)
+    if returncode != 0:
         logger.error(
             {
                 "event": "clone_failed",
-                "return_code": process.returncode,
+                "return_code": returncode,
                 "stderr": stderr.decode(),
             }
         )

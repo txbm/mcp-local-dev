@@ -17,12 +17,10 @@ async def install_packages(sandbox: Sandbox, pkg_manager: PackageManager) -> Non
     else:
         raise RuntimeError(f"Unsupported package manager: {pkg_manager}")
 
-    process = await run_sandboxed_command(sandbox, cmd)
-    stdout, stderr = await process.communicate()
-
-    if process.returncode != 0:
+    returncode, stdout, stderr = await run_sandboxed_command(sandbox, cmd)
+    if returncode != 0:
         raise RuntimeError(
-            f"Install failed with code {process.returncode}\n"
+            f"Install failed with code {returncode}\n"
             f"stdout: {stdout.decode() if stdout else ''}\n"
             f"stderr: {stderr.decode() if stderr else ''}"
         )
