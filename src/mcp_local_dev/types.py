@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 
 Runtime = Enum('Runtime', ['PYTHON', 'NODE', 'BUN'])
 PackageManager = Enum('PackageManager', ['UV', 'NPM', 'BUN'])
-class TestRunnerType(Enum):
+class RunnerType(Enum):
     """Available test runner types"""
     PYTEST = 'pytest'
 

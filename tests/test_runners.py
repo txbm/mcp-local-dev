@@ -7,7 +7,7 @@ from pathlib import Path
 from mcp_local_dev.environments.environment import create_environment, cleanup_environment
 from mcp_local_dev.test_runners.runners import detect_runners, run_tests
 from mcp_local_dev.test_runners.execution import auto_run_tests
-from mcp_local_dev.types import RunConfig, TestRunnerType
+from mcp_local_dev.types import RunConfig, RunnerType
 
 @pytest.mark.asyncio
 async def test_detect_runners(fixture_path: Path):
@@ -17,7 +17,7 @@ async def test_detect_runners(fixture_path: Path):
     try:
         runners = await detect_runners(env)
         assert len(runners) == 1
-        assert runners[0] == TestRunnerType.PYTEST
+        assert runners[0] == RunnerType.PYTEST
     finally:
         cleanup_environment(env)
 
@@ -28,7 +28,7 @@ async def test_run_tests(fixture_path: Path):
     env = await create_environment(project_dir)
     try:
         config = RunConfig(
-            runner=TestRunnerType.PYTEST,
+            runner=RunnerType.PYTEST,
             env=env,
             test_dirs=[env.sandbox.work_dir]
         )

@@ -32,6 +32,11 @@ async def test_server_tool_registration():
             )
         )
         
+        # Wait for initialization
+        init_response = await server_to_client_receive.receive()
+        assert isinstance(init_response.root, JSONRPCResponse)
+        assert init_response.root.result["status"] == "success"
+
         # Send tools/list request
         request = JSONRPCMessage(
             root=JSONRPCRequest(
@@ -73,6 +78,11 @@ async def test_server_tool_execution():
                 )
             )
         )
+
+        # Wait for initialization
+        init_response = await server_to_client_receive.receive()
+        assert isinstance(init_response.root, JSONRPCResponse)
+        assert init_response.root.result["status"] == "success"
         
         # Send tools/call request
         request = JSONRPCMessage(
