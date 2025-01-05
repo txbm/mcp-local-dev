@@ -26,4 +26,4 @@ async def auto_run_tests(env: Environment) -> list[types.TextContent]:
         test_dirs=[env.sandbox.work_dir]
     )
     result = await run_tests(config)
-    return format_test_results(result)
+    return format_test_results(runners[0].value, result)  # Pass both runner and results
