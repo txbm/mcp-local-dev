@@ -6,6 +6,8 @@ import signal
 import sys
 from typing import Dict, Any, List, cast
 
+from mcp.types import CallToolResult
+
 import mcp.types as types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
@@ -92,15 +94,15 @@ async def init_server() -> Server:
             
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
-                    return {
-                        "isError": True,
-                        "content": [
+                    return CallToolResult(
+                        isError=True,
+                        content=[
                             types.TextContent(
                                 text=f"Error: Unknown environment: {arguments['env_id']}",
                                 type="text"
                             )
                         ]
-                    }
+                    )
 
                 env = ENVIRONMENTS[arguments["env_id"]]
                 return cast(
@@ -116,32 +118,32 @@ async def init_server() -> Server:
                     if env_id in ENVIRONMENTS:
                         env = ENVIRONMENTS.pop(env_id)
                         cleanup_environment(env)
-                return {
-                    "isError": False,
-                    "content": [
+                return CallToolResult(
+                    isError=False,
+                    content=[
                         types.TextContent(text=json.dumps({"success": True}), type="text")
                     ]
-                }
+                )
 
-            return {
-                "isError": True,
-                "content": [
+            return CallToolResult(
+                isError=True,
+                content=[
                     types.TextContent(
                         text=f"Error: Unknown tool: {name}",
                         type="text"
                     )
                 ]
-            }
+            )
         except Exception as e:
-            return {
-                "isError": True,
-                "content": [
+            return CallToolResult(
+                isError=True,
+                content=[
                     types.TextContent(
                         text=f"Error: {str(e)}",
                         type="text"
                     )
                 ]
-            }
+            )
 
     @server.progress_notification()
     async def handle_progress(
