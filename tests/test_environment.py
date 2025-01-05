@@ -58,7 +58,7 @@ async def test_create_environment_from_github():
     try:
         env = await create_environment_from_github(
             staging,
-            "https://github.com/pallets/flask",
+            "https://github.com/txbm/mcp-python-repo-fixture",
             "main"
         )
         try:

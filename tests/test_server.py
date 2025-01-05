@@ -21,7 +21,7 @@ async def test_server_tool_execution():
     
     result = await server.call_tool(
         "create_environment",
-        {"github_url": "https://github.com/pallets/click"}
+        {"github_url": "https://github.com/txbm/mcp-python-repo-fixture"}
     )
     
     assert len(result) == 1
