@@ -12,19 +12,13 @@ from mcp_local_dev.logging import get_logger
 logger = get_logger(__name__)
 
 async def auto_run_tests(env: Environment) -> list[types.TextContent]:
-    """Auto-detect and run tests in the environment."""
-    runners = detect_test_runners(env)
-    if not runners:
+    """Auto-detect and run tests in environment."""
+    try:
+        runner = get_framework_runner(env)
+        result = await runner(env)
+        return format_test_results(result)
+    except ValueError:
         return [types.TextContent(
             text=json.dumps({"success": False, "error": "No test runners detected"}),
             type="text"
         )]
-
-    config = RunConfig(
-        runner=runners[0], 
-        env=env,
-        test_dirs=[env.sandbox.work_dir]
-    )
-    result = await run_test_runner(config)
-    
-    return format_test_results(runners[0].value, result)

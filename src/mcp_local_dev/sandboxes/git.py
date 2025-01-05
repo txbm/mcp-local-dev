@@ -1,4 +1,20 @@
 from typing import Optional
+
+def normalize_github_url(url: str) -> str:
+    """Convert GitHub URL to HTTPS format."""
+    if not url:
+        raise ValueError("URL cannot be empty")
+        
+    if url.startswith("git@github.com:"):
+        return f"https://github.com/{url.split(':')[1]}"
+    
+    if not url.startswith(("http://", "https://")):
+        return f"https://github.com/{url}"
+        
+    if url.startswith("http://"):
+        raise ValueError("HTTP URLs not supported, use HTTPS")
+        
+    return url
 from pathlib import Path
 
 
@@ -24,28 +40,7 @@ async def clone_github_repository(
         {"event": "clone_github_repository", "url": url, "target_dir": str(target_dir)}
     )
 
-    # Normalize GitHub URL to HTTPS format
-    if url.startswith("git@"):
-        parts = url.split(":")
-        if "@" in parts[0]:
-            host = parts[0].split("@")[1]
-            if ":" in host:  # Handle custom ports
-                host = host.split(":")[0]
-            repo = parts[1]
-            url = f"https://{host}/{repo}"
-    elif url.startswith("http://"):
-        raise ValueError("HTTP URLs are not supported, use HTTPS")
-    elif not url.startswith("https://"):
-        # Handle shorthand formats like "owner/repo"
-        if "/" in url and not url.startswith("github.com"):
-            url = f"https://github.com/{url}"
-        else:
-            url = f"https://{url}"
-    
-    if not url.startswith("https://github.com"):
-        raise ValueError("Only GitHub repositories are supported")
-
-    logger.debug({"event": "clone_url_processed", "final_url": url})
+    url = normalize_github_url(url)
 
     # Build command
     cmd = f"git clone {url} {target_dir}"

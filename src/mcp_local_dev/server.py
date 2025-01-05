@@ -177,11 +177,6 @@ def setup_handlers() -> None:
 
 
 def main() -> None:
+    """Run the MCP server."""
     setup_handlers()
-    try:
-        asyncio.run(serve())
-    except KeyboardInterrupt:
-        logger.info("Received keyboard interrupt")
-    except Exception:
-        logger.exception("Fatal server error")
-        sys.exit(1)
+    asyncio.run(serve())
