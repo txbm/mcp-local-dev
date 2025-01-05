@@ -5,13 +5,14 @@ from mcp_local_dev.logging import JsonFormatter, configure_logging, log_with_dat
 
 def test_format_json_log():
     """Test JSON log formatting"""
+    formatter = JsonFormatter()
     record = logging.LogRecord(
         "test", logging.INFO, "test.py", 10, 
         "Test message", (), None
     )
     record.asctime = "2024-01-01 00:00:00"
     
-    output = format_json_log(record)
+    output = formatter.format(record)
     data = json.loads(output.strip("\033[32m\033[0m"))  # Remove color codes
     
     assert data["level"] == "INFO"
@@ -27,13 +28,14 @@ def test_format_json_log():
 ])
 def test_format_json_log_colors(level, expected_color):
     """Test log level color coding"""
+    formatter = JsonFormatter()
     record = logging.LogRecord(
         "test", level, "test.py", 10, 
         "Test message", (), None
     )
     record.asctime = "2024-01-01 00:00:00"
     
-    output = format_json_log(record)
+    output = formatter.format(record)
     assert output.startswith(expected_color)
     assert output.endswith("\033[0m")
 
