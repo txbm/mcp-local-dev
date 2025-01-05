@@ -87,15 +87,9 @@ async def install_runtime(sandbox: Sandbox, config: RuntimeConfig) -> None:
     for key, value in config.env_setup.items():
         sandbox.env_vars[key] = value
 
-    # For Python/UV, create virtualenv first
-    if config.package_manager == PackageManager.UV:
-        returncode, stdout, stderr = await run_sandboxed_command(sandbox, "uv venv")
-        if returncode != 0:
-            raise RuntimeError(f"Failed to create virtual environment: {stderr.decode()}")
-
     # Add package manager bin paths before installing packages
     add_package_manager_bin_path(sandbox, config.package_manager)
 
-    # Install project dependencies
+    # Install project dependencies (uv sync will create venv automatically)
     await install_packages(sandbox, config.package_manager)
         
