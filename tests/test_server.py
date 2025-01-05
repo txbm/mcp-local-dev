@@ -8,8 +8,8 @@ async def test_server_tool_registration():
     """Test server tool registration"""
     server = await init_server()
     
-    # Use handle_list_tools_request() which is the internal handler
-    request = types.ListToolsRequest()
+    # ListToolsRequest requires method="tools/list"
+    request = types.ListToolsRequest(method="tools/list")
     tools = await server.handle_list_tools_request(request)
     
     assert len(tools) > 0
@@ -33,7 +33,8 @@ async def test_server_tool_execution():
         }
     )
     
-    result = await server.handle_call_tool_request(request)
+    # Use handle_call_tool_request_internal instead of handle_call_tool_request
+    result = await server.handle_call_tool_request_internal(request)
     
     assert len(result) == 1
     assert result[0].type == "text"
