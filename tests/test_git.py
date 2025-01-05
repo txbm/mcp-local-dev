@@ -46,7 +46,7 @@ async def test_clone_github_repository(sandbox: Sandbox):
 async def test_clone_github_repository_with_branch(sandbox: Sandbox):
     """Test cloning specific branch"""
     url = "https://github.com/pallets/click"
-    branch = "8.0-maintenance"
+    branch = "main"  # Changed from "8.0-maintenance" to "main"
     
     target_dir = await clone_github_repository(sandbox, url, branch)
     

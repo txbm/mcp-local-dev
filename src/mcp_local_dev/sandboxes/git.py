@@ -5,14 +5,22 @@ def normalize_github_url(url: str) -> str:
     if not url:
         raise ValueError("URL cannot be empty")
         
+    # Reject URLs with query params or fragments
+    if "?" in url or "#" in url:
+        raise ValueError("URLs with query parameters or fragments not supported")
+        
     if url.startswith("git@github.com:"):
         return f"https://github.com/{url.split(':')[1]}"
     
-    if not url.startswith(("http://", "https://")):
+    if not url.startswith(("http://", "https://", "github.com")):
         return f"https://github.com/{url}"
         
     if url.startswith("http://"):
         raise ValueError("HTTP URLs not supported, use HTTPS")
+
+    # Handle github.com/user/repo format
+    if url.startswith("github.com"):
+        return f"https://{url}"
         
     return url
 from pathlib import Path
