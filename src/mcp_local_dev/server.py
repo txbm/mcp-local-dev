@@ -92,17 +92,15 @@ async def init_server() -> Server:
             
             elif name == "run_tests":
                 if arguments["env_id"] not in ENVIRONMENTS:
-                    return [
-                        types.TextContent(
-                            text=json.dumps(
-                                {
-                                    "success": False,
-                                    "error": f"Unknown environment: {arguments['env_id']}",
-                                }
-                            ),
-                            type="text",
-                        )
-                    ]
+                    return {
+                        "isError": True,
+                        "content": [
+                            types.TextContent(
+                                text=f"Error: Unknown environment: {arguments['env_id']}",
+                                type="text"
+                            )
+                        ]
+                    }
 
                 env = ENVIRONMENTS[arguments["env_id"]]
                 return cast(
@@ -118,27 +116,32 @@ async def init_server() -> Server:
                     if env_id in ENVIRONMENTS:
                         env = ENVIRONMENTS.pop(env_id)
                         cleanup_environment(env)
-                return [
-                    types.TextContent(text=json.dumps({"success": True}), type="text")
-                ]
+                return {
+                    "isError": False,
+                    "content": [
+                        types.TextContent(text=json.dumps({"success": True}), type="text")
+                    ]
+                }
 
-            return [
-                types.TextContent(
-                    text=json.dumps(
-                        {"success": False, "error": f"Unknown tool: {name}"}
-                    ),
-                    type="text",
-                )
-            ]
+            return {
+                "isError": True,
+                "content": [
+                    types.TextContent(
+                        text=f"Error: Unknown tool: {name}",
+                        type="text"
+                    )
+                ]
+            }
         except Exception as e:
-            return [
-                types.TextContent(
-                    text=json.dumps(
-                        {"success": False, "error": str(e)}
-                    ),
-                    type="text"
-                )
-            ]
+            return {
+                "isError": True,
+                "content": [
+                    types.TextContent(
+                        text=f"Error: {str(e)}",
+                        type="text"
+                    )
+                ]
+            }
 
     @server.progress_notification()
     async def handle_progress(
