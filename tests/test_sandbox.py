@@ -1,7 +1,8 @@
 import pytest
 import os
 from pathlib import Path
-from mcp_local_dev.types import Sandbox
+from mcp_local_dev.types import Sandbox, PackageManager
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, add_package_manager_bin_path
 
 @pytest.mark.asyncio
 async def test_sandbox_isolation(sandbox: Sandbox):
