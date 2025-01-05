@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Dict, Any
 import asyncio
 
-from mcp.types import JSONRPCMessage, JSONRPCRequest, JSONRPCResponse, Tool
+from mcp.types import JSONRPCMessage, JSONRPCRequest, JSONRPCResponse, JSONRPCNotification, Tool
 from mcp.server.models import InitializationOptions
 from mcp.types import ServerCapabilities, ToolsCapability, LoggingCapability
 
@@ -53,16 +53,17 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
             "clientInfo": params.get("clientInfo", {}) if params else {}
         }
     
-    # For notifications like "initialized", don't include an id
     if method == "initialized":
+        # Use JSONRPCNotification for notifications
         message = JSONRPCMessage(
-            root=JSONRPCRequest(
+            root=JSONRPCNotification(
                 jsonrpc="2.0",
                 method=method,
                 params=params or {}
             )
         )
     else:
+        # Use JSONRPCRequest for regular requests
         message = JSONRPCMessage(
             root=JSONRPCRequest(
                 jsonrpc="2.0",
