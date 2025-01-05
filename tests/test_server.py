@@ -47,7 +47,7 @@ async def send_request(send_stream: anyio.abc.ObjectSendStream,
 async def receive_response(receive_stream: anyio.abc.ObjectReceiveStream, 
                          timeout: float = 2.0) -> Dict[str, Any]:
     """Receive and validate JSON-RPC response with timeout."""
-    async with anyio.create_cancel_scope(deadline=timeout) as scope:
+    async with anyio.CancelScope(deadline=timeout) as scope:
         response = await receive_stream.receive()
         assert isinstance(response.root, JSONRPCResponse)
         return response.root.result
