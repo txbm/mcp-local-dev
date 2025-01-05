@@ -2,9 +2,9 @@
 import shutil
 from typing import Dict, Any, List, Callable, Awaitable
 
-from mcp_runtime_server.types import Environment, FrameworkType, RunConfig, Runtime
-from mcp_runtime_server.logging import get_logger
-from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
+from mcp_local_dev.types import Environment, TestRunnerType, RunConfig, Runtime
+from mcp_local_dev.logging import get_logger
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 
 logger = get_logger(__name__)
 
@@ -49,8 +49,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     }
 
 # Framework registry as a dict of detection and execution functions
-FRAMEWORKS: Dict[FrameworkType, tuple[Callable[[Environment], bool], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
-    FrameworkType.PYTEST: (
+FRAMEWORKS: Dict[TestRunnerType, tuple[Callable[[Environment], bool], Callable[[Environment], Awaitable[Dict[str, Any]]]]] = {
+    TestRunnerType.PYTEST: (
         lambda env: env.runtime_config.name == Runtime.PYTHON and shutil.which("pytest") is not None,
         run_pytest
     )
