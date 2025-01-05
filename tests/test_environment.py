@@ -2,8 +2,9 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from mcp_local_dev.environments.environment import create_environment
+from mcp_local_dev.environments.environment import create_environment, cleanup_environment
 from mcp_local_dev.types import Runtime
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 
 @pytest.mark.asyncio
 async def test_create_environment_from_python_project():
