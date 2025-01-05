@@ -228,15 +228,16 @@ async def test_tool_execution():
             )
             
             tool_response = await receive_response(client_receive)
-            assert not tool_response.get("isError", False)
             assert isinstance(tool_response["content"], list)
             assert len(tool_response["content"]) == 1
             assert tool_response["content"][0]["type"] == "text"
             
             result = json.loads(tool_response["content"][0]["text"])
-            assert "id" in result
-            assert "working_dir" in result
-            assert "runtime" in result
+            assert result["success"] is True
+            assert "data" in result
+            assert "id" in result["data"]
+            assert "working_dir" in result["data"]
+            assert "runtime" in result["data"]
 
             # Clean up
             tg.cancel_scope.cancel()
@@ -301,12 +302,14 @@ async def test_error_handling():
             )
             
             tool_response = await receive_response(client_receive)
-            assert isinstance(tool_response, dict)
-            assert tool_response["isError"]
             assert isinstance(tool_response["content"], list)
             assert len(tool_response["content"]) == 1
             assert tool_response["content"][0]["type"] == "text"
-            assert "Error: Unknown tool" in tool_response["content"][0]["text"]
+            
+            result = json.loads(tool_response["content"][0]["text"])
+            assert result["success"] is False
+            assert "error" in result
+            assert "Unknown tool" in result["error"]
 
             # Clean up
             tg.cancel_scope.cancel()
