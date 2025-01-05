@@ -43,4 +43,7 @@ async def python_environment(sandbox: Sandbox, python_runtime_config: RuntimeCon
         created_at=datetime.now(timezone.utc),
         sandbox=sandbox
     )
-    yield env
+    try:
+        yield env
+    finally:
+        cleanup_environment(env)
