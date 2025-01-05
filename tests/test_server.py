@@ -111,7 +111,10 @@ async def test_server_initialization():
 
                 # Wait for initialization response
                 init_response = await receive_response(server_receive)
-                assert init_response["status"] == "success"
+                assert "serverInfo" in init_response
+                assert "name" in init_response["serverInfo"]
+                assert "version" in init_response["serverInfo"]
+                assert "capabilities" in init_response
 
                 # Test tools listing
                 await send_request(client_send, "tools/list")
@@ -167,7 +170,10 @@ async def test_tool_execution():
 
                 # Wait for initialization response
                 init_response = await receive_response(server_receive)
-                assert init_response["status"] == "success"
+                assert "serverInfo" in init_response
+                assert "name" in init_response["serverInfo"]
+                assert "version" in init_response["serverInfo"]
+                assert "capabilities" in init_response
 
                 # Test tool execution
                 await send_request(
@@ -234,7 +240,10 @@ async def test_error_handling():
 
                 # Wait for initialization response
                 init_response = await receive_response(server_receive)
-                assert init_response["status"] == "success"
+                assert "serverInfo" in init_response
+                assert "name" in init_response["serverInfo"]
+                assert "version" in init_response["serverInfo"]
+                assert "capabilities" in init_response
 
                 # Test invalid tool name
                 await send_request(
