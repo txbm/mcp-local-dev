@@ -98,41 +98,14 @@ def cleanup_sandbox(sandbox: Sandbox) -> None:
     sandbox.temp_dir.cleanup()
 
 
-async def run_sandboxed_command(
-    sandbox: Sandbox,
-    cmd: str,
-    env_vars: Optional[Dict[str, str]] = None
-) -> asyncio.subprocess.Process:
-    """Run a command inside sandbox environment.
+async def run_sandboxed_command(sandbox: Sandbox, cmd: str, env_vars: dict[str, str] | None = None) -> asyncio.subprocess.Process:
+    """Run command in sandbox environment."""
+    cmd_env = {**sandbox.env_vars, **(env_vars or {})}
     
-    Args:
-        sandbox: Sandbox to run command in
-        cmd: Command string to execute
-        env_vars: Additional environment variables
+    if not shutil.which(cmd.split()[0]):
+        raise ValueError(f"Command not found: {cmd.split()[0]}")
         
-    Returns:
-        Process handle
-        
-    Raises:
-        RuntimeError: If command execution fails
-    """
-    # Merge sandbox env with any additional vars
-    cmd_env = sandbox.env_vars.copy()
-    if env_vars:
-        cmd_env.update(env_vars)
-
-    logger.debug({
-        "event": "sandbox_cmd_exec",
-        "cmd": cmd,
-        "cwd": str(sandbox.work_dir),
-        "env": json.dumps(cmd_env)
-    })
-
-    # Check if command exists
-    cmd_parts = cmd.split()
-    if not shutil.which(cmd_parts[0]):
-        raise RuntimeError(f"Command not found: {cmd_parts[0]}")
-        
+    logger.debug({"event": "sandbox_cmd_exec", "cmd": cmd})
     return await asyncio.create_subprocess_shell(
         cmd,
         cwd=sandbox.work_dir,
