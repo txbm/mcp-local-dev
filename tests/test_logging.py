@@ -69,7 +69,7 @@ def test_log_with_data_json_structure():
     from io import StringIO
     stream = StringIO()
     handler = logging.StreamHandler(stream)
-    handler.setFormatter(logging.Formatter(fmt=format_json_log))
+    handler.setFormatter(JsonFormatter())
     logger.addHandler(handler)
     
     test_data = {"key": "value", "nested": {"foo": "bar"}}
