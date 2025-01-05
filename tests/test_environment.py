@@ -33,7 +33,7 @@ version = "0.1.0"
 async def test_create_environment_from_github():
     """Test creating environment from GitHub repo"""
     from mcp_local_dev.environments.environment import create_environment_from_github
-    from mcp_runtime_server.sandboxes.sandbox import create_sandbox
+    from mcp_local_dev.sandboxes.sandbox import create_sandbox
     
     staging = await create_sandbox("staging-")
     try:
@@ -42,11 +42,11 @@ async def test_create_environment_from_github():
             "https://github.com/pallets/flask",
             "main"
         )
-        assert env.runtime_config.name == Runtime.PYTHON
-        assert env.sandbox.work_dir.exists()
-        assert (env.sandbox.work_dir / "pyproject.toml").exists()
-        
-        # Cleanup
-        env.sandbox.temp_dir.cleanup()
+        try:
+            assert env.runtime_config.name == Runtime.PYTHON
+            assert env.sandbox.work_dir.exists()
+            assert (env.sandbox.work_dir / "pyproject.toml").exists()
+        finally:
+            env.sandbox.temp_dir.cleanup()
     finally:
         staging.temp_dir.cleanup()
