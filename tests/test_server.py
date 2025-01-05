@@ -235,7 +235,12 @@ async def test_tool_execution():
             assert tool_response["content"][0]["type"] == "text"
             
             result = json.loads(tool_response["content"][0]["text"])
-            assert result["success"] is True
+            print(f"\nTool execution result: {json.dumps(result, indent=2)}")  # Pretty print the full result
+            
+            if not result["success"]:
+                print(f"\nError message: {result.get('error')}")  # Print error if present
+                
+            assert result["success"] is True, f"Tool execution failed: {result.get('error')}"  # Add error message to assertion
             assert "data" in result
             assert "id" in result["data"]
             assert "working_dir" in result["data"]
