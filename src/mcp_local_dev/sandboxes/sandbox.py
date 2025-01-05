@@ -1,13 +1,10 @@
 """Sandbox directory and command execution management."""
 
-import json
 import tempfile
 import asyncio
-import os
 import sys
 import shutil
 from pathlib import Path
-from typing import Dict, Optional
 
 from mcp_local_dev.types import Sandbox, PackageManager
 from mcp_local_dev.logging import get_logger
@@ -119,7 +116,7 @@ async def run_sandboxed_command(
         raise ValueError(f"Command not found: {cmd.split()[0]}")
 
     logger.debug({"event": "sandbox_cmd_exec", "cmd": cmd})
-    
+
     process = await asyncio.create_subprocess_shell(
         cmd,
         cwd=sandbox.work_dir,
@@ -127,27 +124,21 @@ async def run_sandboxed_command(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    
+
     # Capture output but don't wait for completion
     stdout, stderr = await process.communicate()
-    
+
     if stdout:
-        logger.debug({
-            "event": "sandbox_cmd_stdout",
-            "cmd": cmd,
-            "output": stdout.decode()
-        })
+        logger.debug(
+            {"event": "sandbox_cmd_stdout", "cmd": cmd, "output": stdout.decode()}
+        )
     if stderr:
-        logger.debug({
-            "event": "sandbox_cmd_stderr", 
-            "cmd": cmd,
-            "output": stderr.decode()
-        })
-    
-    logger.debug({
-        "event": "sandbox_cmd_complete",
-        "cmd": cmd,
-        "returncode": process.returncode
-    })
+        logger.debug(
+            {"event": "sandbox_cmd_stderr", "cmd": cmd, "output": stderr.decode()}
+        )
+
+    logger.debug(
+        {"event": "sandbox_cmd_complete", "cmd": cmd, "returncode": process.returncode}
+    )
 
     return process

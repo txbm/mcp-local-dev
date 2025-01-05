@@ -11,9 +11,8 @@ from fuuid import b58_fuuid
 from mcp_local_dev.types import Environment, Sandbox
 from mcp_local_dev.runtimes.runtime import detect_runtime, install_runtime
 from mcp_local_dev.sandboxes.sandbox import (
-    create_sandbox, 
+    create_sandbox,
     cleanup_sandbox,
-    add_package_manager_bin_path
 )
 from mcp_local_dev.sandboxes.git import clone_github_repository
 from mcp_local_dev.logging import get_logger
@@ -34,7 +33,7 @@ async def create_environment(path: Path) -> Environment:
     """Create new environment from filesystem path."""
     env_id = b58_fuuid()
     sandbox = await create_sandbox(f"mcp-{env_id}-")
-    
+
     shutil.copytree(path, sandbox.work_dir, dirs_exist_ok=True)
     os.chmod(sandbox.work_dir, 0o700)
     os.chmod(sandbox.bin_dir, 0o700)
@@ -44,9 +43,9 @@ async def create_environment(path: Path) -> Environment:
 
     return Environment(
         id=env_id,
-        runtime_config=runtime_config, 
+        runtime_config=runtime_config,
         sandbox=sandbox,
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(timezone.utc),
     )
 
 
