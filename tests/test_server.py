@@ -80,7 +80,7 @@ async def test_server_initialization():
             async def run_server():
                 try:
                     await server.run(
-                        client_receive,
+                        server_receive,
                         server_send,
                         InitializationOptions(
                             server_name="test-server",
@@ -96,6 +96,9 @@ async def test_server_initialization():
             
             tg.start_soon(run_server)
             
+            # Wait for server initialization
+            await asyncio.sleep(0.1)
+            
             try:
                 # Send initialization request first
                 await send_request(
@@ -110,7 +113,7 @@ async def test_server_initialization():
                 )
 
                 # Wait for initialization response
-                init_response = await receive_response(server_receive)
+                init_response = await receive_response(client_receive)
                 assert "serverInfo" in init_response
                 assert "name" in init_response["serverInfo"]
                 assert "version" in init_response["serverInfo"]
@@ -118,7 +121,7 @@ async def test_server_initialization():
 
                 # Test tools listing
                 await send_request(client_send, "tools/list")
-                tools_response = await receive_response(server_receive)
+                tools_response = await receive_response(client_receive)
                 
                 assert isinstance(tools_response, list)
                 assert all(isinstance(tool, dict) for tool in tools_response)
@@ -139,7 +142,7 @@ async def test_tool_execution():
             async def run_server():
                 try:
                     await server.run(
-                        client_receive,
+                        server_receive,
                         server_send,
                         InitializationOptions(
                             server_name="test-server",
@@ -169,7 +172,7 @@ async def test_tool_execution():
                 )
 
                 # Wait for initialization response
-                init_response = await receive_response(server_receive)
+                init_response = await receive_response(client_receive)
                 assert "serverInfo" in init_response
                 assert "name" in init_response["serverInfo"]
                 assert "version" in init_response["serverInfo"]
@@ -187,7 +190,10 @@ async def test_tool_execution():
                     }
                 )
                 
-                tool_response = await receive_response(server_receive)
+                # Wait for server initialization
+                await asyncio.sleep(0.1)
+                
+                tool_response = await receive_response(client_receive)
                 assert isinstance(tool_response, list)
                 assert len(tool_response) == 1
                 assert tool_response[0]["type"] == "text"
@@ -209,7 +215,7 @@ async def test_error_handling():
             async def run_server():
                 try:
                     await server.run(
-                        client_receive,
+                        server_receive,
                         server_send,
                         InitializationOptions(
                             server_name="test-server",
@@ -239,7 +245,7 @@ async def test_error_handling():
                 )
 
                 # Wait for initialization response
-                init_response = await receive_response(server_receive)
+                init_response = await receive_response(client_receive)
                 assert "serverInfo" in init_response
                 assert "name" in init_response["serverInfo"]
                 assert "version" in init_response["serverInfo"]
@@ -255,7 +261,10 @@ async def test_error_handling():
                     }
                 )
                 
-                error_response = await receive_response(server_receive)
+                # Wait for server initialization
+                await asyncio.sleep(0.1)
+                
+                error_response = await receive_response(client_receive)
                 assert isinstance(error_response.root, JSONRPCResponse)
                 assert error_response.root.error is not None
             finally:
