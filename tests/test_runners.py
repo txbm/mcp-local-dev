@@ -14,22 +14,26 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 async def test_detect_runners(python_environment: Environment):
     """Test runner detection"""
     # First test with no runners
-    # Need to ensure pytest is not installed
-    await run_sandboxed_command(
+    process = await run_sandboxed_command(
         python_environment.sandbox,
-        "python -m pip uninstall -y pytest"
+        "uv pip uninstall -y pytest"
     )
-    
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"Failed to uninstall pytest: {stderr.decode()}")
+
     # Verify no pytest
     runners = await detect_runners(python_environment)
     assert len(runners) == 0
     
-    # Install pytest and wait for it to complete
+    # Install pytest using UV
     process = await run_sandboxed_command(
         python_environment.sandbox,
-        "python -m pip install pytest"
+        "uv pip install pytest"
     )
-    await process.communicate()  # Wait for install to complete
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"Failed to install pytest: {stderr.decode()}")
     
     runners = await detect_runners(python_environment)
     assert len(runners) == 1
@@ -38,12 +42,14 @@ async def test_detect_runners(python_environment: Environment):
 @pytest.mark.asyncio
 async def test_run_tests(python_environment: Environment):
     """Test running specific runner"""
-    # Install pytest and wait for completion
+    # Install pytest using UV
     process = await run_sandboxed_command(
         python_environment.sandbox,
-        "python -m pip install pytest"
+        "uv pip install pytest"
     )
-    await process.communicate()
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"Failed to install pytest: {stderr.decode()}")
     
     # Setup test files
     fixtures_dir = Path(__file__).parent.parent / "fixtures_data" / "pytest"
@@ -77,12 +83,14 @@ async def test_detect_runtime_invalid():
 @pytest.mark.asyncio
 async def test_auto_run_tests(python_environment: Environment):
     """Test auto-detecting and running tests"""
-    # Install pytest and wait for completion
+    # Install pytest using UV
     process = await run_sandboxed_command(
         python_environment.sandbox,
-        "python -m pip install pytest"
+        "uv pip install pytest"
     )
-    await process.communicate()
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"Failed to install pytest: {stderr.decode()}")
     
     # Setup test files
     fixtures_dir = Path(__file__).parent.parent / "fixtures_data" / "pytest"
