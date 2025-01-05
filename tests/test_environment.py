@@ -23,13 +23,19 @@ async def test_create_environment_from_python_project(tmp_path: Path):
         assert (env.sandbox.work_dir / "tests").exists()
         assert (env.sandbox.work_dir / "src").exists()
 
+        # Read package name from pyproject.toml
+        import tomli
+        with open(project_dir / "pyproject.toml", "rb") as f:
+            pyproject = tomli.load(f)
+        package_name = pyproject["project"]["name"]
+
         # Verify Python works and can import project
         process = await run_sandboxed_command(
             env.sandbox,
-            "python -c 'import pytest_project; print(pytest_project.__name__)'")
+            f"python -c 'import {package_name}; print({package_name}.__name__)'")
         stdout, _ = await process.communicate()
         assert process.returncode == 0
-        assert stdout.decode().strip() == "pytest_project"
+        assert stdout.decode().strip() == package_name
     finally:
         cleanup_environment(env)
 
