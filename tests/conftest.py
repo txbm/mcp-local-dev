@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from mcp_local_dev.types import Environment, RuntimeConfig, Sandbox, Runtime, PackageManager
 from mcp_local_dev.sandboxes.sandbox import create_sandbox
+from mcp_local_dev.runtimes.runtime import install_runtime
 
 @pytest_asyncio.fixture
 async def sandbox():
@@ -31,8 +32,11 @@ async def python_runtime_config():
     )
 
 @pytest_asyncio.fixture
-async def python_environment(sandbox, python_runtime_config):
+async def python_environment(sandbox: Sandbox, python_runtime_config: RuntimeConfig) -> Environment:
     """Create a real Python environment with sandbox"""
+    # Install Python runtime
+    await install_runtime(sandbox, python_runtime_config)
+    
     env = Environment(
         id="test-env-1",
         runtime_config=python_runtime_config,

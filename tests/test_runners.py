@@ -1,37 +1,31 @@
+import json
 import pytest
+import shutil
 from pathlib import Path
 
-from mcp_local_dev.test_runners.execution import detect_test_runners, run_test_runner
-from mcp_local_dev.types import TestRunnerType, RunConfig
+from mcp_local_dev.test_runners.execution import auto_run_tests
+from mcp_local_dev.types import Environment
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 
 @pytest.mark.asyncio
-async def test_detect_and_run_pytest(python_environment):
-    """Test runner detection and execution with real pytest project"""
-    # Copy test project files to sandbox
-    env = python_environment
-    project_path = Path(__file__).parent
-    # Copy sample test files to sandbox
-    fixtures_dir = project_path.parent / "fixtures_data" / "pytest"
-    test_files = {
-        "sample_test.py": "test_sample.py",
-        "sample_conftest.py": "conftest.py"
-    }
-    for src_name, dst_name in test_files.items():
-        src = fixtures_dir / src_name
-        dst = env.sandbox.work_dir / dst_name
-        dst.write_text(src.read_text())
-    
-    # Test runner detection
-    runners = detect_test_runners(env)
-    assert runners == [TestRunnerType.PYTEST]
-    
-    # Test running tests
-    config = RunConfig(
-        runner=TestRunnerType.PYTEST,
-        env=env,
-        test_dirs=[env.sandbox.work_dir]
+async def test_auto_run_tests(python_environment: Environment):
+    """Test auto-detecting and running tests"""
+    # Install pytest first
+    await run_sandboxed_command(
+        python_environment.sandbox,
+        "python -m pip install pytest"
     )
-    results = await run_test_runner(config)
+    
+    # Setup test files
+    fixtures_dir = Path(__file__).parent.parent / "fixtures_data" / "pytest"
+    for src in fixtures_dir.glob("*.py"):
+        shutil.copy(src, python_environment.sandbox.work_dir)
+        
+    results = await auto_run_tests(python_environment)
+    assert len(results) == 1
+    assert results[0].type == "text"
+    
+    data = json.loads(results[0].text)
     
     assert results["success"] is True
     assert results["runner"] == "pytest"

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 @pytest.mark.asyncio
-async def test_sandbox_isolation(sandbox):
+async def test_sandbox_isolation(sandbox: Sandbox):
     """Test sandbox provides proper isolation"""
     # Test directory isolation
     sb = sandbox
@@ -20,7 +20,7 @@ async def test_sandbox_isolation(sandbox):
 @pytest.mark.asyncio
 async def test_sandbox_command_execution(sandbox):
     """Test running commands in sandbox"""
-    from mcp_runtime_server.sandboxes.sandbox import run_sandboxed_command
+    from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
     
     # Create test file
     sb = sandbox
