@@ -4,7 +4,7 @@ import pytest
 import shutil
 from pathlib import Path
 
-from mcp_local_dev.environments.environment import create_environment
+from mcp_local_dev.environments.environment import create_environment, cleanup_environment
 from mcp_local_dev.test_runners.runners import detect_runners, run_tests
 from mcp_local_dev.test_runners.execution import auto_run_tests
 from mcp_local_dev.types import RunConfig, TestRunnerType
