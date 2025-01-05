@@ -40,7 +40,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             summary["total"] += 1
 
     return {
-        "framework": FrameworkType.PYTEST.value,
+        "framework": TestRunnerType.PYTEST.value,
         "success": process.returncode in (0, 1),
         "summary": summary,
         "tests": tests,
@@ -56,7 +56,7 @@ FRAMEWORKS: Dict[TestRunnerType, tuple[Callable[[Environment], bool], Callable[[
     )
 }
 
-def detect_frameworks(env: Environment) -> List[FrameworkType]:
+def detect_frameworks(env: Environment) -> List[TestRunnerType]:
     """Detect available test frameworks for the environment"""
     logger.info({"event": "framework_detection_start", "project_dir": str(env.sandbox.work_dir)})
     
