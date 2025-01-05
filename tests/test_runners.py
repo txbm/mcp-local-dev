@@ -14,6 +14,12 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 async def test_detect_runners(python_environment: Environment):
     """Test runner detection"""
     # First test with no runners
+    # Need to ensure pytest is not installed
+    await run_sandboxed_command(
+        python_environment.sandbox,
+        "python -m pip uninstall -y pytest"
+    )
+    
     runners = detect_runners(python_environment)
     assert len(runners) == 0
     
