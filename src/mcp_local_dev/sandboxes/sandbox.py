@@ -35,7 +35,7 @@ async def create_sandbox(prefix: str) -> Sandbox:
         RuntimeError: If sandbox creation fails
     """
     # Create temporary directory that will be cleaned up on exit
-    temp_dir = tempfile.TemporaryDirectory(prefix=prefix, delete=False)
+    temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
     root = Path(temp_dir.name)
 
     # Create sandbox directory structure
