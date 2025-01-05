@@ -14,12 +14,11 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
 async def test_detect_runners(python_environment: Environment):
     """Test runner detection"""
     # First test with no runners
-    process = await run_sandboxed_command(
+    returncode, stdout, stderr = await run_sandboxed_command(
         python_environment.sandbox,
         "uv pip uninstall -y pytest"
     )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
+    if returncode != 0:
         raise RuntimeError(f"Failed to uninstall pytest: {stderr.decode()}")
 
     # Verify no pytest
@@ -27,12 +26,11 @@ async def test_detect_runners(python_environment: Environment):
     assert len(runners) == 0
     
     # Install pytest using UV
-    process = await run_sandboxed_command(
+    returncode, stdout, stderr = await run_sandboxed_command(
         python_environment.sandbox,
         "uv pip install pytest"
     )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
+    if returncode != 0:
         raise RuntimeError(f"Failed to install pytest: {stderr.decode()}")
     
     runners = await detect_runners(python_environment)

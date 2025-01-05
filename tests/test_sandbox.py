@@ -30,10 +30,8 @@ async def test_sandbox_command_execution(sandbox):
     test_file.write_text("hello")
     
     # Run command in sandbox
-    process = await run_sandboxed_command(sandbox, f"cat {test_file.name}")
-    stdout, stderr = await process.communicate()
-    
-    assert process.returncode == 0
+    returncode, stdout, stderr = await run_sandboxed_command(sandbox, f"cat {test_file.name}")
+    assert returncode == 0
     assert stdout.decode().strip() == "hello"
 
 @pytest.mark.asyncio
@@ -52,11 +50,10 @@ async def test_add_package_manager_bin_path(sandbox: Sandbox):
 @pytest.mark.asyncio
 async def test_sandbox_environment_isolation(sandbox: Sandbox):
     """Test sandbox environment isolation"""
-    process = await run_sandboxed_command(
+    returncode, stdout, _ = await run_sandboxed_command(
         sandbox,
         "env"
     )
-    stdout, _ = await process.communicate()
     env_vars = dict(line.split("=", 1) for line in stdout.decode().splitlines() if "=" in line)
     
     assert env_vars["HOME"] == str(sandbox.work_dir)
