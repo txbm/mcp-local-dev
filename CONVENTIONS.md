@@ -1,6 +1,7 @@
 - Never use regular classes
 - Never use OOP concepts
 - Never use the word "Type" in type names
+- Never write inline comments or ad-hoc comments of any kind
 - Use functional programming concepts such as higher order functions, composition, pure functions, immutability, and recursion
 - Do not define custom error types, only use ValueError and RuntimeError
 - Do not wrap things in try/except blocks simply for the purpose of logging and re-raising. Only use try/except when it is essential to control flow or program design. Only raise when it is truly a terminal case that cannot be gracefully handled with better value handling.
