@@ -4,7 +4,7 @@ from pathlib import Path
 
 from mcp_local_dev.sandboxes.git import normalize_github_url, clone_github_repository
 from mcp_local_dev.types import Sandbox
-from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
+from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, cleanup_sandbox
 
 @pytest.mark.parametrize("input_url,expected", [
     ("git@github.com:user/repo.git", "https://github.com/user/repo.git"),
