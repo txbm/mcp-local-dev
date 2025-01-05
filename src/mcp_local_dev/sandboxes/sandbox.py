@@ -14,6 +14,15 @@ from mcp_local_dev.logging import get_logger
 logger = get_logger(__name__)
 
 
+def get_system_paths() -> str:
+    """Get essential system binary paths for the current platform."""
+    if sys.platform == "darwin":
+        return "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    elif sys.platform == "linux":
+        return "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
+    else:
+        raise RuntimeError(f"Unsupported platform: {sys.platform}")
+
 async def create_sandbox(prefix: str) -> Sandbox:
     """Create new sandbox environment with isolated directories.
     
@@ -41,9 +50,9 @@ async def create_sandbox(prefix: str) -> Sandbox:
     for path in dirs.values():
         path.mkdir(parents=True, exist_ok=True)
         
-    # Set up isolated environment variables
+    # Set up isolated environment variables with sanitized PATH
     env_vars = {
-        "PATH": f"{dirs['bin']}:{os.environ['PATH']}", # Sandbox bin + system PATH
+        "PATH": f"{dirs['bin']}:{get_system_paths()}", # Only include sandbox bin + essential system paths
         "TMPDIR": str(dirs["tmp"]),
         "HOME": str(dirs["work"]), 
         "XDG_CACHE_HOME": str(dirs["cache"]),
