@@ -2,19 +2,18 @@
 
 # 🚀 MCP Local Dev
 
-Supercharge your development workflow with AI-powered environment management! Let your MCP-connected LLMs handle the boring stuff while you focus on shipping code. 
+Let AI handle your local development environments while you focus on building amazing things!
 
 ## ✨ What's This?
 
-A blazingly fast development environment manager for MCP-connected Language Models. Built with ❤️ by AI, for developers who want to move at lightspeed. 
+A local development environment manager that lets LLMs configure and manage dev environments for you. Built with ❤️ by AI, for AI, for developers who want their LLM assistant to handle environment setup, dependency management, and testing automatically.
 
 ## 🎯 Features That Slap
 
-- 🤖 **AI-Powered Automation**: Full MCP Server spec compliance - your LLM is the captain now
-- 🧪 **Smart Environments**: Path-isolated Python venvs, managed by UV for maximum speed
+- 🤖 **Pure AI Magic**: Just tell your LLM to set up a dev environment for any GitHub repo
+- 🧪 **Full Auto**: Automatic dependency installation, environment setup, and test running
 - ⚡️ **Multiple Runtimes**: First-class support for Node.js, Bun, and Python+UV
 - 🛠️ **Zero Config**: Everything just works™️ - no more environment headaches
-- 🔬 **AI Development Showcase**: 98% written by Claude 3.5 Sonnet using [Aider](https://github.com/paul-gauthier/aider)
 
 ## 🧮 The Numbers
 
@@ -25,33 +24,18 @@ Development involved rigorous testing across multiple models:
 
 ## 🏃 Quick Start
 
-```bash
-# 1. Get the goods
-git clone https://github.com/txbm/mcp-local-dev
-cd mcp-local-dev
-
-# 2. Set up MCP
-mcp configure local-dev
-
-# 3. Party time 🎉
-```
-
-## 🎮 Commands
-
-```bash
-mcp local-dev init          # Spin up a fresh env
-mcp local-dev test         # Run your tests
-mcp local-dev shell        # Jump into the shell
-mcp local-dev exec         # Run a command
-mcp local-dev clean        # Cleanup time
-```
+1. Install Claude Desktop from the [MCP quickstart guide](https://modelcontextprotocol.io/quickstart/user)
+2. Follow the setup instructions to connect your local environment
+3. Point Claude at any GitHub repository and ask it to set up a dev environment! 
 
 ## 💫 Under the Hood
 
+- **MCP Server Spec**: Full compliance with comprehensive test coverage
 - **Path Isolation**: Each environment is neatly contained
-- **System Requirements**: Uses your installed runtimes (Python, Node.js, Bun)
-- **Network Access**: Full network connectivity for package management
-- **Process Handling**: Native system processes - fast and efficient
+- **System Integration**: Uses your installed runtimes (Python, Node.js, Bun)
+- **Package Management**: UV for blazing fast Python dependency installation
+- **Network Access**: Full connectivity for package management
+- **Process Handling**: Native system processes for maximum speed
 
 ## 🚀 Key Takeaways
 
@@ -62,7 +46,7 @@ This project demonstrates the incredible potential of AI-assisted development:
 
 ## 💭 A Note on AI & The Future of Software
 
-As a software engineer with 20+ years of production experience across systems and frontend development, I'm incredibly excited about the future of LLM-assisted coding. This project isn't just a demo - it's a glimpse into how AI will augment and enhance the software engineering profession.
+As a software engineer with 20+ years of production experience across firmware, systems, video games, distributed systems and frontend development, I'm incredibly excited about the future of LLM-assisted coding. This project isn't just a demo - it's a glimpse into how AI will augment and enhance the software engineering profession.
 
 The potential is massive. We're looking at a future where AI helps us create software with capabilities and quality levels previously thought impossible. The global demand for software is infinite, and with AI assistance, we're better positioned than ever to meet that demand.
 
