@@ -1,4 +1,5 @@
 """MCP server implementation."""
+
 import asyncio
 import json
 from typing import Dict, Any, List, cast
@@ -15,7 +16,6 @@ from mcp_local_dev.environments.environment import (
     cleanup_environment,
     get_environment,
 )
-from mcp_local_dev.test_runners.execution import auto_run_tests
 from mcp_local_dev.logging import configure_logging, get_logger
 
 logger = get_logger("server")
@@ -84,7 +84,7 @@ async def init_server() -> Server:
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         try:
             logger.debug(f"Tool call received: {name} with arguments {arguments}")
-            
+
             if name == "local_dev_from_github":
                 logger.debug("Creating environment from GitHub")
                 env = await create_environment_from_github(arguments["github_url"])
@@ -95,58 +95,95 @@ async def init_server() -> Server:
                         "working_dir": str(env.sandbox.work_dir),
                         "created_at": env.created_at.isoformat(),
                         "runtime": env.runtime_config.name.value,
-                    }
+                    },
                 }
                 logger.debug(f"Environment created successfully: {result}")
                 return [types.TextContent(type="text", text=json.dumps(result))]
-                
+
             elif name == "local_dev_from_filesystem":
                 env = await create_environment_from_path(arguments["path"])
-                return [types.TextContent(type="text", text=json.dumps({
-                    "success": True,
-                    "data": {
-                        "id": env.id,
-                        "working_dir": str(env.sandbox.work_dir),
-                        "created_at": env.created_at.isoformat(),
-                        "runtime": env.runtime_config.name.value,
-                    }
-                }))]
-                
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {
+                                "success": True,
+                                "data": {
+                                    "id": env.id,
+                                    "working_dir": str(env.sandbox.work_dir),
+                                    "created_at": env.created_at.isoformat(),
+                                    "runtime": env.runtime_config.name.value,
+                                },
+                            }
+                        ),
+                    )
+                ]
+
             elif name == "local_dev_run_tests":
                 env = get_environment(arguments["env_id"])
                 if not env:
-                    return [types.TextContent(type="text", text=json.dumps({
-                        "success": False,
-                        "error": f"Unknown environment: {arguments['env_id']}"
-                    }))]
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "success": False,
+                                    "error": f"Unknown environment: {arguments['env_id']}",
+                                }
+                            ),
+                        )
+                    ]
                 return cast(
-                    list[types.TextContent | types.ImageContent | types.EmbeddedResource],
+                    list[
+                        types.TextContent | types.ImageContent | types.EmbeddedResource
+                    ],
                     await run_environment_tests(env),
                 )
 
             elif name == "local_dev_cleanup":
                 env = get_environment(arguments["env_id"])
                 if not env:
-                    return [types.TextContent(type="text", text=json.dumps({
-                        "success": False,
-                        "error": f"Unknown environment: {arguments['env_id']}"
-                    }))]
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "success": False,
+                                    "error": f"Unknown environment: {arguments['env_id']}",
+                                }
+                            ),
+                        )
+                    ]
                 cleanup_environment(env)
-                return [types.TextContent(type="text", text=json.dumps({
-                    "success": True,
-                    "data": {"message": "Environment cleaned up successfully"}
-                }))]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {
+                                "success": True,
+                                "data": {
+                                    "message": "Environment cleaned up successfully"
+                                },
+                            }
+                        ),
+                    )
+                ]
 
-            return [types.TextContent(type="text", text=json.dumps({
-                "success": False,
-                "error": f"Unknown tool: {name}"
-            }))]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {"success": False, "error": f"Unknown tool: {name}"}
+                    ),
+                )
+            ]
 
         except Exception as e:
-            return [types.TextContent(type="text", text=json.dumps({
-                "success": False,
-                "error": str(e)
-            }))]
+            return [
+                types.TextContent(
+                    type="text", text=json.dumps({"success": False, "error": str(e)})
+                )
+            ]
 
     @server.progress_notification()
     async def handle_progress(
@@ -172,6 +209,7 @@ async def serve() -> None:
             ),
         )
         await server.run(read_stream, write_stream, init_options)
+
 
 def main() -> None:
     """Run the MCP server."""
