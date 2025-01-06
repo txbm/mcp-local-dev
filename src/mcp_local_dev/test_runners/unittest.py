@@ -14,12 +14,12 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     cmd = "python -m unittest discover -v"
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)
 
-    stdout_text = stdout.decode() if stdout else ""
+    output_text = stderr.decode() if stderr else ""  # unittest writes to stderr in verbose mode
     
     tests = []
     summary = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
 
-    for line in stdout_text.splitlines():
+    for line in output_text.splitlines():
         if " ... " in line:
             # Parse test name from format: "test_name (test.module.TestClass.test_name)"
             test_path = line.split(" ... ")[0].strip()
