@@ -51,14 +51,19 @@ class JsonFormatter(logging.Formatter):
 
 def configure_logging():
     """Set up application logging with JSON formatting."""
+    # Get the root logger for mcp_local_dev
+    app_logger = logging.getLogger("mcp_local_dev")
+    
+    # Remove any existing handlers
+    app_logger.handlers = []
+    
+    # Create and configure new handler
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(JsonFormatter())
     handler.setLevel(logging.DEBUG)
-
-    app_logger = logging.getLogger("mcp_local_dev")
+    
+    # Configure logger
     app_logger.setLevel(logging.DEBUG)
-    # Clear existing handlers before adding new one
-    app_logger.handlers.clear()
     app_logger.addHandler(handler)
     app_logger.propagate = False
 
