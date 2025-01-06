@@ -58,3 +58,143 @@ async def test_auto_run_tests(fixture_path: Path):
         assert results["summary"]["passed"] > 0
     finally:
         cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_detect_unittest_runner(fixture_path: Path):
+    """Test unittest runner detection."""
+    project_dir = fixture_path / "python" / "unittest-project"
+    env = await create_environment_from_path(project_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.UNITTEST
+    finally:
+        cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_run_unittest(fixture_path: Path):
+    """Test running unittest tests."""
+    project_dir = fixture_path / "python" / "unittest-project"
+    env = await create_environment_from_path(project_dir)
+    try:
+        config = RunConfig(
+            runner=RunnerType.UNITTEST,
+            env=env,
+            test_dirs=[env.sandbox.work_dir]
+        )
+        result = await execute_runner(config)
+        assert result["success"] is True
+        assert result["summary"]["total"] > 0
+        assert result["summary"]["passed"] > 0
+    finally:
+        cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_detect_jest_runner(fixture_path: Path):
+    """Test Jest runner detection."""
+    project_dir = fixture_path / "javascript" / "jest-project"
+    env = await create_environment_from_path(project_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.JEST
+    finally:
+        cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_run_jest(fixture_path: Path):
+    """Test running Jest tests."""
+    project_dir = fixture_path / "javascript" / "jest-project"
+    env = await create_environment_from_path(project_dir)
+    try:
+        config = RunConfig(
+            runner=RunnerType.JEST,
+            env=env,
+            test_dirs=[env.sandbox.work_dir]
+        )
+        result = await execute_runner(config)
+        assert result["success"] is True
+        assert result["summary"]["total"] > 0
+        assert result["summary"]["passed"] > 0
+    finally:
+        cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_detect_vitest_runner(fixture_path: Path):
+    """Test Vitest runner detection."""
+    project_dir = fixture_path / "javascript" / "vitest-project"
+    env = await create_environment_from_path(project_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.VITEST
+    finally:
+        cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_run_vitest(fixture_path: Path):
+    """Test running Vitest tests."""
+    project_dir = fixture_path / "javascript" / "vitest-project"
+    env = await create_environment_from_path(project_dir)
+    try:
+        config = RunConfig(
+            runner=RunnerType.VITEST,
+            env=env,
+            test_dirs=[env.sandbox.work_dir]
+        )
+        result = await execute_runner(config)
+        assert result["success"] is True
+        assert result["summary"]["total"] > 0
+        assert result["summary"]["passed"] > 0
+    finally:
+        cleanup_environment(env)
+
+
+@pytest.mark.asyncio
+async def test_runner_detection_precedence(fixture_path: Path):
+    """Test that only one runner is detected per project."""
+    # Test Python projects
+    pytest_dir = fixture_path / "python" / "pytest-project"
+    unittest_dir = fixture_path / "python" / "unittest-project"
+    
+    env = await create_environment_from_path(pytest_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.PYTEST
+    finally:
+        cleanup_environment(env)
+
+    env = await create_environment_from_path(unittest_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.UNITTEST
+    finally:
+        cleanup_environment(env)
+
+    # Test JavaScript projects
+    jest_dir = fixture_path / "javascript" / "jest-project"
+    vitest_dir = fixture_path / "javascript" / "vitest-project"
+    
+    env = await create_environment_from_path(jest_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.JEST
+    finally:
+        cleanup_environment(env)
+
+    env = await create_environment_from_path(vitest_dir)
+    try:
+        runners = await detect_runners(env)
+        assert len(runners) == 1
+        assert runners[0] == RunnerType.VITEST
+    finally:
+        cleanup_environment(env)
