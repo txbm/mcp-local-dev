@@ -196,7 +196,6 @@ async def init_server() -> Server:
 
 
 async def serve() -> None:
-    configure_logging()
     logger.info("Starting MCP runtime server")
     server = await init_server()
     async with stdio.stdio_server() as (read_stream, write_stream):
@@ -213,4 +212,5 @@ async def serve() -> None:
 
 def main() -> None:
     """Run the MCP server."""
+    configure_logging()
     asyncio.run(serve())
