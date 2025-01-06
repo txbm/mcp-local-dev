@@ -2,6 +2,9 @@
 import anyio
 import json
 import pytest
+from mcp_local_dev.logging import get_logger
+
+logger = get_logger(__name__)
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Dict, Any
 import asyncio
@@ -227,7 +230,7 @@ async def test_tool_execution():
                     }
                 }
             )
-            print("Tool request sent, waiting for response...")
+            logger.debug("Tool request sent, waiting for response")
             
             tool_response = await receive_response(client_receive)
             assert isinstance(tool_response["content"], list)
@@ -235,10 +238,10 @@ async def test_tool_execution():
             assert tool_response["content"][0]["type"] == "text"
             
             result = json.loads(tool_response["content"][0]["text"])
-            print(f"\nTool execution result: {json.dumps(result, indent=2)}")  # Pretty print the full result
+            logger.debug("Tool execution result", extra={"data": result})
             
             if not result["success"]:
-                print(f"\nError message: {result.get('error')}")  # Print error if present
+                logger.debug("Tool execution failed", extra={"error": result.get('error')})
                 
             assert result["success"] is True, f"Tool execution failed: {result.get('error')}"  # Add error message to assertion
             assert "data" in result
