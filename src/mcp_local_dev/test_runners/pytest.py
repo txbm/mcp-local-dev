@@ -58,8 +58,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         "success": returncode == 0,
         "summary": summary,
         "tests": tests,
-        "stdout": stdout_text,
-        "stderr": stderr_text,
+        # "stdout": stdout_text,
+        # "stderr": stderr_text,
     }
 
 
