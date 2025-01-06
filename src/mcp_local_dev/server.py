@@ -18,7 +18,7 @@ from mcp_local_dev.environments.environment import (
 )
 from mcp_local_dev.logging import configure_logging, get_logger
 
-logger = get_logger("server")
+logger = get_logger(__name__)
 
 tools = [
     types.Tool(
