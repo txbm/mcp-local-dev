@@ -20,8 +20,15 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     summary = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
 
     for line in stdout_text.splitlines():
-        if line.startswith("test_"):
-            test_name = line.split()[0]
+        if " ... " in line:
+            # Parse test name from format: "test_name (test.module.TestClass.test_name)"
+            test_path = line.split(" ... ")[0].strip()
+            if "(" in test_path:
+                test_name = test_path.split("(")[0]
+            else:
+                test_name = test_path
+
+            # Parse status
             status = "passed" if "ok" in line.lower() else "failed"
             if "skipped" in line.lower():
                 status = "skipped"
