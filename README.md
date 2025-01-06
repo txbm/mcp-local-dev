@@ -42,7 +42,7 @@ A local development environment manager that lets LLMs configure and manage dev 
 - **MCP Server Spec**: Full compliance with comprehensive test coverage
 - **Path Isolation**: Each environment is neatly contained
 - **System Integration**: Uses your installed runtimes (Python, Node.js, Bun)
-- **Package Management**: UV for blazing fast Python dependency installation
+- **Package Management**: Automatically selects fastest available package manager for each runtime
 - **Network Access**: Full connectivity for package management
 - **Process Handling**: Native system processes for maximum speed
 
