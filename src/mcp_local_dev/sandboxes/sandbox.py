@@ -28,7 +28,6 @@ async def create_sandbox(prefix: str) -> Sandbox:
     temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
     root = Path(temp_dir.name)
 
-    # Create sandbox directory structure
     dirs = {
         "bin": root / "bin",
         "tmp": root / "tmp",
@@ -39,9 +38,8 @@ async def create_sandbox(prefix: str) -> Sandbox:
     for path in dirs.values():
         path.mkdir(parents=True, exist_ok=True)
 
-    # Set up isolated environment variables with sanitized PATH
     env_vars = {
-        "PATH": f"{dirs['bin']}:{get_system_paths()}",  # Only include sandbox bin + essential system paths
+        "PATH": f"{dirs['bin']}:{get_system_paths()}",
         "TMPDIR": str(dirs["tmp"]),
         "HOME": str(dirs["work"]),
         "XDG_CACHE_HOME": str(dirs["cache"]),
