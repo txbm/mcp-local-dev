@@ -63,7 +63,7 @@ def configure_logging():
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance."""
-    return logging.getLogger(f"mcp_runtime_server.{name}")
+    return logging.getLogger(f"mcp_local_dev.{name}")
 
 
 def log_with_data(
