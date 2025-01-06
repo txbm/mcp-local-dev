@@ -29,7 +29,13 @@ def parse_vitest_coverage(coverage_data: dict) -> CoverageResult:
 async def run_vitest(env: Environment) -> Dict[str, Any]:
     """Run Vitest and parse results"""
     cmd_prefix = "bun" if env.runtime_config.name == Runtime.BUN else "node --experimental-vm-modules"
-    cmd = f"{cmd_prefix} node_modules/vitest/vitest.mjs run --coverage --reporter json"
+    # Install coverage dependency if needed
+    await run_sandboxed_command(
+        env.sandbox,
+        f"{cmd_prefix} npm install -D @vitest/coverage-v8"
+    )
+    
+    cmd = f"{cmd_prefix} node_modules/vitest/vitest.mjs run --coverage --coverage-provider=v8 --reporter json"
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 
     if returncode not in (0, 1):

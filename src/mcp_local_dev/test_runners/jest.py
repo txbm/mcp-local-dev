@@ -8,20 +8,50 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, is_command_av
 
 logger = get_logger(__name__)
 
-def parse_jest_coverage(coverage_data: dict) -> CoverageResult:
+def parse_jest_coverage(coverage_map: dict) -> CoverageResult:
     """Parse Jest coverage data into standardized format"""
-    totals = coverage_data["total"]
-    files = {
-        path: metrics["lines"]["pct"]
-        for path, metrics in coverage_data.items()
-        if path != "total"
-    }
+    # Calculate totals across all files
+    total_covered = {"lines": 0, "statements": 0, "branches": 0, "functions": 0}
+    total_total = {"lines": 0, "statements": 0, "branches": 0, "functions": 0}
+    files = {}
     
+    for file_path, file_coverage in coverage_map.items():
+        # Count covered vs total statements
+        covered_statements = sum(1 for hit in file_coverage.get("s", {}).values() if hit > 0)
+        total_statements = len(file_coverage.get("s", {}))
+        
+        # Count covered vs total branches
+        branch_hits = file_coverage.get("b", {}).values()
+        covered_branches = sum(1 for hits in branch_hits if any(h > 0 for h in hits))
+        total_branches = len(branch_hits)
+        
+        # Count covered vs total functions
+        covered_functions = sum(1 for hit in file_coverage.get("f", {}).values() if hit > 0)
+        total_functions = len(file_coverage.get("f", {}))
+        
+        # Lines are derived from statements for Jest
+        covered_lines = covered_statements
+        total_lines = total_statements
+        
+        # Update totals
+        total_covered["statements"] += covered_statements
+        total_total["statements"] += total_statements
+        total_covered["branches"] += covered_branches
+        total_total["branches"] += total_branches
+        total_covered["functions"] += covered_functions
+        total_total["functions"] += total_functions
+        total_covered["lines"] += covered_lines
+        total_total["lines"] += total_lines
+        
+        # Calculate file coverage percentage
+        files[file_path] = (covered_lines / total_lines * 100) if total_lines > 0 else 0
+    
+    # Calculate final percentages
     return CoverageResult(
-        lines=totals["lines"]["pct"],
-        statements=totals["statements"]["pct"],
-        branches=totals["branches"]["pct"],
-        functions=totals["functions"]["pct"],
+        lines=(total_covered["lines"] / total_total["lines"] * 100) if total_total["lines"] > 0 else 0,
+        statements=(total_covered["statements"] / total_total["statements"] * 100) if total_total["statements"] > 0 else 0,
+        branches=(total_covered["branches"] / total_total["branches"] * 100) if total_total["branches"] > 0 else 0,
+        functions=(total_covered["functions"] / total_total["functions"] * 100) if total_total["functions"] > 0 else 0,
         files=files
     )
 
