@@ -73,12 +73,12 @@ async def init_server() -> Server:
 
     server = Server("mcp-local-dev")
 
-    server.register_notification_handler(
+    server.setRequestHandler(
         "notifications/roots/list_changed",
         lambda: logger.debug("Roots list changed notification received")
     )
 
-    server.register_notification_handler(
+    server.setRequestHandler(
         "notifications/initialized", 
         lambda: logger.debug("Initialized notification received")
     )
