@@ -15,17 +15,26 @@ A local development environment manager that lets LLMs configure and manage dev 
 - ⚡️ **Multiple Runtimes**: First-class support for Node.js, Bun, and Python+UV
 - 🛠️ **Zero Config**: Everything just works™️ - no more environment headaches
 
-## 🧮 The Numbers
-
-Development involved rigorous testing across multiple models:
-- 🏆 Claude 3.5 Sonnet: Crushed it
-- 💪 DeepSeek V3: Strong performer
-- 👎 O1: Not great, Bob
-
 ## 🏃 Quick Start
 
 1. Install Claude Desktop from the [MCP quickstart guide](https://modelcontextprotocol.io/quickstart/user)
-2. Follow the setup instructions to connect your local environment
+2. Add the following to your Claude Desktop config:
+
+```json
+{
+  "servers": {
+    "local-dev": {
+      "type": "github",
+      "repo": "txbm/mcp-local-dev",
+      "tools": ["uvx"],
+      "config": {
+        "workdir": "~/mcp-dev"
+      }
+    }
+  }
+}
+```
+
 3. Point Claude at any GitHub repository and ask it to set up a dev environment! 
 
 ## 💫 Under the Hood
@@ -36,6 +45,13 @@ Development involved rigorous testing across multiple models:
 - **Package Management**: UV for blazing fast Python dependency installation
 - **Network Access**: Full connectivity for package management
 - **Process Handling**: Native system processes for maximum speed
+
+## 🌟 Behind the Scenes
+
+Development involved rigorous testing across multiple models:
+- 🏆 Claude 3.5 Sonnet: Crushed it
+- 💪 DeepSeek V3: Strong performer
+- 👎 O1: Not great, Bob
 
 ## 🚀 Key Takeaways
 
