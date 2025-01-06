@@ -1,43 +1,25 @@
 """Runtime detection and configuration."""
 
-import shutil
-from typing import Dict
-
-from mcp_local_dev.types import Runtime, PackageManager, RuntimeConfig, Sandbox
+from typing import Dict, Callable, Awaitable
+from mcp_local_dev.types import Runtime, RuntimeConfig, Sandbox
 from mcp_local_dev.logging import get_logger
-from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, add_package_manager_bin_path
-from mcp_local_dev.sandboxes.commands import install_packages
+from mcp_local_dev.runtimes import python, node, bun
 
 logger = get_logger(__name__)
 
-
+# Map of runtime configs
 RUNTIME_CONFIGS: Dict[Runtime, RuntimeConfig] = {
-    Runtime.NODE: RuntimeConfig(
-        name=Runtime.NODE,
-        config_files=["package.json"],
-        package_manager=PackageManager.NPM,
-        env_setup={"NODE_NO_WARNINGS": "1"},
-        binary_name="node",
-    ),
-    Runtime.BUN: RuntimeConfig(
-        name=Runtime.BUN,
-        config_files=["bun.lockb", "package.json"],
-        package_manager=PackageManager.BUN,
-        env_setup={"NO_INSTALL_HINTS": "1"},
-        binary_name="bun",
-    ),
-    Runtime.PYTHON: RuntimeConfig(
-        name=Runtime.PYTHON,
-        config_files=["pyproject.toml", "setup.py", "requirements.txt"],
-        package_manager=PackageManager.UV,
-        env_setup={
-            "PYTHONUNBUFFERED": "1",
-            "PYTHONDONTWRITEBYTECODE": "1",
-        },
-        binary_name="python",
-    ),
+    Runtime.PYTHON: python.CONFIG,
+    Runtime.NODE: node.CONFIG,
+    Runtime.BUN: bun.CONFIG,
 }
 
+# Map of runtime setup functions
+RUNTIME_SETUP: Dict[Runtime, Callable[[Sandbox], Awaitable[None]]] = {
+    Runtime.PYTHON: python.setup_python,
+    Runtime.NODE: node.setup_node,
+    Runtime.BUN: bun.setup_bun,
+}
 
 def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
     """Detect runtime from project files."""
@@ -57,39 +39,10 @@ def detect_runtime(sandbox: Sandbox) -> RuntimeConfig:
 
     raise ValueError("No supported runtime detected")
 
-
 async def install_runtime(sandbox: Sandbox, config: RuntimeConfig) -> None:
     """Install runtime by setting up package manager and installing dependencies"""
-    # Only symlink package manager binaries from host system
-    if config.package_manager == PackageManager.UV:
-        required_binaries = ['uv']
-    elif config.package_manager == PackageManager.NPM:
-        required_binaries = ['npm']
-    elif config.package_manager == PackageManager.BUN:
-        required_binaries = ['bun']
-    else:
-        raise RuntimeError(f"Unsupported package manager: {config.package_manager}")
+    setup_func = RUNTIME_SETUP.get(config.name)
+    if not setup_func:
+        raise RuntimeError(f"No setup function for runtime: {config.name}")
         
-    # Verify and symlink package manager
-    missing = [bin for bin in required_binaries if not shutil.which(bin)]
-    if missing:
-        raise RuntimeError(f"Required package manager not found: {', '.join(missing)}")
-
-    # Create symlinks to package manager in sandbox bin directory
-    for binary in required_binaries:
-        host_path = shutil.which(binary)
-        if host_path:
-            target = sandbox.bin_dir / binary
-            if not target.exists():
-                target.symlink_to(host_path)
-
-    # Set up environment variables
-    for key, value in config.env_setup.items():
-        sandbox.env_vars[key] = value
-
-    # Add package manager bin paths before installing packages
-    add_package_manager_bin_path(sandbox, config.package_manager)
-
-    # Install project dependencies (uv sync will create venv automatically)
-    await install_packages(sandbox, config.package_manager)
-        
+    await setup_func(sandbox)
