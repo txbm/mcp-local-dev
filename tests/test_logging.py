@@ -105,7 +105,7 @@ def test_log_with_data_json_structure():
 def test_get_logger():
     """Test logger retrieval"""
     logger = get_logger("test_module")
-    assert logger.name == "mcp_runtime_server.test_module"
+    assert logger.name == "mcp_local_dev.test_module"
 
 
 def test_configure_logging():
