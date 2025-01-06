@@ -133,11 +133,20 @@ async def init_server() -> Server:
                             ),
                         )
                     ]
-                return [
-                    types.TextContent(
-                        type="text", text=json.dumps(await run_environment_tests(env))
-                    )
-                ]
+                result = await run_environment_tests(env)
+                response = {
+                    "success": result["success"],
+                    "summary": result["summary"],
+                }
+                if result.get("coverage"):
+                    response["coverage"] = {
+                        "lines": result["coverage"].lines,
+                        "statements": result["coverage"].statements,
+                        "branches": result["coverage"].branches,
+                        "functions": result["coverage"].functions,
+                        "files": result["coverage"].files
+                    }
+                return [types.TextContent(type="text", text=json.dumps(response))]
 
             elif name == "local_dev_cleanup":
                 env = get_environment(arguments["env_id"])
