@@ -65,6 +65,12 @@ async def execute_runner(config: RunConfig) -> Dict[str, Any]:
             "runner": config.runner.value,
             "success": result["success"],
             "summary": result.get("summary", {}),
+            "coverage": {
+                "lines": result.get("coverage", {}).get("lines", 0),
+                "statements": result.get("coverage", {}).get("statements", 0),
+                "branches": result.get("coverage", {}).get("branches", 0),
+                "functions": result.get("coverage", {}).get("functions", 0),
+            } if result.get("coverage") else None
         }
     )
 
