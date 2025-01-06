@@ -10,7 +10,8 @@ logger = get_logger(__name__)
 
 async def run_jest(env: Environment) -> Dict[str, Any]:
     """Run Jest and parse results"""
-    cmd = "node --experimental-vm-modules node_modules/jest/bin/jest.js --json"
+    cmd_prefix = "bun" if env.runtime_config.name == Runtime.BUN else "node --experimental-vm-modules"
+    cmd = f"{cmd_prefix} node_modules/jest/bin/jest.js --json"
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 
     if returncode not in (0, 1):
