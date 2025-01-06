@@ -30,7 +30,7 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
         "total": result["numTotalTests"],
         "passed": result["numPassedTests"],
         "failed": result["numFailedTests"],
-        "skipped": result["numSkippedTests"],
+        "skipped": result["numPendingTests"],
     }
 
     for test_file in result["testResults"]:
