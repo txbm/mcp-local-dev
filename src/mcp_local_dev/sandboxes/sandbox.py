@@ -3,7 +3,6 @@
 import tempfile
 import asyncio
 import sys
-import shutil
 from pathlib import Path
 
 from mcp_local_dev.types import Sandbox, PackageManager
@@ -14,27 +13,18 @@ logger = get_logger(__name__)
 
 def get_system_paths() -> str:
     """Get essential system binary paths for the current platform."""
-    if sys.platform == "darwin":
-        return "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-    elif sys.platform == "linux":
-        return "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
-    else:
-        raise RuntimeError(f"Unsupported platform: {sys.platform}")
+    match sys.platform:
+        case "darwin":
+            return "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        case "linux":
+            return "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
+        case _:
+            raise RuntimeError(f"Unsupported platform: {sys.platform}")
 
 
 async def create_sandbox(prefix: str) -> Sandbox:
-    """Create new sandbox environment with isolated directories.
+    """Create new sandbox environment with isolated directories."""
 
-    Args:
-        prefix: Prefix for temporary directory name
-
-    Returns:
-        Sandbox instance
-
-    Raises:
-        RuntimeError: If sandbox creation fails
-    """
-    # Create temporary directory that will be cleaned up on exit
     temp_dir = tempfile.TemporaryDirectory(prefix=prefix)
     root = Path(temp_dir.name)
 
@@ -77,6 +67,7 @@ async def create_sandbox(prefix: str) -> Sandbox:
 
 def add_package_manager_bin_path(sandbox: Sandbox, pkg_manager: PackageManager) -> None:
     """Add package manager's bin directory to sandbox PATH"""
+
     pkg_bin_path = None
     match pkg_manager:
         case PackageManager.UV:
@@ -97,11 +88,8 @@ def add_package_manager_bin_path(sandbox: Sandbox, pkg_manager: PackageManager) 
 
 
 def cleanup_sandbox(sandbox: Sandbox) -> None:
-    """Clean up sandbox environment.
+    """Clean up sandbox environment."""
 
-    Args:
-        sandbox: Sandbox instance to clean up
-    """
     logger.debug({"event": "cleaning_sandbox", "root": str(sandbox.root)})
     sandbox.temp_dir.cleanup()
 
@@ -110,10 +98,8 @@ async def run_sandboxed_command(
     sandbox: Sandbox, cmd: str, env_vars: dict[str, str] | None = None
 ) -> tuple[int, bytes, bytes]:
     """Run command in sandbox environment and return (returncode, stdout, stderr)."""
-    cmd_env = {**sandbox.env_vars, **(env_vars or {})}
 
-    if not shutil.which(cmd.split()[0]):
-        raise ValueError(f"Command not found: {cmd.split()[0]}")
+    cmd_env = {**sandbox.env_vars, **(env_vars or {})}
 
     logger.debug({"event": "sandbox_cmd_exec", "cmd": cmd})
 
@@ -141,3 +127,11 @@ async def run_sandboxed_command(
     )
 
     return process.returncode, stdout, stderr
+
+
+async def is_command_available(sandbox: Sandbox, cmd: str) -> bool:
+    """Checks to see if a command is available in a sandox"""
+
+    code, _, _ = await run_sandboxed_command(sandbox, f"which {cmd}")
+
+    return code == 0

@@ -1,22 +1,22 @@
 """Environment lifecycle management."""
+
 import os
-from pathlib import Path
 import shutil
-import json
+from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 from fuuid import b58_fuuid
-import mcp.types as mcp_types
 
-from mcp_local_dev.types import Environment, Sandbox, Runtime
+
+from mcp_local_dev.types import Environment
 from mcp_local_dev.runtimes.runtime import detect_runtime, install_runtime
 from mcp_local_dev.sandboxes.sandbox import (
     create_sandbox,
     cleanup_sandbox,
 )
 from mcp_local_dev.sandboxes.git import clone_github_repository
-from mcp_local_dev.test_runners.execution import auto_run_tests
+from mcp_local_dev.test_runners.runners import detect_and_run_tests
 from mcp_local_dev.logging import get_logger
 
 logger = get_logger(__name__)
@@ -24,7 +24,10 @@ logger = get_logger(__name__)
 # In-memory environment store
 _ENVIRONMENTS: Dict[str, Environment] = {}
 
-async def create_environment_from_github(github_url: str, branch: Optional[str] = None) -> Environment:
+
+async def create_environment_from_github(
+    github_url: str, branch: Optional[str] = None
+) -> Environment:
     """Create new environment from GitHub repository."""
     staging = await create_sandbox("mcp-staging-")
     try:
@@ -33,6 +36,7 @@ async def create_environment_from_github(github_url: str, branch: Optional[str] 
         return env
     finally:
         cleanup_sandbox(staging)
+
 
 async def create_environment_from_path(path: Path) -> Environment:
     """Create new environment from filesystem path."""
@@ -52,33 +56,24 @@ async def create_environment_from_path(path: Path) -> Environment:
         sandbox=sandbox,
         created_at=datetime.now(timezone.utc),
     )
-    
+
     _ENVIRONMENTS[env_id] = env
     return env
 
-async def run_environment_tests(env: Environment) -> list[mcp_types.TextContent]:
+
+async def run_environment_tests(env: Environment) -> Dict[str, Any]:
     """Run tests in environment."""
+
     try:
-        test_results = await auto_run_tests(env)
-        return [mcp_types.TextContent(
-            type="text",
-            text=json.dumps({
-                "success": True,
-                "data": test_results
-            })
-        )]
+        return await detect_and_run_tests(env)
     except Exception as e:
-        return [mcp_types.TextContent(
-            type="text",
-            text=json.dumps({
-                "success": False,
-                "error": str(e)
-            })
-        )]
+        return {"success": False, "error": str(e)}
+
 
 def get_environment(env_id: str) -> Optional[Environment]:
     """Get environment by ID."""
     return _ENVIRONMENTS.get(env_id)
+
 
 def cleanup_environment(env: Environment) -> None:
     """Clean up environment and its resources."""

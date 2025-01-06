@@ -1,16 +1,19 @@
 """Test runner detection and execution."""
-import json
+
 import pytest
-import shutil
 from pathlib import Path
 
 from mcp_local_dev.environments.environment import (
     create_environment_from_path,
-    cleanup_environment
+    cleanup_environment,
 )
-from mcp_local_dev.test_runners.runners import detect_runners, run_tests
-from mcp_local_dev.test_runners.execution import auto_run_tests
+from mcp_local_dev.test_runners.runners import (
+    detect_runners,
+    execute_runner,
+    detect_and_run_tests,
+)
 from mcp_local_dev.types import RunConfig, RunnerType
+
 
 @pytest.mark.asyncio
 async def test_detect_runners(fixture_path: Path):
@@ -24,6 +27,7 @@ async def test_detect_runners(fixture_path: Path):
     finally:
         cleanup_environment(env)
 
+
 @pytest.mark.asyncio
 async def test_run_tests(fixture_path: Path):
     """Test running tests using fixture project."""
@@ -31,16 +35,15 @@ async def test_run_tests(fixture_path: Path):
     env = await create_environment_from_path(project_dir)
     try:
         config = RunConfig(
-            runner=RunnerType.PYTEST,
-            env=env,
-            test_dirs=[env.sandbox.work_dir]
+            runner=RunnerType.PYTEST, env=env, test_dirs=[env.sandbox.work_dir]
         )
-        result = await run_tests(config)
+        result = await execute_runner(config)
         assert result["success"] is True
         assert result["summary"]["total"] > 0
         assert result["summary"]["passed"] > 0
     finally:
         cleanup_environment(env)
+
 
 @pytest.mark.asyncio
 async def test_auto_run_tests(fixture_path: Path):
@@ -48,13 +51,10 @@ async def test_auto_run_tests(fixture_path: Path):
     project_dir = fixture_path / "python" / "pytest-project"
     env = await create_environment_from_path(project_dir)
     try:
-        results = await auto_run_tests(env)
-        assert len(results) == 1
-        assert results[0].type == "text"
-        
-        data = json.loads(results[0].text)
-        assert data["success"] is True
-        assert data["summary"]["total"] > 0
-        assert data["summary"]["passed"] > 0
+        results = await detect_and_run_tests(env)
+
+        assert results["success"] is True
+        assert results["summary"]["total"] > 0
+        assert results["summary"]["passed"] > 0
     finally:
         cleanup_environment(env)

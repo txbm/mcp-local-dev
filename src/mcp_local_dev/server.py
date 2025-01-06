@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from typing import Dict, Any, List, cast
+from typing import Dict, Any, List
 
 import mcp.types as types
 from mcp.server.lowlevel import Server
@@ -133,12 +133,11 @@ async def init_server() -> Server:
                             ),
                         )
                     ]
-                return cast(
-                    list[
-                        types.TextContent | types.ImageContent | types.EmbeddedResource
-                    ],
-                    await run_environment_tests(env),
-                )
+                return [
+                    types.TextContent(
+                        type="text", text=json.dumps(await run_environment_tests(env))
+                    )
+                ]
 
             elif name == "local_dev_cleanup":
                 env = get_environment(arguments["env_id"])
