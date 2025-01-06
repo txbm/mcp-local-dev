@@ -9,6 +9,9 @@ from mcp_local_dev.environments.environment import (
 )
 from mcp_local_dev.types import Runtime
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command
+from mcp_local_dev.logging import configure_logging
+
+configure_logging()
 
 
 @pytest.mark.asyncio
