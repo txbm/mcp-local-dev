@@ -10,18 +10,19 @@ logger = get_logger(__name__)
 
 def parse_vitest_coverage(coverage_data: dict) -> CoverageResult:
     """Parse Vitest coverage data into standardized format"""
-    totals = coverage_data["total"]
+    # Vitest uses v8 coverage format by default
+    totals = coverage_data["totals"]
     files = {
-        path: data["lines"]["pct"]
+        path: data["lines"]["covered"] / data["lines"]["total"] * 100
         for path, data in coverage_data.items()
-        if path != "total"
+        if path != "totals"
     }
     
     return CoverageResult(
-        lines=totals["lines"]["pct"],
-        statements=totals["statements"]["pct"],
-        branches=totals["branches"]["pct"],
-        functions=totals["functions"]["pct"],
+        lines=totals["lines"]["covered"] / totals["lines"]["total"] * 100,
+        statements=totals["statements"]["covered"] / totals["statements"]["total"] * 100,
+        branches=totals["branches"]["covered"] / totals["branches"]["total"] * 100,
+        functions=totals["functions"]["covered"] / totals["functions"]["total"] * 100,
         files=files
     )
 
