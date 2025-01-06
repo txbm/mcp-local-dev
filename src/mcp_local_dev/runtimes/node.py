@@ -17,14 +17,24 @@ CONFIG = RuntimeConfig(
 
 async def setup_node(sandbox: Sandbox) -> None:
     """Set up Node runtime environment."""
-    # Verify and symlink npm
+    # Verify and symlink node and npm
+    node_path = shutil.which('node')
+    if not node_path:
+        raise RuntimeError("Required runtime not found: node")
+
     npm_path = shutil.which('npm')
     if not npm_path:
         raise RuntimeError("Required package manager not found: npm")
 
-    target = sandbox.bin_dir / 'npm'
-    if not target.exists():
-        target.symlink_to(npm_path)
+    # Symlink node
+    node_target = sandbox.bin_dir / 'node'
+    if not node_target.exists():
+        node_target.symlink_to(node_path)
+
+    # Symlink npm
+    npm_target = sandbox.bin_dir / 'npm'
+    if not npm_target.exists():
+        npm_target.symlink_to(npm_path)
 
     # Set up environment variables
     for key, value in CONFIG.env_setup.items():

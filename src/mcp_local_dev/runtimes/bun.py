@@ -20,11 +20,17 @@ async def setup_bun(sandbox: Sandbox) -> None:
     # Verify and symlink bun
     bun_path = shutil.which('bun')
     if not bun_path:
-        raise RuntimeError("Required package manager not found: bun")
+        raise RuntimeError("Required runtime/package manager not found: bun")
 
-    target = sandbox.bin_dir / 'bun'
-    if not target.exists():
-        target.symlink_to(bun_path)
+    # Symlink bun for both runtime and package manager
+    bun_target = sandbox.bin_dir / 'bun'
+    if not bun_target.exists():
+        bun_target.symlink_to(bun_path)
+
+    # Also symlink as node for compatibility
+    node_target = sandbox.bin_dir / 'node'
+    if not node_target.exists():
+        node_target.symlink_to(bun_path)
 
     # Set up environment variables
     for key, value in CONFIG.env_setup.items():
