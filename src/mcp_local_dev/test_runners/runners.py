@@ -1,9 +1,14 @@
 """Test runner utilities."""
 
 from mcp_local_dev.logging import get_logger
-from typing import Dict, Any, List, Callable, Awaitable
+from typing import Dict, Any, List, Callable, Awaitable, TypeAlias
 
 from mcp_local_dev.types import Environment, RunnerType, RunConfig
+
+RunnerTuple: TypeAlias = tuple[
+    Callable[[Environment], Awaitable[bool]],
+    Callable[[Environment], Awaitable[Dict[str, Any]]]
+]
 from mcp_local_dev.test_runners.pytest import check_pytest, run_pytest
 from mcp_local_dev.test_runners.unittest import check_unittest, run_unittest
 from mcp_local_dev.test_runners.jest import check_jest, run_jest
@@ -11,13 +16,7 @@ from mcp_local_dev.test_runners.vitest import check_vitest, run_vitest
 
 logger = get_logger(__name__)
 
-RUNNERS: Dict[
-    RunnerType,
-    tuple[
-        Callable[[Environment], Awaitable[bool]],
-        Callable[[Environment], Awaitable[Dict[str, Any]]],
-    ],
-] = {
+RUNNERS: Dict[RunnerType, RunnerTuple] = {
     RunnerType.PYTEST: (check_pytest, run_pytest),
     RunnerType.UNITTEST: (check_unittest, run_unittest),
     RunnerType.JEST: (check_jest, run_jest),
