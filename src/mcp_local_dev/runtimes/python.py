@@ -18,6 +18,7 @@ CONFIG = RuntimeConfig(
     },
     binary_name="python",
     test_dependencies=[
+        "pytest>=7.0.0",
         "pytest-cov>=4.1.0",
         "coverage>=7.4.0",  # For unittest coverage
     ],

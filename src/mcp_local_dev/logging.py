@@ -57,6 +57,8 @@ def configure_logging():
 
     app_logger = logging.getLogger("mcp_local_dev")
     app_logger.setLevel(logging.DEBUG)
+    # Clear existing handlers before adding new one
+    app_logger.handlers.clear()
     app_logger.addHandler(handler)
     app_logger.propagate = False
 
