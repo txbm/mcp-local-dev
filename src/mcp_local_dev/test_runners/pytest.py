@@ -27,6 +27,12 @@ def parse_coverage_data(data: dict) -> CoverageResult:
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     """Run pytest and parse results"""
+    # First install pytest-cov
+    await run_sandboxed_command(
+        env.sandbox,
+        "uv pip install pytest-cov"
+    )
+
     env_vars = {
         "PYTHONPATH": str(env.sandbox.work_dir),
         "COVERAGE_FILE": str(env.sandbox.tmp_dir / ".coverage"),

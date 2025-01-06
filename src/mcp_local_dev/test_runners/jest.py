@@ -10,48 +10,49 @@ logger = get_logger(__name__)
 
 def parse_jest_coverage(coverage_map: dict) -> CoverageResult:
     """Parse Jest coverage data into standardized format"""
-    # Calculate totals across all files
-    total_covered = {"lines": 0, "statements": 0, "branches": 0, "functions": 0}
-    total_total = {"lines": 0, "statements": 0, "branches": 0, "functions": 0}
     files = {}
+    total_lines = 0
+    total_covered_lines = 0
+    total_statements = 0
+    total_covered_statements = 0
+    total_branches = 0
+    total_covered_branches = 0
+    total_functions = 0
+    total_covered_functions = 0
     
     for file_path, file_coverage in coverage_map.items():
-        # Count covered vs total statements
-        covered_statements = sum(1 for hit in file_coverage.get("s", {}).values() if hit > 0)
-        total_statements = len(file_coverage.get("s", {}))
+        s = file_coverage.get("s", {})  # Statement map
+        b = file_coverage.get("b", {})  # Branch map
+        f = file_coverage.get("f", {})  # Function map
         
-        # Count covered vs total branches
-        branch_hits = file_coverage.get("b", {}).values()
-        covered_branches = sum(1 for hits in branch_hits if any(h > 0 for h in hits))
-        total_branches = len(branch_hits)
+        # Calculate statement coverage
+        covered_statements = sum(1 for hit in s.values() if hit > 0)
+        total_statements += len(s)
+        total_covered_statements += covered_statements
         
-        # Count covered vs total functions
-        covered_functions = sum(1 for hit in file_coverage.get("f", {}).values() if hit > 0)
-        total_functions = len(file_coverage.get("f", {}))
+        # Calculate branch coverage
+        covered_branches = sum(1 for hits in b.values() if any(h > 0 for h in hits))
+        total_branches += len(b)
+        total_covered_branches += covered_branches
         
-        # Lines are derived from statements for Jest
-        covered_lines = covered_statements
-        total_lines = total_statements
+        # Calculate function coverage
+        covered_functions = sum(1 for hit in f.values() if hit > 0)
+        total_functions += len(f)
+        total_covered_functions += covered_functions
         
-        # Update totals
-        total_covered["statements"] += covered_statements
-        total_total["statements"] += total_statements
-        total_covered["branches"] += covered_branches
-        total_total["branches"] += total_branches
-        total_covered["functions"] += covered_functions
-        total_total["functions"] += total_functions
-        total_covered["lines"] += covered_lines
-        total_total["lines"] += total_lines
+        # Use statement coverage for line coverage
+        total_lines += len(s)
+        total_covered_lines += covered_statements
         
         # Calculate file coverage percentage
-        files[file_path] = (covered_lines / total_lines * 100) if total_lines > 0 else 0
+        if len(s) > 0:
+            files[file_path] = (covered_statements / len(s)) * 100
     
-    # Calculate final percentages
     return CoverageResult(
-        lines=(total_covered["lines"] / total_total["lines"] * 100) if total_total["lines"] > 0 else 0,
-        statements=(total_covered["statements"] / total_total["statements"] * 100) if total_total["statements"] > 0 else 0,
-        branches=(total_covered["branches"] / total_total["branches"] * 100) if total_total["branches"] > 0 else 0,
-        functions=(total_covered["functions"] / total_total["functions"] * 100) if total_total["functions"] > 0 else 0,
+        lines=(total_covered_lines / total_lines * 100) if total_lines > 0 else 0,
+        statements=(total_covered_statements / total_statements * 100) if total_statements > 0 else 0,
+        branches=(total_covered_branches / total_branches * 100) if total_branches > 0 else 0,
+        functions=(total_covered_functions / total_functions * 100) if total_functions > 0 else 0,
         files=files
     )
 
