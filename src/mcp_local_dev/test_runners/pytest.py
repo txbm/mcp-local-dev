@@ -1,18 +1,43 @@
 """Runner implementation for pytest"""
 
+import json
 from typing import Dict, Any
-from mcp_local_dev.types import Environment, RunnerType, Runtime
+from mcp_local_dev.types import Environment, RunnerType, Runtime, CoverageResult
 from mcp_local_dev.logging import get_logger
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, is_command_available
 
 logger = get_logger(__name__)
 
+def parse_coverage_data(data: dict) -> CoverageResult:
+    """Parse coverage.py JSON output into standardized format"""
+    totals = data["totals"]
+    files = {
+        path: summary["line_rate"] * 100 
+        for path, summary in data["files"].items()
+    }
+    
+    return CoverageResult(
+        lines=totals["line_rate"] * 100,
+        statements=totals["statement_rate"] * 100,
+        branches=totals["branch_rate"] * 100,
+        functions=totals.get("function_rate", 0.0) * 100,
+        files=files
+    )
+
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     """Run pytest and parse results"""
-    env_vars = {"PYTHONPATH": str(env.sandbox.work_dir), **env.sandbox.env_vars}
+    env_vars = {
+        "PYTHONPATH": str(env.sandbox.work_dir),
+        "COVERAGE_FILE": str(env.sandbox.tmp_dir / ".coverage"),
+        **env.sandbox.env_vars
+    }
 
-    cmd = "pytest -v --capture=no --tb=short -p no:warnings"
+    cmd = (
+        "pytest -v --capture=no --tb=short -p no:warnings "
+        "--cov --cov-report=json --cov-branch "
+        f"--cov-data-file={env.sandbox.tmp_dir / '.coverage'}"
+    )
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)
 
     if returncode not in (0, 1):  # pytest returns 1 for test failures
@@ -53,13 +78,19 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             summary[status] += 1
             summary["total"] += 1
 
+    # Parse coverage data if available
+    coverage = None
+    coverage_json = env.sandbox.tmp_dir / "coverage.json"
+    if coverage_json.exists():
+        with open(coverage_json) as f:
+            coverage = parse_coverage_data(json.load(f))
+
     return {
         "runner": RunnerType.PYTEST.value,
         "success": returncode == 0,
         "summary": summary,
         "tests": tests,
-        # "stdout": stdout_text,
-        # "stderr": stderr_text,
+        "coverage": coverage,
     }
 
 

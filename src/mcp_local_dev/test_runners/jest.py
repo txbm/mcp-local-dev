@@ -2,16 +2,33 @@
 
 from typing import Dict, Any
 import json
-from mcp_local_dev.types import Environment, RunnerType, Runtime
+from mcp_local_dev.types import Environment, RunnerType, Runtime, CoverageResult
 from mcp_local_dev.logging import get_logger
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, is_command_available
 
 logger = get_logger(__name__)
 
+def parse_jest_coverage(coverage_data: dict) -> CoverageResult:
+    """Parse Jest coverage data into standardized format"""
+    totals = coverage_data["total"]
+    files = {
+        path: metrics["lines"]["pct"]
+        for path, metrics in coverage_data.items()
+        if path != "total"
+    }
+    
+    return CoverageResult(
+        lines=totals["lines"]["pct"],
+        statements=totals["statements"]["pct"],
+        branches=totals["branches"]["pct"],
+        functions=totals["functions"]["pct"],
+        files=files
+    )
+
 async def run_jest(env: Environment) -> Dict[str, Any]:
     """Run Jest and parse results"""
     cmd_prefix = "bun" if env.runtime_config.name == Runtime.BUN else "node --experimental-vm-modules"
-    cmd = f"{cmd_prefix} node_modules/jest/bin/jest.js --json"
+    cmd = f"{cmd_prefix} node_modules/jest/bin/jest.js --coverage --json"
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 
     if returncode not in (0, 1):
@@ -40,11 +57,17 @@ async def run_jest(env: Environment) -> Dict[str, Any]:
                 "outcome": test["status"],
             })
 
+    # Parse coverage data if available
+    coverage = None
+    if "coverageMap" in result:
+        coverage = parse_jest_coverage(result["coverageMap"])
+
     return {
         "runner": RunnerType.JEST.value,
         "success": result["success"],
         "summary": summary,
         "tests": tests,
+        "coverage": coverage,
     }
 
 async def check_jest(env: Environment) -> bool:

@@ -52,6 +52,15 @@ class RunConfig:
     test_dirs: List[Path]
 
 @dataclass(frozen=True)
+class CoverageResult:
+    """Test coverage results"""
+    lines: float  # Percentage of lines covered
+    statements: float  # Percentage of statements covered
+    branches: float  # Percentage of branches covered
+    functions: float  # Percentage of functions covered
+    files: dict[str, float]  # Per-file line coverage percentages
+
+@dataclass(frozen=True)
 class TestCase:
     """Test execution result"""
     name: str
@@ -59,3 +68,4 @@ class TestCase:
     output: list[str]
     failure_message: str | None = None
     duration: float | None = None
+    coverage: CoverageResult | None = None

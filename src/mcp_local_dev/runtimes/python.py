@@ -17,6 +17,7 @@ CONFIG = RuntimeConfig(
         "PYTHONDONTWRITEBYTECODE": "1",
     },
     binary_name="python",
+    test_dependencies=["pytest-cov>=4.1.0"],
 )
 
 async def setup_python(sandbox: Sandbox) -> None:
