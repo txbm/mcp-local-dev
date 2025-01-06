@@ -12,6 +12,9 @@ PackageManager = Enum('PackageManager', ['UV', 'NPM', 'BUN'])
 class RunnerType(Enum):
     """Available test runner types"""
     PYTEST = 'pytest'
+    UNITTEST = 'unittest'
+    JEST = 'jest'
+    VITEST = 'vitest'
 
 @dataclass(frozen=True)
 class RuntimeConfig:
