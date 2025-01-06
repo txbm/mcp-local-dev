@@ -73,6 +73,14 @@ async def init_server() -> Server:
 
     server = Server("mcp-local-dev")
 
+    @server.notification_handler(types.RootsListChangedNotification)
+    async def handle_roots_list_changed(notification: types.RootsListChangedNotification) -> None:
+        logger.debug("Roots list changed notification received")
+
+    @server.notification_handler(types.InitializedNotification) 
+    async def handle_initialized(notification: types.InitializedNotification) -> None:
+        logger.debug("Initialized notification received")
+
     @server.list_tools()
     async def list_tools() -> List[types.Tool]:
         logger.debug("Tools requested")
