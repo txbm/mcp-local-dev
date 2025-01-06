@@ -24,7 +24,6 @@ class RuntimeConfig:
     package_manager: PackageManager
     env_setup: dict[str, str]
     binary_name: str
-    test_dependencies: list[str] | None = None
 
 @dataclass(frozen=True)
 class Sandbox:
