@@ -46,8 +46,8 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
             test = {
                 "nodeid": test_name,
                 "outcome": status,
-                "stdout": stdout_text,
-                "duration": 0.0,
+                # "stdout": stdout_text,
+                # "duration": 0.0,
             }
             tests.append(test)
             summary[status] += 1
