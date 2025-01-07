@@ -59,14 +59,14 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
             coverage_data = json.load(f)
             totals = coverage_data["totals"]
             files = {
-                path: summary["summary"]["percent_covered"]
-                for path, summary in coverage_data["files"].items()
+                path: data["summary"]["percent_covered"]
+                for path, data in coverage_data["files"].items()
             }
             coverage = CoverageResult(
-                lines=totals["line_rate"] * 100,
-                statements=totals["statement_rate"] * 100,
-                branches=totals["branch_rate"] * 100,
-                functions=totals.get("function_rate", 0.0) * 100,
+                lines=totals["percent_covered"],
+                statements=totals["percent_covered"],  # Same as lines for Python
+                branches=totals["percent_covered_branches"] if "percent_covered_branches" in totals else 0.0,
+                functions=0.0,  # Python coverage.py doesn't track function coverage
                 files=files
             )
 
