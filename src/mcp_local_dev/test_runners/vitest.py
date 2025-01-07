@@ -48,7 +48,8 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
             "error": "Vitest execution failed",
         }
 
-    result = json.loads(stdout.decode())
+    stdout_text = stdout.decode() if stdout else "{}"
+    result = json.loads(stdout_text)
     
     tests = []
     summary = {
