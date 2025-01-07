@@ -2,7 +2,7 @@
 
 Let AI handle your local development environments while you focus on building amazing things!
 
-https://github.com/user-attachments/assets/01fa4731-1a07-485f-9e72-50f610ecb843
+https://github.com/user-attachments/assets/352ab87f-81bc-4167-b831-bced70091bd2
 
 ## ✨ What's This?
 
