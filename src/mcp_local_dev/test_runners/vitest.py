@@ -36,7 +36,7 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
         "npm install -D @vitest/coverage-v8 --legacy-peer-deps"
     )
     
-    cmd = "vitest run --coverage --reporter json"
+    cmd = "node_modules/.bin/vitest run --coverage --reporter json"
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 
     if returncode not in (0, 1):

@@ -10,20 +10,17 @@ logger = get_logger(__name__)
 
 def parse_coverage_data(data: dict) -> CoverageResult:
     """Parse coverage.py JSON output into standardized format"""
-    if not data or "totals" not in data:
-        return None
-        
     totals = data["totals"]
     files = {
-        path: summary["summary"]["percent_covered"]
-        for path, summary in data["files"].items()
+        path: data["files"][path]["summary"]["percent_covered"]
+        for path in data["files"]
     }
     
     return CoverageResult(
         lines=totals["percent_covered"],
         statements=totals["percent_covered"],
-        branches=totals.get("percent_covered_branches", 0.0),
-        functions=0.0,
+        branches=totals.get("percent_covered_branches", 0.0),  # This is where branch coverage comes from
+        functions=0.0,  # Python coverage.py doesn't track function coverage
         files=files
     )
 
@@ -88,10 +85,12 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
 
     # Parse coverage data if available
     coverage = None
-    coverage_json = env.sandbox.tmp_dir / "coverage.json"
+    coverage_json = env.sandbox.work_dir / "coverage.json"
+    coverage = None
     if coverage_json.exists():
         with open(coverage_json) as f:
-            coverage = parse_coverage_data(json.load(f))
+            coverage_data = json.load(f)
+            coverage = parse_coverage_data(coverage_data)
 
     return {
         "runner": RunnerType.PYTEST.value,
