@@ -59,7 +59,13 @@ def parse_jest_coverage(coverage_map: dict) -> CoverageResult:
 async def run_jest(env: Environment) -> Dict[str, Any]:
     """Run Jest and parse results"""
     cmd_prefix = "bun" if env.runtime_config.name == Runtime.BUN else "node --experimental-vm-modules"
-    cmd = f"{cmd_prefix} node_modules/jest/bin/jest.js --coverage --json"
+    # Install coverage dependencies
+    await run_sandboxed_command(
+        env.sandbox,
+        "npm install -D jest-coverage-badges --legacy-peer-deps"
+    )
+    
+    cmd = f"{cmd_prefix} node_modules/jest/bin/jest.js --coverage --json --coverageReporters=json-summary"
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 
     if returncode not in (0, 1):

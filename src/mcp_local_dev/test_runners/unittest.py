@@ -12,6 +12,12 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     """Run unittest and parse results"""
     env_vars = {"PYTHONPATH": str(env.sandbox.work_dir), **env.sandbox.env_vars}
     
+    # Install coverage
+    await run_sandboxed_command(
+        env.sandbox,
+        "uv pip install coverage"
+    )
+
     cmd = (
         "coverage run -m unittest discover -v && "
         "coverage json -o coverage.json"

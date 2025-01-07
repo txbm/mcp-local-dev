@@ -33,7 +33,7 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
     # Install coverage dependency if needed
     await run_sandboxed_command(
         env.sandbox,
-        "npm install -D @vitest/coverage-v8"
+        "npm install -D @vitest/coverage-v8 --legacy-peer-deps"
     )
     
     cmd = f"{cmd_prefix} node_modules/vitest/vitest.mjs run --coverage --reporter json"
