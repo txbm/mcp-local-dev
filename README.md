@@ -3,7 +3,7 @@
 Let AI handle your local development environments while you focus on building amazing things!
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/cec79cde-0881-4773-a289-49bb86f14449" width="1280" />
+  <video src="https://github.com/user-attachments/assets/cec79cde-0881-4773-a289-49bb86f14449" width="1920" />
 </div>
 
 
