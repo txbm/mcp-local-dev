@@ -27,6 +27,8 @@ def parse_coverage_data(data: dict) -> CoverageResult:
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     """Run pytest and parse results"""
+    logger.debug({"event": "starting_pytest_run", "work_dir": str(env.sandbox.work_dir)})
+    
     # Install coverage dependencies
     await run_sandboxed_command(
         env.sandbox,
@@ -38,11 +40,13 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
         "COVERAGE_FILE": str(env.sandbox.tmp_dir / ".coverage"),
         **env.sandbox.env_vars
     }
+    logger.debug({"event": "pytest_env_vars", "env": env_vars})
 
     cmd = (
         "pytest -v --capture=no --tb=short -p no:warnings "
         "--cov --cov-report=json --cov-branch"
     )
+    logger.debug({"event": "running_pytest_cmd", "cmd": cmd})
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)
 
     if returncode not in (0, 1):  # pytest returns 1 for test failures
@@ -88,9 +92,14 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
     coverage_json = env.sandbox.work_dir / "coverage.json"
     coverage = None
     if coverage_json.exists():
+        logger.debug({"event": "reading_coverage_json", "path": str(coverage_json)})
         with open(coverage_json) as f:
             coverage_data = json.load(f)
+            logger.debug({"event": "coverage_data_raw", "data": coverage_data})
             coverage = parse_coverage_data(coverage_data)
+            logger.debug({"event": "coverage_data_parsed", "coverage": coverage})
+    else:
+        logger.warning({"event": "coverage_json_missing", "expected_path": str(coverage_json)})
 
     return {
         "runner": RunnerType.PYTEST.value,

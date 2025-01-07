@@ -10,7 +10,10 @@ logger = get_logger(__name__)
 
 async def run_unittest(env: Environment) -> Dict[str, Any]:
     """Run unittest and parse results"""
+    logger.debug({"event": "starting_unittest_run", "work_dir": str(env.sandbox.work_dir)})
+    
     env_vars = {"PYTHONPATH": str(env.sandbox.work_dir), **env.sandbox.env_vars}
+    logger.debug({"event": "unittest_env_vars", "env": env_vars})
     
     # Install coverage
     await run_sandboxed_command(
@@ -22,6 +25,7 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
         "coverage run --branch -m unittest discover -v && "
         "coverage json -o coverage.json"
     )
+    logger.debug({"event": "running_unittest_cmd", "cmd": cmd})
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)
 
     output_text = stderr.decode() if stderr else ""  # unittest writes to stderr in verbose mode
@@ -55,8 +59,10 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     coverage = None
     coverage_json = env.sandbox.work_dir / "coverage.json"
     if coverage_json.exists():
+        logger.debug({"event": "reading_coverage_json", "path": str(coverage_json)})
         with open(coverage_json) as f:
             coverage_data = json.load(f)
+            logger.debug({"event": "coverage_data_raw", "data": coverage_data})
             totals = coverage_data["totals"]
             files = {
                 path: data["summary"]["percent_covered"]
