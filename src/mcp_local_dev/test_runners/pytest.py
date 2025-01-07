@@ -27,10 +27,10 @@ def parse_coverage_data(data: dict) -> CoverageResult:
 
 async def run_pytest(env: Environment) -> Dict[str, Any]:
     """Run pytest and parse results"""
-    # First install pytest-cov
+    # Install coverage dependencies
     await run_sandboxed_command(
         env.sandbox,
-        "uv pip install pytest-cov"
+        "uv pip install coverage pytest-cov"
     )
 
     env_vars = {
