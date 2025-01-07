@@ -19,7 +19,7 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
     )
 
     cmd = (
-        "coverage run -m unittest discover -v && "
+        "coverage run --branch -m unittest discover -v && "
         "coverage json -o coverage.json"
     )
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)

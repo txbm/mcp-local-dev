@@ -48,36 +48,46 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
             "error": "Vitest execution failed",
         }
 
-    stdout_text = stdout.decode() if stdout else "{}"
-    result = json.loads(stdout_text)
-    
-    tests = []
-    summary = {
-        "total": result["numTotalTests"],
-        "passed": result["numPassedTests"],
-        "failed": result["numFailedTests"],
-        "skipped": result["numPendingTests"],
-    }
+    try:
+        stdout_text = stdout.decode() if stdout else "{}"
+        result = json.loads(stdout_text)
+        
+        if not result:
+            return {
+                "runner": RunnerType.VITEST.value,
+                "success": False,
+                "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
+                "tests": [],
+                "error": "No test results returned",
+            }
 
-    for test_file in result["testResults"]:
-        for test in test_file["assertionResults"]:
-            tests.append({
-                "nodeid": test["title"],
-                "outcome": test["status"],
-            })
+        tests = []
+        summary = {
+            "total": result.get("numTotalTests", 0),
+            "passed": result.get("numPassedTests", 0), 
+            "failed": result.get("numFailedTests", 0),
+            "skipped": result.get("numPendingTests", 0),
+        }
 
-    # Parse coverage data if available
-    coverage = None
-    if "coverage" in result:
-        coverage = parse_vitest_coverage(result["coverage"])
+        coverage = None
+        if "coverage" in result:
+            coverage = parse_vitest_coverage(result["coverage"])
 
-    return {
-        "runner": RunnerType.VITEST.value,
-        "success": result["success"],
-        "summary": summary,
-        "tests": tests,
-        "coverage": coverage,
-    }
+        return {
+            "runner": RunnerType.VITEST.value,
+            "success": result.get("success", False),
+            "summary": summary,
+            "tests": tests,
+            "coverage": coverage,
+        }
+    except Exception as e:
+        return {
+            "runner": RunnerType.VITEST.value,
+            "success": False,
+            "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
+            "tests": [],
+            "error": f"Failed to parse test results: {str(e)}",
+        }
 
 async def check_vitest(env: Environment) -> bool:
     """Check if Vitest can run in this environment."""
