@@ -68,10 +68,15 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
                 path: data["summary"]["percent_covered"]
                 for path, data in coverage_data["files"].items()
             }
+            # Calculate branch coverage percentage
+            total_branches = totals.get("num_branches", 0)
+            covered_branches = totals.get("covered_branches", 0)
+            branch_percentage = (covered_branches / total_branches * 100) if total_branches > 0 else 0.0
+            
             coverage = CoverageResult(
                 lines=totals["percent_covered"],
                 statements=totals["percent_covered"],  # Same as lines for Python
-                branches=totals["percent_covered_branches"] if "percent_covered_branches" in totals else 0.0,
+                branches=branch_percentage,
                 functions=0.0,  # Python coverage.py doesn't track function coverage
                 files=files
             )
