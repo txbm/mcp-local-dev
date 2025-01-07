@@ -37,8 +37,11 @@ class JsonFormatter(logging.Formatter):
         color = LEVEL_COLORS.get(record.levelname, "")
 
         output = {
-            "ts": record.asctime if hasattr(record, "asctime") else "",
+            "ts": self.formatTime(record),
             "level": record.levelname,
+            "module": record.module,
+            "func": record.funcName,
+            "line": record.lineno,
             "msg": record.getMessage(),
         }
 

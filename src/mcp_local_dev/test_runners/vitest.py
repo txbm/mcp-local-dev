@@ -2,6 +2,7 @@
 
 from typing import Dict, Any
 import json
+import traceback
 from mcp_local_dev.types import Environment, RunnerType, Runtime, CoverageResult
 from mcp_local_dev.logging import get_logger
 from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, is_command_available
@@ -28,6 +29,8 @@ def parse_vitest_coverage(coverage_data: dict) -> CoverageResult:
 
 async def run_vitest(env: Environment) -> Dict[str, Any]:
     """Run Vitest and parse results"""
+    logger.debug({"event": "starting_vitest_run", "work_dir": str(env.sandbox.work_dir)})
+    
     cmd_prefix = "bun" if env.runtime_config.name == Runtime.BUN else "node --experimental-vm-modules"
     
     # Install coverage dependency if needed
@@ -37,9 +40,16 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
     )
     
     cmd = "node_modules/.bin/vitest run --coverage --reporter json"
+    logger.debug({"event": "running_vitest_cmd", "cmd": cmd})
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 
     if returncode not in (0, 1):
+        logger.error({
+            "event": "vitest_execution_failed",
+            "returncode": returncode,
+            "stdout": stdout.decode() if stdout else None,
+            "stderr": stderr.decode() if stderr else None
+        })
         return {
             "runner": RunnerType.VITEST.value,
             "success": False,
@@ -50,9 +60,11 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
 
     try:
         stdout_text = stdout.decode() if stdout else "{}"
+        logger.debug({"event": "vitest_stdout", "output": stdout_text})
         result = json.loads(stdout_text)
         
         if not result:
+            logger.warning({"event": "vitest_no_results"})
             return {
                 "runner": RunnerType.VITEST.value,
                 "success": False,
@@ -71,7 +83,11 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
 
         coverage = None
         if "coverage" in result:
+            logger.debug({"event": "parsing_vitest_coverage", "coverage_data": result["coverage"]})
             coverage = parse_vitest_coverage(result["coverage"])
+            logger.debug({"event": "vitest_coverage_parsed", "coverage": coverage})
+        else:
+            logger.warning({"event": "vitest_no_coverage_data"})
 
         return {
             "runner": RunnerType.VITEST.value,
@@ -81,6 +97,7 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
             "coverage": coverage,
         }
     except Exception as e:
+        logger.error({"event": "vitest_parse_error", "error": str(e), "traceback": traceback.format_exc()})
         return {
             "runner": RunnerType.VITEST.value,
             "success": False,
