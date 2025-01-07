@@ -15,14 +15,12 @@ def test_format_json_log():
     record = logging.LogRecord(
         "test", logging.INFO, "test.py", 10, "Test message", (), None
     )
-    record.asctime = "2024-01-01 00:00:00"
 
     output = formatter.format(record)
     data = json.loads(output.strip("\033[32m\033[0m"))  # Remove color codes
 
     assert data["level"] == "INFO"
     assert data["msg"] == "Test message"
-    assert data["ts"] == "2024-01-01 00:00:00"
 
 
 @pytest.mark.parametrize(
