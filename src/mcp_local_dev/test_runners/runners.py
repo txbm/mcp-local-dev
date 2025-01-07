@@ -3,7 +3,7 @@
 from mcp_local_dev.logging import get_logger
 from typing import Dict, Any, List, Callable, Awaitable, TypeAlias
 
-from mcp_local_dev.types import Environment, RunnerType, RunConfig
+from mcp_local_dev.types import Environment, RunnerType, RunConfig, CoverageResult
 
 RunnerTuple: TypeAlias = tuple[
     Callable[[Environment], Awaitable[bool]],
