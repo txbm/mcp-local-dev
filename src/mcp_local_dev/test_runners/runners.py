@@ -59,6 +59,17 @@ async def execute_runner(config: RunConfig) -> Dict[str, Any]:
     _, run_tests = runner_funcs
     result = await run_tests(config.env)
 
+    # Ensure coverage data is properly structured in result
+    if result.get("coverage"):
+        coverage_data = result["coverage"]
+        result["coverage"] = CoverageResult(
+            lines=coverage_data.lines,
+            statements=coverage_data.statements,
+            branches=coverage_data.branches,
+            functions=coverage_data.functions,
+            files=coverage_data.files
+        )
+
     logger.info(
         {
             "event": "test_run_complete",
