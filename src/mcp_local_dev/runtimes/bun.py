@@ -22,10 +22,19 @@ async def setup_bun(sandbox: Sandbox) -> None:
     if not bun_path:
         raise RuntimeError("Required runtime/package manager not found: bun")
 
+    bunx_path = shutil.which('bunx')
+    if not bunx_path:
+        raise RuntimeError("Required package manager not found: bunx")
+
     # Symlink bun for both runtime and package manager
     bun_target = sandbox.bin_dir / 'bun'
     if not bun_target.exists():
         bun_target.symlink_to(bun_path)
+
+    # Symlink bunx
+    bunx_target = sandbox.bin_dir / 'bunx'
+    if not bunx_target.exists():
+        bunx_target.symlink_to(bunx_path)
 
     # Also symlink as node for compatibility
     node_target = sandbox.bin_dir / 'node'

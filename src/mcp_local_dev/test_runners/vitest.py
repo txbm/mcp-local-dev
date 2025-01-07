@@ -39,7 +39,8 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
         "npm install -D @vitest/coverage-v8 --legacy-peer-deps"
     )
     
-    cmd = "node_modules/.bin/vitest run --coverage --reporter json"
+    cmd_prefix = "bunx" if env.runtime_config.name == Runtime.BUN else "npx"
+    cmd = f"{cmd_prefix} vitest run --coverage --reporter json"
     logger.debug({"event": "running_vitest_cmd", "cmd": cmd})
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd)
 

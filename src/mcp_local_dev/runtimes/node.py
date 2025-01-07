@@ -31,10 +31,18 @@ async def setup_node(sandbox: Sandbox) -> None:
     if not node_target.exists():
         node_target.symlink_to(node_path)
 
-    # Symlink npm
+    # Symlink npm and npx
     npm_target = sandbox.bin_dir / 'npm'
     if not npm_target.exists():
         npm_target.symlink_to(npm_path)
+
+    npx_path = shutil.which('npx')
+    if not npx_path:
+        raise RuntimeError("Required package manager not found: npx")
+
+    npx_target = sandbox.bin_dir / 'npx'
+    if not npx_target.exists():
+        npx_target.symlink_to(npx_path)
 
     # Set up environment variables
     for key, value in CONFIG.env_setup.items():
