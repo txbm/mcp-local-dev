@@ -10,6 +10,9 @@ logger = get_logger(__name__)
 
 def parse_coverage_data(data: dict) -> CoverageResult:
     """Parse coverage.py JSON output into standardized format"""
+    if not data or "totals" not in data:
+        return None
+        
     totals = data["totals"]
     files = {
         path: summary["summary"]["percent_covered"]
@@ -18,9 +21,9 @@ def parse_coverage_data(data: dict) -> CoverageResult:
     
     return CoverageResult(
         lines=totals["percent_covered"],
-        statements=totals["percent_covered"],  # Same as lines for Python
-        branches=totals["percent_covered_branches"] if "percent_covered_branches" in totals else 0.0,
-        functions=0.0,  # Python coverage.py doesn't track function coverage
+        statements=totals["percent_covered"],
+        branches=totals.get("percent_covered_branches", 0.0),
+        functions=0.0,
         files=files
     )
 
