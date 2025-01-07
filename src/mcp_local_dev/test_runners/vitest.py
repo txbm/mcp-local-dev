@@ -9,21 +9,26 @@ from mcp_local_dev.sandboxes.sandbox import run_sandboxed_command, is_command_av
 
 logger = get_logger(__name__)
 
-def parse_vitest_coverage(coverage_data: dict) -> CoverageResult:
-    """Parse Vitest coverage data into standardized format"""
-    # Vitest uses v8 coverage format by default
-    totals = coverage_data["totals"]
-    files = {
-        path: data["lines"]["covered"] / data["lines"]["total"] * 100
-        for path, data in coverage_data.items()
-        if path != "totals"
-    }
+def parse_vitest_coverage_text(coverage_text: str) -> CoverageResult:
+    """Parse Vitest coverage report text format into standardized format"""
+    # Extract values from format like:
+    # All files |   93.75 |    93.75 |     100 |   93.75 |
+    lines = coverage_text.split('\n')
+    summary_line = next(line for line in lines if line.startswith('All files'))
+    parts = [p.strip() for p in summary_line.split('|')]
+    
+    # Get file-specific coverage
+    files = {}
+    for line in lines:
+        if line.startswith(' core.js'):
+            parts = [p.strip() for p in line.split('|')]
+            files[parts[0].strip()] = float(parts[1])
     
     return CoverageResult(
-        lines=totals["lines"]["covered"] / totals["lines"]["total"] * 100,
-        statements=totals["statements"]["covered"] / totals["statements"]["total"] * 100,
-        branches=totals["branches"]["covered"] / totals["branches"]["total"] * 100,
-        functions=totals["functions"]["covered"] / totals["functions"]["total"] * 100,
+        lines=float(parts[4]),      # % Lines
+        statements=float(parts[1]),  # % Stmts
+        branches=float(parts[2]),    # % Branch
+        functions=float(parts[3]),   # % Funcs
         files=files
     )
 
@@ -60,43 +65,47 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
         }
 
     try:
-        stdout_text = stdout.decode() if stdout else "{}"
-        logger.debug({"event": "vitest_stdout", "output": stdout_text})
-        result = json.loads(stdout_text)
+        stdout_text = stdout.decode() if stdout else ""
         
-        if not result:
-            logger.warning({"event": "vitest_no_results"})
-            return {
-                "runner": RunnerType.VITEST.value,
-                "success": False,
-                "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
-                "tests": [],
-                "error": "No test results returned",
+        # Split the output into JSON and coverage parts
+        json_part, _, coverage_part = stdout_text.partition('\n %')
+        
+        try:
+            result = json.loads(json_part)
+            
+            if not result:
+                logger.warning({"event": "vitest_no_results"})
+                return {
+                    "runner": RunnerType.VITEST.value,
+                    "success": False,
+                    "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
+                    "tests": [],
+                    "error": "No test results returned",
+                }
+
+            tests = []
+            summary = {
+                "total": result.get("numTotalTests", 0),
+                "passed": result.get("numPassedTests", 0), 
+                "failed": result.get("numFailedTests", 0),
+                "skipped": result.get("numPendingTests", 0),
             }
 
-        tests = []
-        summary = {
-            "total": result.get("numTotalTests", 0),
-            "passed": result.get("numPassedTests", 0), 
-            "failed": result.get("numFailedTests", 0),
-            "skipped": result.get("numPendingTests", 0),
-        }
+            coverage = None
+            if coverage_part:
+                try:
+                    coverage = parse_vitest_coverage_text(f" %{coverage_part}")
+                    logger.debug({"event": "vitest_coverage_parsed", "coverage": coverage})
+                except Exception as e:
+                    logger.warning({"event": "vitest_coverage_parse_error", "error": str(e)})
 
-        coverage = None
-        if "coverage" in result:
-            logger.debug({"event": "parsing_vitest_coverage", "coverage_data": result["coverage"]})
-            coverage = parse_vitest_coverage(result["coverage"])
-            logger.debug({"event": "vitest_coverage_parsed", "coverage": coverage})
-        else:
-            logger.warning({"event": "vitest_no_coverage_data"})
-
-        return {
-            "runner": RunnerType.VITEST.value,
-            "success": result.get("success", False),
-            "summary": summary,
-            "tests": tests,
-            "coverage": coverage,
-        }
+            return {
+                "runner": RunnerType.VITEST.value,
+                "success": result.get("success", False),
+                "summary": summary,
+                "tests": tests,
+                "coverage": coverage,
+            }
     except Exception as e:
         logger.error({"event": "vitest_parse_error", "error": str(e), "traceback": traceback.format_exc()})
         return {
