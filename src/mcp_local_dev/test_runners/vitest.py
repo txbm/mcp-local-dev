@@ -70,42 +70,41 @@ async def run_vitest(env: Environment) -> Dict[str, Any]:
         # Split the output into JSON and coverage parts
         json_part, _, coverage_part = stdout_text.partition('\n %')
         
-        try:
-            result = json.loads(json_part)
-            
-            if not result:
-                logger.warning({"event": "vitest_no_results"})
-                return {
-                    "runner": RunnerType.VITEST.value,
-                    "success": False,
-                    "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
-                    "tests": [],
-                    "error": "No test results returned",
-                }
-
-            tests = []
-            summary = {
-                "total": result.get("numTotalTests", 0),
-                "passed": result.get("numPassedTests", 0), 
-                "failed": result.get("numFailedTests", 0),
-                "skipped": result.get("numPendingTests", 0),
-            }
-
-            coverage = None
-            if coverage_part:
-                try:
-                    coverage = parse_vitest_coverage_text(f" %{coverage_part}")
-                    logger.debug({"event": "vitest_coverage_parsed", "coverage": coverage})
-                except Exception as e:
-                    logger.warning({"event": "vitest_coverage_parse_error", "error": str(e)})
-
+        result = json.loads(json_part)
+        
+        if not result:
+            logger.warning({"event": "vitest_no_results"})
             return {
                 "runner": RunnerType.VITEST.value,
-                "success": result.get("success", False),
-                "summary": summary,
-                "tests": tests,
-                "coverage": coverage,
+                "success": False,
+                "summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0},
+                "tests": [],
+                "error": "No test results returned",
             }
+
+        tests = []
+        summary = {
+            "total": result.get("numTotalTests", 0),
+            "passed": result.get("numPassedTests", 0), 
+            "failed": result.get("numFailedTests", 0),
+            "skipped": result.get("numPendingTests", 0),
+        }
+
+        coverage = None
+        if coverage_part:
+            try:
+                coverage = parse_vitest_coverage_text(f" %{coverage_part}")
+                logger.debug({"event": "vitest_coverage_parsed", "coverage": coverage})
+            except Exception as e:
+                logger.warning({"event": "vitest_coverage_parse_error", "error": str(e)})
+
+        return {
+            "runner": RunnerType.VITEST.value,
+            "success": result.get("success", False),
+            "summary": summary,
+            "tests": tests,
+            "coverage": coverage,
+        }
     except Exception as e:
         logger.error({"event": "vitest_parse_error", "error": str(e), "traceback": traceback.format_exc()})
         return {
