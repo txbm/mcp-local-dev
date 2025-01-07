@@ -11,33 +11,6 @@ Let AI handle your local development environments while you focus on building am
 
 A local development environment manager that lets LLMs configure and manage dev environments for you. Built for AI assistants to handle environment setup, dependency management, and testing automatically.
 
-## 🎯 Core Features
-
-### Test Runners
-- 🧪 pytest with coverage reporting
-- ⚡️ Vitest with V8 coverage
-- 🃏 Jest with detailed coverage metrics
-- 🔬 unittest with coverage support
-
-### Runtime Support 
-- 🐍 Python with UV package management
-- 📦 Node.js with NPM
-- ⚡️ Bun runtime and package manager
-
-### Environment Management
-- 🏗️ Automatic runtime detection
-- 📦 Smart package manager selection
-- 🔒 Sandboxed environments
-- 🧹 Automatic cleanup
-- 🔄 GitHub repository support
-- 📂 Local project support
-
-### Developer Experience
-- 🎯 Zero configuration needed
-- 📊 Structured JSON logging
-- 🔍 Detailed test coverage metrics
-- 🛡️ Isolated environments per project
-
 ## 🏃 Quick Start
 
 1. Install Claude Desktop from the [MCP quickstart guide](https://modelcontextprotocol.io/quickstart/user)
@@ -67,7 +40,33 @@ A local development environment manager that lets LLMs configure and manage dev 
 5. Have a discussion, poke around or clean it up if you're done!
 <img width="648" alt="Screenshot 2025-01-06 at 10 07 24 PM" src="https://github.com/user-attachments/assets/0d6118a0-f00e-49d3-90e9-c7ec2d654247" />
 
-More to come soon!
+## 🎯 Core Features
+
+### Test Runners
+- 🧪 pytest with coverage reporting
+- ⚡️ Vitest with V8 coverage
+- 🃏 Jest with detailed coverage metrics
+- 🔬 unittest with coverage support
+
+### Runtime Support 
+- 🐍 Python with UV package management
+- 📦 Node.js with NPM
+- ⚡️ Bun runtime and package manager
+
+### Environment Management
+- 🏗️ Automatic runtime detection
+- 📦 Smart package manager selection
+- 🔒 Sandboxed environments
+- 🧹 Automatic cleanup
+- 🔄 GitHub repository support
+- 📂 Local project support
+
+### Developer Experience
+- 🎯 Zero configuration needed
+- 📊 Structured JSON logging
+- 🔍 Detailed test coverage metrics
+- 🛡️ Isolated environments per project
+
 
 ## 💫 Under the Hood
 
