@@ -2,6 +2,8 @@
 
 Let AI handle your local development environments while you focus on building amazing things!
 
+https://github.com/user-attachments/assets/01fa4731-1a07-485f-9e72-50f610ecb843
+
 ## ✨ What's This?
 
 A local development environment manager that lets LLMs configure and manage dev environments for you. Built for AI assistants to handle environment setup, dependency management, and testing automatically.
@@ -41,19 +43,28 @@ A local development environment manager that lets LLMs configure and manage dev 
 ```json
 {
   "servers": {
-    "local-dev": {
-      "type": "github",
-      "repo": "txbm/mcp-local-dev",
-      "tools": ["uvx"],
-      "config": {
-        "workdir": "~/mcp-dev"
-      }
+     "local_dev": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/txbm/mcp-local-dev@main",
+        "mcp-local-dev"
+      ]
     }
   }
 }
 ```
 
-3. Point Claude at any GitHub repository and ask it to set up a dev environment! 
+3. Point Claude at any GitHub repository and ask it to set up a dev environment!
+<img width="636" alt="Screenshot 2025-01-06 at 10 06 14 PM" src="https://github.com/user-attachments/assets/c137d1d8-a61a-4a8d-9633-b89b61524cae" />
+
+4. Have it run the tests and report coverage!
+<img width="622" alt="Screenshot 2025-01-06 at 10 06 52 PM" src="https://github.com/user-attachments/assets/e9db66d2-0e86-417c-af75-97e46f274b3e" />
+
+5. Have a discussion, poke around or clean it up if you're done!
+6. <img width="648" alt="Screenshot 2025-01-06 at 10 07 24 PM" src="https://github.com/user-attachments/assets/0d6118a0-f00e-49d3-90e9-c7ec2d654247" />
+
+More to come soon!
 
 ## 💫 Under the Hood
 
