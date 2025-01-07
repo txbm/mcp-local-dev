@@ -1,19 +1,37 @@
-![MCP Local Dev Demo](placeholder-for-demo.gif)
-
 # 🚀 MCP Local Dev
 
 Let AI handle your local development environments while you focus on building amazing things!
 
 ## ✨ What's This?
 
-A local development environment manager that lets LLMs configure and manage dev environments for you. Built with ❤️ by AI, for AI, for developers who want their LLM assistant to handle environment setup, dependency management, and testing automatically.
+A local development environment manager that lets LLMs configure and manage dev environments for you. Built for AI assistants to handle environment setup, dependency management, and testing automatically.
 
-## 🎯 Features That Slap
+## 🎯 Core Features
 
-- 🤖 **Pure AI Magic**: Just tell your LLM to set up a dev environment for any GitHub repo
-- 🧪 **Full Auto**: Automatic dependency installation, environment setup, and test running
-- ⚡️ **Multiple Runtimes**: First-class support for Node.js, Bun, and Python+UV
-- 🛠️ **Zero Config**: Everything just works™️ - no more environment headaches
+### Test Runners
+- 🧪 pytest with coverage reporting
+- ⚡️ Vitest with V8 coverage
+- 🃏 Jest with detailed coverage metrics
+- 🔬 unittest with coverage support
+
+### Runtime Support 
+- 🐍 Python with UV package management
+- 📦 Node.js with NPM
+- ⚡️ Bun runtime and package manager
+
+### Environment Management
+- 🏗️ Automatic runtime detection
+- 📦 Smart package manager selection
+- 🔒 Sandboxed environments
+- 🧹 Automatic cleanup
+- 🔄 GitHub repository support
+- 📂 Local project support
+
+### Developer Experience
+- 🎯 Zero configuration needed
+- 📊 Structured JSON logging
+- 🔍 Detailed test coverage metrics
+- 🛡️ Isolated environments per project
 
 ## 🏃 Quick Start
 
