@@ -65,7 +65,7 @@ A local development environment manager that lets LLMs configure and manage dev 
 <img width="622" alt="Screenshot 2025-01-06 at 10 06 52 PM" src="https://github.com/user-attachments/assets/e9db66d2-0e86-417c-af75-97e46f274b3e" />
 
 5. Have a discussion, poke around or clean it up if you're done!
-6. <img width="648" alt="Screenshot 2025-01-06 at 10 07 24 PM" src="https://github.com/user-attachments/assets/0d6118a0-f00e-49d3-90e9-c7ec2d654247" />
+<img width="648" alt="Screenshot 2025-01-06 at 10 07 24 PM" src="https://github.com/user-attachments/assets/0d6118a0-f00e-49d3-90e9-c7ec2d654247" />
 
 More to come soon!
 
