@@ -41,8 +41,7 @@ async def run_pytest(env: Environment) -> Dict[str, Any]:
 
     cmd = (
         "pytest -v --capture=no --tb=short -p no:warnings "
-        "--cov --cov-report=json --cov-branch "
-        f"--cov-data-file={env.sandbox.tmp_dir / '.coverage'}"
+        "--cov --cov-report=json --cov-branch"
     )
     returncode, stdout, stderr = await run_sandboxed_command(env.sandbox, cmd, env_vars)
 

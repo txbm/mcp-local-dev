@@ -59,7 +59,7 @@ async def run_unittest(env: Environment) -> Dict[str, Any]:
             coverage_data = json.load(f)
             totals = coverage_data["totals"]
             files = {
-                path: summary["line_rate"] * 100 
+                path: summary["summary"]["percent_covered"]
                 for path, summary in coverage_data["files"].items()
             }
             coverage = CoverageResult(
