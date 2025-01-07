@@ -16,10 +16,15 @@ def parse_coverage_data(data: dict) -> CoverageResult:
         for path in data["files"]
     }
     
+    # Calculate branch coverage percentage
+    total_branches = totals.get("num_branches", 0)
+    covered_branches = totals.get("covered_branches", 0)
+    branch_percentage = (covered_branches / total_branches * 100) if total_branches > 0 else 0.0
+    
     return CoverageResult(
         lines=totals["percent_covered"],
         statements=totals["percent_covered"],
-        branches=totals.get("percent_covered_branches", 0.0),  # This is where branch coverage comes from
+        branches=branch_percentage,
         functions=0.0,  # Python coverage.py doesn't track function coverage
         files=files
     )
